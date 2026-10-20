@@ -1,0 +1,16 @@
+# Segredos: nunca versionar
+credentials.json
+token.json
+.env
+
+# Dados gerados pelo assistente (emails classificados, relatórios, estado)
+data/
+
+# Memória pessoal de cada usuário (os modelos ficam em memory_example/)
+memory/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
