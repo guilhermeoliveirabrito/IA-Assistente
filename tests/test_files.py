@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 # Os testes não chamam a IA de verdade: usamos uma versão falsa que devolve o prompt.
-sys.modules["ai"] = types.SimpleNamespace(ask_text=lambda prompt, model: prompt)
+sys.modules.setdefault("ai", types.SimpleNamespace(ask_text=lambda prompt, model: prompt))
 
 import files  # noqa: E402
 
@@ -46,8 +46,11 @@ class FilesTest(unittest.TestCase):
         self.outside.write_text("senha: 1234", encoding="utf-8")
         self.old = os.getcwd()
         os.chdir(base)
+        self._real_ai = files.ai
+        files.ai = types.SimpleNamespace(ask_text=lambda prompt, model: prompt)
 
     def tearDown(self):
+        files.ai = self._real_ai
         os.chdir(self.old)
         self._tmp.cleanup()
 
