@@ -9,6 +9,22 @@ from google.genai import types
 _client = None
 
 
+def _load_dotenv(path: str = ".env"):
+    """Lê o arquivo .env (se existir) sem precisar de biblioteca extra."""
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
+
+
 def _get_client():
     global _client
     if _client is None:
