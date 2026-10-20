@@ -7,6 +7,11 @@ Uso:
   python main.py aprovar    # revisa o que a IA quer apagar/fazer
   python main.py agenda     # análise da agenda dos próximos dias
   python main.py rodar      # modo automático 24h (deixe aberto)
+
+Memória (arquivos editáveis na pasta memory/):
+  python main.py lembrar "texto"   # guarda uma instrução nas notas
+  python main.py memoria           # mostra tudo que ele sabe sobre você
+  python main.py esquecer N        # apaga a nota de número N
 """
 import sys
 import time
@@ -18,6 +23,7 @@ import yaml
 
 import agenda
 import google_auth
+import memory
 import triage
 
 LOG = Path("data")
@@ -86,6 +92,19 @@ def main():
         job_agenda(cfg)
     elif cmd == "rodar":
         run_forever(cfg)
+    elif cmd == "lembrar":
+        try:
+            print("Anotado:", memory.remember(" ".join(sys.argv[2:])))
+        except ValueError as e:
+            print(e)
+    elif cmd == "memoria":
+        print(memory.read_all() or "Memória vazia.")
+        print(f"\nPasta: {memory.MEMORY_DIR.resolve()} (edite os arquivos .md à vontade)")
+    elif cmd == "esquecer":
+        try:
+            print("Removido:", memory.forget(int(sys.argv[2])))
+        except (IndexError, ValueError) as e:
+            print(e if isinstance(e, ValueError) and "Nota" in str(e) else "Use: python main.py esquecer N")
     else:
         print(__doc__)
 
