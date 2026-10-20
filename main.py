@@ -7,6 +7,7 @@ Uso:
   python main.py aprovar    # revisa o que a IA quer apagar/fazer
   python main.py agenda     # análise da agenda dos próximos dias
   python main.py rodar      # modo automático 24h (deixe aberto)
+  python main.py conversar  # conversa com memória e arquivos ("lembre que ...", /anexar, /ler)
 
 Arquivos (só nas pastas autorizadas em config.yaml):
   python main.py arquivos                      # lista o que ele pode ler
@@ -26,6 +27,7 @@ import schedule
 import yaml
 
 import agenda
+import chat
 import files
 import google_auth
 import memory
@@ -97,6 +99,8 @@ def main():
         job_agenda(cfg)
     elif cmd == "rodar":
         run_forever(cfg)
+    elif cmd == "conversar":
+        chat.run_chat(cfg)
     elif cmd == "arquivos":
         lista = files.list_files(cfg["arquivos"]["pastas_permitidas"])
         print("\n".join(str(p) for p in lista) or "Nenhum arquivo nas pastas autorizadas.")
