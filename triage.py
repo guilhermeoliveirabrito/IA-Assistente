@@ -5,6 +5,7 @@ from pathlib import Path
 
 import ai
 import gmail_tools
+import memory
 
 DATA = Path("data")
 DATA.mkdir(exist_ok=True)
@@ -32,6 +33,7 @@ Categorias: "importante", "normal", "newsletter", "spam".
 Um email é "importante" se atender a algum destes critérios:
 {criterios}
 Remetentes VIP (sempre importantes): {vips}
+{memory.prompt_block()}
 Use "spam" só para lixo claro (golpes, propaganda não solicitada). Na dúvida, use "normal".
 
 Para cada email devolva um objeto JSON com: id, categoria, confianca (0 a 1),
@@ -127,5 +129,6 @@ def digest(cfg, horas=24):
     prompt = f"""Escreva em português um resumo curto da caixa de entrada do usuário, com:
 1) "Precisa da sua atenção": emails importantes (e quais pedem resposta), em ordem de prioridade;
 2) "Resto": uma linha contando quantos eram normais, newsletters e spam.
+{memory.prompt_block()}
 Dados (classificação já feita): {json.dumps(recentes, ensure_ascii=False)}"""
     return ai.ask_text(prompt, cfg["ia"]["modelo"])

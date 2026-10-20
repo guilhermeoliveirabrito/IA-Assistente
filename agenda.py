@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 import ai
+import memory
 
 
 def upcoming_events(service, dias: int):
@@ -41,5 +42,6 @@ def analyze(service, cfg):
 3) Janelas livres boas para trabalho focado (mín. {a['bloco_foco_minutos']} min) dentro do expediente {a['expediente']};
 4) Sugestões concretas de reorganização (qual compromisso mover e para quando).
 Preferências do usuário: {a['preferencias']}
+{memory.prompt_block()}
 Eventos: {json.dumps(eventos, ensure_ascii=False)}"""
     return ai.ask_text(prompt, cfg["ia"]["modelo"])
