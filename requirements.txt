@@ -1,7 +1,10 @@
 google-api-python-client
 google-auth-oauthlib
-google-genai
 pyyaml
 schedule
 pypdf
 python-docx
+tzdata
+pywebview
+pyautogui
+pillow
