@@ -1,0 +1,34 @@
+# Suas regras. Edite à vontade; não precisa mexer no código.
+
+ia:
+  # Se der erro de "modelo não encontrado", troque pelo nome atual em https://ai.google.dev/gemini-api/docs/models
+  modelo: "gemini-2.5-flash"
+
+email:
+  max_por_rodada: 25
+  # Emails desses remetentes (parte do endereço ou nome) são SEMPRE importantes e nunca vão para a lixeira
+  remetentes_vip:
+    - "seuchefe@empresa.com"
+    - "banco"
+  # O que é "importante de verdade" para você. Escreva do seu jeito:
+  criterios_importante:
+    - "Pede uma resposta ou decisão minha, ou tem prazo"
+    - "Envolve dinheiro, cobrança, contrato, boleto ou documento oficial"
+    - "É de uma pessoa real escrevendo diretamente para mim (não é envio em massa)"
+    - "Segurança da conta, entrega de pedido ou compromisso marcado"
+  spam:
+    # "pedir_aprovacao": a IA só sugere, você confirma com `python main.py aprovar` (recomendado no início)
+    # "automatico": manda para a lixeira sozinho quando a confiança for alta (recuperável por 30 dias)
+    modo: "pedir_aprovacao"
+    confianca_minima_automatico: 0.95
+
+agenda:
+  dias_a_frente: 7
+  expediente: "09:00-18:00"
+  bloco_foco_minutos: 90
+  preferencias: "Prefiro reuniões à tarde, manhãs livres para trabalho focado, almoço entre 12h e 13h."
+
+automatico:
+  triagem_a_cada_minutos: 15
+  resumo_diario_as: "08:00"
+  analise_agenda_as: "07:30"
