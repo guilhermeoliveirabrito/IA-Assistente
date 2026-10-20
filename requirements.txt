@@ -3,3 +3,5 @@ google-auth-oauthlib
 google-genai
 pyyaml
 schedule
+pypdf
+python-docx
