@@ -22,6 +22,12 @@ email:
     modo: "pedir_aprovacao"
     confianca_minima_automatico: 0.95
 
+arquivos:
+  # O assistente SÓ lê arquivos dentro destas pastas. Vazio = não lê nada.
+  # Exemplos: "~/Documents/assistente", "C:/Users/voce/Documentos/assistente"
+  pastas_permitidas:
+    - "~/assistente-arquivos"
+
 agenda:
   dias_a_frente: 7
   expediente: "09:00-18:00"

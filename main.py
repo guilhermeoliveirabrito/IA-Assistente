@@ -8,6 +8,10 @@ Uso:
   python main.py agenda     # análise da agenda dos próximos dias
   python main.py rodar      # modo automático 24h (deixe aberto)
 
+Arquivos (só nas pastas autorizadas em config.yaml):
+  python main.py arquivos                      # lista o que ele pode ler
+  python main.py ler contrato.pdf "pergunta"   # responde sobre um arquivo (sem pergunta = resume)
+
 Memória (arquivos editáveis na pasta memory/):
   python main.py lembrar "texto"   # guarda uma instrução nas notas
   python main.py memoria           # mostra tudo que ele sabe sobre você
@@ -22,6 +26,7 @@ import schedule
 import yaml
 
 import agenda
+import files
 import google_auth
 import memory
 import triage
@@ -92,6 +97,17 @@ def main():
         job_agenda(cfg)
     elif cmd == "rodar":
         run_forever(cfg)
+    elif cmd == "arquivos":
+        lista = files.list_files(cfg["arquivos"]["pastas_permitidas"])
+        print("\n".join(str(p) for p in lista) or "Nenhum arquivo nas pastas autorizadas.")
+    elif cmd == "ler":
+        if len(sys.argv) < 3:
+            print('Use: python main.py ler arquivo.pdf "sua pergunta"')
+        else:
+            try:
+                print(files.ask_about(sys.argv[2], " ".join(sys.argv[3:]), cfg))
+            except files.FileAccessError as e:
+                print(e)
     elif cmd == "lembrar":
         try:
             print("Anotado:", memory.remember(" ".join(sys.argv[2:])))
