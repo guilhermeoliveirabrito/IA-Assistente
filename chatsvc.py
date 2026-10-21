@@ -161,6 +161,7 @@ class ChatService:
                      "error": ""}
         tools = {}
         contents = None
+        notes = []          # avisos do sistema a gravar na conversa (ex.: "resumi o começo")
 
         def emit(event):
             t = event.get("type")
@@ -187,8 +188,8 @@ class ChatService:
                 new, summary = context.compact(contents, model)
                 if summary:
                     contents[:] = new
-                    conv["messages"].append({"id": uuid.uuid4().hex[:8], "role": "note", "ts": time.time(),
-                                             "text": "O começo desta conversa foi resumido para manter o assistente rápido."})
+                    notes.append({"id": uuid.uuid4().hex[:8], "role": "note", "ts": time.time(),
+                                  "text": "O começo desta conversa foi resumido para manter o assistente rápido."})
             ctx = agent_tools.ToolContext(self.cfg, mode="chat", hooks=dict(self.window_hooks))
             engine = agent.Engine(self.cfg, agent_tools.Registry(ctx), self.policy, mode="chat", emit=emit,
                                   ask_approval=self._approval_fn(conv_id, stop), stop_event=stop,
@@ -208,6 +209,7 @@ class ChatService:
         finally:
             try:
                 conv = storage.load(conv_id)
+                conv["messages"].extend(notes)
                 if stop.is_set():
                     assistant["error"] = assistant["error"] or ""
                     assistant["stopped"] = True
