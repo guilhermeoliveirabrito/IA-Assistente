@@ -1,0 +1,96 @@
+"""Permissões: decide se uma ação pode rodar sozinha, precisa de aprovação ou é bloqueada.
+
+Cada ferramenta pertence a uma CATEGORIA, e cada categoria tem um risco.
+
+No chat (você está na frente do computador):
+  - risco baixo roda direto;
+  - o resto pergunta, a não ser que você tenha liberado a categoria em `pc.confiar_sem_perguntar`
+    (só categorias de risco médio podem ser liberadas) ou clicado em "permitir por alguns minutos".
+
+Nas tarefas autônomas (você pode estar longe):
+  - roda só o que o PERFIL da tarefa já concedeu;
+  - o resto vira um pedido de aprovação e a tarefa espera por você.
+"""
+import time
+
+# id: (rótulo, risco)
+CATEGORIES = {
+    "tarefa": ("Planejar e registrar a tarefa", "low"),
+    "memoria": ("Ler e anotar na memória", "low"),
+    "ler_arquivos": ("Ler arquivos das pastas autorizadas", "low"),
+    "email_agenda": ("Ler emails e agenda", "low"),
+    "midia": ("Controlar música e volume", "low"),
+    "projeto_ler": ("Ler arquivos do projeto", "low"),
+    "abrir": ("Abrir aplicativos e sites", "medium"),
+    "projeto_escrever": ("Criar e editar arquivos do projeto", "medium"),
+    "comandos": ("Rodar comandos (python, node, npm, git...)", "high"),
+    "git_push": ("Enviar código ao GitHub", "high"),
+    "tela": ("Ver a sua tela", "high"),
+    "entrada": ("Controlar teclado e mouse", "high"),
+}
+
+_LEITURA = ["tarefa", "memoria", "ler_arquivos", "email_agenda", "midia", "projeto_ler"]
+PROFILES = {
+    "leitura": _LEITURA,
+    "projeto": _LEITURA + ["abrir", "projeto_escrever", "comandos", "git_push"],
+    "total": _LEITURA + ["abrir", "projeto_escrever", "comandos", "git_push", "tela", "entrada"],
+}
+PROFILE_LABELS = {
+    "leitura": "Só leitura: lê arquivos, emails e agenda, mexe na memória e na música",
+    "projeto": "Projeto: também cria arquivos, roda comandos, abre apps e envia ao GitHub",
+    "total": "Controle total: também vê a tela e usa teclado e mouse",
+}
+
+# No chat, estas categorias SEMPRE pedem confirmação, mesmo se estiverem na lista de confiança
+ALWAYS_ASK_IN_CHAT = {"tela", "entrada", "comandos", "git_push"}
+
+
+def risk_of(category: str) -> str:
+    return CATEGORIES[category][1]
+
+
+def label_of(category: str) -> str:
+    return CATEGORIES[category][0]
+
+
+def grants_for(profile) -> set:
+    """Aceita o nome de um perfil ou uma lista de categorias."""
+    if isinstance(profile, str):
+        if profile not in PROFILES:
+            raise ValueError(f"Perfil desconhecido: {profile}. Use: {', '.join(PROFILES)}.")
+        return set(PROFILES[profile])
+    cats = set(profile or [])
+    unknown = cats - set(CATEGORIES)
+    if unknown:
+        raise ValueError(f"Categorias desconhecidas: {', '.join(sorted(unknown))}.")
+    return cats | {"tarefa"}
+
+
+class Policy:
+    def __init__(self, cfg: dict = None, clock=time.time):
+        pc = (cfg or {}).get("pc") or {}
+        wanted = set(pc.get("confiar_sem_perguntar") or [])
+        # só risco médio pode ser liberado de vez; o resto continua pedindo
+        self.trusted = {c for c in wanted if c in CATEGORIES and risk_of(c) == "medium"}
+        self.window_minutes = float(pc.get("janela_de_permissao_minutos", 5))
+        self._clock = clock
+
+    def decide(self, category: str, mode: str = "chat", granted=None, window_until: float = 0.0) -> str:
+        """Retorna 'allow' (pode rodar) ou 'ask' (precisa de aprovação)."""
+        if category not in CATEGORIES:
+            return "ask"
+        if category == "tarefa":
+            return "allow"
+        if mode == "task":
+            return "allow" if category in (granted or ()) else "ask"
+        if risk_of(category) == "low":
+            return "allow"
+        if self._clock() < window_until:
+            return "allow"
+        if category in self.trusted and category not in ALWAYS_ASK_IN_CHAT:
+            return "allow"
+        return "ask"
+
+    def new_window(self) -> float:
+        """Fim de uma janela 'permitir por alguns minutos' que começa agora."""
+        return self._clock() + self.window_minutes * 60

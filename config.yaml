@@ -42,6 +42,27 @@ email:
     modo: "pedir_aprovacao"
     confianca_minima_automatico: 0.95
 
+pc:
+  # Ações de risco médio que podem rodar SEM perguntar no chat. Opções: abrir, projeto_escrever.
+  # Ver a tela, teclado/mouse, comandos e enviar ao GitHub SEMPRE pedem confirmação no chat.
+  confiar_sem_perguntar: []
+  # Ao clicar em "permitir por alguns minutos" na confirmação, tudo é liberado por este tempo.
+  janela_de_permissao_minutos: 5
+  # Apelidos extras de aplicativos: nome falado -> programa ou protocolo.
+  aplicativos: {}
+
+projetos:
+  # Pasta onde ele cria os projetos (uma subpasta por projeto).
+  pasta: "~/assistente-projetos"
+  # Ele só envia código ao GitHub para os repositórios desta lista. Vazio = nunca envia.
+  # Exemplo: ["seu-usuario/seu-repositorio"]
+  repos_permitidos: []
+  tempo_limite_comando_segundos: 180
+
+spotify:
+  # O Redirect URI cadastrado no painel do Spotify deve ser http://127.0.0.1:<porta>/callback
+  porta_login: 8888
+
 arquivos:
   # O assistente SÓ lê arquivos dentro destas pastas. Vazio = não lê nada.
   # Exemplos: "~/Documents/assistente", "C:/Users/voce/Documentos/assistente"
