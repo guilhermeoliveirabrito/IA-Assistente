@@ -19,6 +19,11 @@ limites:
   fuso_renovacao: "America/Los_Angeles"   # a cota diária renova à meia-noite do Pacífico
   hora_renovacao: "00:00"
 
+# Histórico do que o assistente planejou e fez. Se apaga sozinho depois destes dias.
+historico:
+  dias_de_retencao: 7
+  maximo_de_eventos: 5000
+
 email:
   max_por_rodada: 25
   # Emails desses remetentes (parte do endereço ou nome) são SEMPRE importantes e nunca vão para a lixeira
