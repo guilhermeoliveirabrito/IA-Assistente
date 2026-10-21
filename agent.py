@@ -10,6 +10,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import activity
+import context
 import gemini
 import memory
 import permissions
@@ -156,6 +157,7 @@ class Engine:
             self._check_stop()
             if self.on_request:
                 self.on_request()
+            context.drop_old_images(contents)
             self.emit({"type": "thinking"})
             parts = []
             for chunk in gemini.stream(self.resolve(contents), models, system=system, tools=decls):

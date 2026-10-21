@@ -120,3 +120,37 @@ class ContextTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ImagesAndRepairTest(unittest.TestCase):
+    def img(self, tag):
+        return {"role": "user", "parts": [{"functionResponse": {"name": "ver_tela", "response": {"ok": True}}},
+                                          {"inlineData": {"mimeType": "image/jpeg", "data": tag}}]}
+
+    def test_mantem_so_a_captura_mais_recente(self):
+        contents = [self.img("A"), m("x"), self.img("B"), m("y"), self.img("C")]
+        removed = ctx.drop_old_images(contents)
+        self.assertEqual(removed, 2)
+        self.assertIn("removida", contents[0]["parts"][1]["text"])
+        self.assertIn("removida", contents[2]["parts"][1]["text"])
+        self.assertEqual(contents[4]["parts"][1]["inlineData"]["data"], "C")
+        self.assertEqual(ctx.drop_old_images(contents), 0)  # idempotente
+
+    def test_nao_mexe_em_outros_tipos_de_dado(self):
+        pdf = {"role": "user", "parts": [{"inlineData": {"mimeType": "application/pdf", "data": "P"}}]}
+        contents = [pdf, self.img("A"), self.img("B")]
+        ctx.drop_old_images(contents, keep=1)
+        self.assertIn("inlineData", contents[0]["parts"][0])
+
+    def test_repara_chamada_sem_resposta(self):
+        contents = [u("faça"), {"role": "model", "parts": [{"functionCall": {"name": "a", "args": {}}},
+                                                           {"functionCall": {"name": "b", "args": {}}}]}]
+        self.assertTrue(ctx.repair_contents(contents))
+        last = contents[-1]
+        self.assertEqual(last["role"], "user")
+        self.assertEqual([p["functionResponse"]["name"] for p in last["parts"]], ["a", "b"])
+        self.assertIn("interrompida", last["parts"][0]["functionResponse"]["response"]["erro"])
+
+    def test_nao_repara_historico_saudavel(self):
+        for contents in ([], [u("oi")], [u("oi"), m("olá")], [u("x"), call(), resp()]):
+            self.assertFalse(ctx.repair_contents(contents))

@@ -115,3 +115,41 @@ def seed_for_new_conversation(contents: list, model: str):
     """Texto de abertura para uma conversa nova que continua a atual ("refresh")."""
     summary = summarize(contents, model)
     return summary_turns(summary), summary
+
+
+def drop_old_images(contents: list, keep: int = 1) -> int:
+    """Troca capturas de tela antigas (inlineData) por um aviso, mantendo só as `keep` mais recentes.
+
+    Cada captura tem centenas de KB; sem isso o histórico de uma tarefa longa incharia sem limite.
+    Retorna quantas foram removidas.
+    """
+    seen = removed = 0
+    for content in reversed(contents):
+        parts = content.get("parts", [])
+        for i in range(len(parts) - 1, -1, -1):
+            inline = parts[i].get("inlineData")
+            if inline and str(inline.get("mimeType", "")).startswith("image/"):
+                seen += 1
+                if seen > keep:
+                    parts[i] = {"text": "[captura de tela antiga removida para economizar espaço]"}
+                    removed += 1
+    return removed
+
+
+def repair_contents(contents: list) -> bool:
+    """Conserta um histórico interrompido no meio de uma ação (ex.: o app foi fechado).
+
+    Se o último turno do modelo chamou ferramentas sem receber resposta, devolve uma resposta de erro
+    para cada chamada, porque a API recusa histórico com chamadas sem resposta.
+    """
+    if not contents or contents[-1].get("role") != "model":
+        return False
+    calls = [p["functionCall"] for p in contents[-1].get("parts", []) if "functionCall" in p]
+    if not calls:
+        return False
+    contents.append({"role": "user", "parts": [
+        {"functionResponse": {"name": c.get("name", ""),
+                              "response": {"erro": "A ação foi interrompida (o app foi fechado) e não terminou. "
+                                                   "Verifique o estado antes de repeti-la."}}}
+        for c in calls]})
+    return True
