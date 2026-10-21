@@ -51,6 +51,29 @@ pc:
   # Apelidos extras de aplicativos: nome falado -> programa ou protocolo.
   aplicativos: {}
 
+app:
+  seu_nome: ""            # como o assistente deve te chamar
+  porta: 8765             # porta do app no seu computador
+  # Acesso pelo celular: "local" = só neste PC; "rede" = também por outros aparelhos da sua rede/Tailscale.
+  # Com "rede" o app exige o código de acesso (veja o README).
+  acesso: "local"
+
+tarefas:
+  # Quantas chamadas ao Gemini uma tarefa pode gastar antes de pausar e esperar você liberar mais.
+  orcamento_de_requisicoes: 60
+  # Quanto tempo uma tarefa espera você aprovar uma ação antes de seguir sem ela.
+  espera_de_aprovacao_minutos: 45
+  # Quando a cota do dia acaba, a tarefa pausa e continua sozinha na renovação.
+  retomar_apos_renovacao: true
+
+notificacoes:
+  # Avisos no iPhone via app ntfy (grátis). Deixe vazio para desligar. O app gera um tópico no primeiro uso.
+  ntfy_topico: ""
+  avisar_pedidos: true
+  avisar_conclusao: true
+  avisar_pausas: true
+  avisar_erros: true
+
 projetos:
   # Pasta onde ele cria os projetos (uma subpasta por projeto).
   pasta: "~/assistente-projetos"
