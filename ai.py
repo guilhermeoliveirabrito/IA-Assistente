@@ -1,61 +1,48 @@
-"""Camada de IA (Gemini). Se quiser trocar de modelo/provedor, só este arquivo muda."""
+"""Camada de IA simples (texto, JSON e transcrição) sobre o cliente REST do Gemini."""
+import base64
 import json
-import os
-import time
+import re
 
-from google import genai
-from google.genai import types
+import gemini
 
-_client = None
+GeminiError = gemini.GeminiError
 
 
-def _load_dotenv(path: str = ".env"):
-    """Lê o arquivo .env (se existir) sem precisar de biblioteca extra."""
-    if not os.path.exists(path):
-        return
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+def configure(cfg: dict):
+    """Aplica as configurações do config.yaml (modelos reserva)."""
+    gemini.set_fallbacks((cfg.get("ia") or {}).get("modelos_reserva", []))
 
 
-_load_dotenv()
-
-
-def _get_client():
-    global _client
-    if _client is None:
-        key = os.environ.get("GEMINI_API_KEY")
-        if not key:
-            raise SystemExit("Defina a variável GEMINI_API_KEY (veja o passo 3 do README).")
-        _client = genai.Client(api_key=key)
-    return _client
-
-
-def _generate(prompt: str, model: str, json_mode: bool):
-    config = types.GenerateContentConfig(
-        response_mime_type="application/json" if json_mode else "text/plain",
-        temperature=0.2,
-    )
-    last_error = None
-    for attempt in range(3):
-        try:
-            resp = _get_client().models.generate_content(
-                model=model, contents=prompt, config=config
-            )
-            return resp.text
-        except Exception as e:  # limite gratuito, rede, etc.
-            last_error = e
-            time.sleep(5 * (attempt + 1))
-    raise RuntimeError(f"Falha ao chamar o Gemini: {last_error}")
-
-
-def ask_json(prompt: str, model: str):
-    return json.loads(_generate(prompt, model, json_mode=True))
+def _user(parts):
+    return [{"role": "user", "parts": parts}]
 
 
 def ask_text(prompt: str, model: str) -> str:
-    return _generate(prompt, model, json_mode=False)
+    obj = gemini.generate(_user([{"text": prompt}]), gemini.models_for(model))
+    return gemini.text_of(obj)
+
+
+def _loads(text: str):
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
+    try:
+        return json.loads(text)
+    except ValueError as e:
+        raise ValueError(f"A IA não devolveu um JSON válido: {text[:200]!r}") from e
+
+
+def ask_json(prompt: str, model: str):
+    obj = gemini.generate(_user([{"text": prompt}]), gemini.models_for(model), json_mode=True)
+    return _loads(gemini.text_of(obj))
+
+
+def transcribe(audio: bytes, mime: str, model: str) -> str:
+    """Transcreve um áudio curto (fala em português) para texto."""
+    parts = [
+        {"inlineData": {"mimeType": mime, "data": base64.b64encode(audio).decode("ascii")}},
+        {"text": "Transcreva fielmente esta fala em português do Brasil. "
+                 "Responda SOMENTE com o texto falado, sem comentários. "
+                 "Se não houver fala, responda com uma string vazia."},
+    ]
+    obj = gemini.generate(_user(parts), gemini.models_for(model), temperature=0.0)
+    return gemini.text_of(obj).strip()
