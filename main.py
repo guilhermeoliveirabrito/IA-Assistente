@@ -27,6 +27,7 @@ import schedule
 import yaml
 
 import agenda
+import ai
 import chat
 import files
 import google_auth
@@ -86,6 +87,7 @@ def run_forever(cfg):
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     cfg = load_cfg()
+    ai.configure(cfg)
     if cmd == "setup":
         google_auth.get_credentials()
         print("Login feito. token.json criado.")
