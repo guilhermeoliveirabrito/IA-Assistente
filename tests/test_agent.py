@@ -197,7 +197,7 @@ class ChatTest(EngineBase):
     def test_captura_de_tela_vai_como_imagem(self):
         import pc_control as pc
         orig = pc.screenshot
-        pc.screenshot = lambda: (b"\xff\xd8jpg", {"largura": 4, "altura": 3})
+        pc.screenshot = lambda **kw: (b"\xff\xd8jpg", {"largura": 4, "altura": 3})
         try:
             self.approvals = ["allow"]
             self.script = [call_chunk("ver_tela", {}), text_chunks("Vejo a tela.")]
@@ -266,6 +266,105 @@ class TaskTest(EngineBase):
         self.assertEqual(eng.run(self.user(), "sys"), "help")
         self.assertEqual(self.help, ["qual a cor?"])
         self.assertEqual(len(self.sent), 1)
+
+
+class ParadaTest(EngineBase):
+    def test_parar_funciona_mesmo_com_o_gemini_travado(self):
+        import time
+
+        release = threading.Event()
+
+        def travado(contents, models, system=None, tools=None, temperature=0.2):
+            release.wait(10)              # simula modelo sobrecarregado: nenhum pedaço chega
+            yield {"_model": "m"}
+
+        gemini.stream = travado
+        stop = threading.Event()
+        threading.Timer(0.3, stop.set).start()
+        t0 = time.time()
+        try:
+            status = self.engine(stop=stop).run(self.user(), "sys")
+        finally:
+            release.set()
+        self.assertEqual(status, "stopped")
+        self.assertLess(time.time() - t0, 2)
+        self.assertIn("stopped", self.types())
+
+    def test_erro_do_gemini_continua_chegando_ao_chamador(self):
+        def falha(contents, models, system=None, tools=None, temperature=0.2):
+            raise gemini.GeminiError("fora do ar", kind="server")
+            yield
+
+        gemini.stream = falha
+        with self.assertRaises(gemini.GeminiError):
+            self.engine().run(self.user(), "sys")
+
+
+class TelaTest(EngineBase):
+    def setUp(self):
+        super().setUp()
+        import pc_control as pc
+        self.pc = pc
+        self.saved = {n: getattr(pc, n) for n in ("screenshot", "click", "wait", "type_text", "hotkey")}
+        self.shots, self.clicks = [], []
+        pc.screenshot = lambda **kw: self.shots.append(kw) or (b"\xff\xd8img", {})
+        pc.click = lambda x, y, b="left", c=1: self.clicks.append((x, y)) or {"ok": True}
+        pc.wait = lambda s: {"ok": True}
+        pc.type_text = lambda t: {"ok": True}
+        pc.hotkey = lambda c: {"ok": True}
+        self.cfg["pc"] = {"modo_autonomo": True}
+
+    def tearDown(self):
+        for n, f in self.saved.items():
+            setattr(self.pc, n, f)
+        super().tearDown()
+
+    def last_images(self):
+        return [p for c in self.sent[-1]["contents"] for p in c["parts"] if "inlineData" in p]
+
+    def test_clique_devolve_captura_nova_sem_gastar_outra_chamada(self):
+        self.script = [call_chunk("clicar", {"x": 500, "y": 300}), text_chunks("ok")]
+        self.engine().run(self.user(), "sys")
+        self.assertEqual(self.clicks, [(500, 300)])
+        self.assertEqual(len(self.shots), 1)               # a captura veio junto do clique
+        self.assertEqual(len(self.last_images()), 1)
+
+    def test_digitar_e_teclas_tambem_mostram_o_resultado(self):
+        self.script = [call_chunk("digitar", {"texto": "oi"}), call_chunk("teclas", {"combinacao": "ctrl+s"}),
+                       text_chunks("ok")]
+        self.engine().run(self.user(), "sys")
+        self.assertEqual(len(self.shots), 2)
+
+    def test_ver_regiao_envia_a_regiao(self):
+        self.script = [call_chunk("ver_regiao", {"x1": 100, "y1": 200, "x2": 300, "y2": 400}), text_chunks("ok")]
+        self.engine().run(self.user(), "sys")
+        self.assertEqual(self.shots, [{"region": (100, 200, 300, 400)}])
+
+    def test_erro_de_coordenada_chega_ao_modelo_com_explicacao(self):
+        self.pc.click = self.saved["click"]
+        self.pc._backend_override = None
+        self.script = [call_chunk("clicar", {"x": 1920, "y": 5}), text_chunks("ok")]
+        self.engine().run(self.user(), "sys")
+        self.assertIn("0 a 1000", str(self.sent[1]["contents"][-1]))
+
+    def test_avisa_que_minimizou_a_janela_e_devolve_no_fim(self):
+        events = []
+        hooks = {"hide_window": lambda: events.append("hide"), "show_window": lambda: events.append("show")}
+        self.script = [call_chunk("clicar", {"x": 1, "y": 1}), call_chunk("teclas", {"combinacao": "enter"}),
+                       text_chunks("ok")]
+        self.engine(hooks=hooks).run(self.user(), "sys")
+        self.assertEqual(events, ["hide", "show"])
+        infos = [e for e in self.events if e["type"] == "info"]
+        self.assertEqual(len(infos), 1)                     # avisa uma vez só
+
+    def test_janela_pode_ficar_aberta_por_configuracao(self):
+        self.cfg["pc"]["esconder_janela"] = False
+        events = []
+        hooks = {"hide_window": lambda: events.append("hide"), "show_window": lambda: events.append("show")}
+        self.script = [call_chunk("clicar", {"x": 1, "y": 1}), text_chunks("ok")]
+        self.engine(hooks=hooks).run(self.user(), "sys")
+        self.assertEqual(events, [])
+        self.assertEqual([e for e in self.events if e["type"] == "info"], [])
 
 
 class AutonomoTest(EngineBase):

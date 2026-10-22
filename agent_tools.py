@@ -50,6 +50,8 @@ class ToolContext:
 
     def hide_window(self):
         """Esconde a janela do app antes de usar teclado/mouse, para não digitar nela mesma."""
+        if (self.cfg.get("pc") or {}).get("esconder_janela", True) is False:
+            return
         if not self.window_hidden and self.hooks.get("hide_window"):
             self.hooks["hide_window"]()
             self.window_hidden = True
@@ -229,27 +231,47 @@ def t_ver_tela(ctx, a):
     ctx.hide_window()
     data, info = pc.screenshot()
     return {"_image": (data, "image/jpeg"), "ok": True, **info,
-            "nota": "A captura da tela está anexada logo abaixo. Use as coordenadas dela para clicar."}
+            "nota": "A captura da tela está anexada logo abaixo, com uma grade de números amarelos (0 a 1000). "
+                    "Para clicar, leia nela o x e o y do alvo."}
+
+
+def t_ver_regiao(ctx, a):
+    ctx.hide_window()
+    data, info = pc.screenshot(region=(a["x1"], a["y1"], a["x2"], a["y2"]))
+    return {"_image": (data, "image/jpeg"), "ok": True, **info,
+            "nota": "Zoom da região anexado. Os números amarelos continuam sendo as coordenadas da TELA INTEIRA (0 a 1000)."}
+
+
+def _com_captura(result: dict, espera: float = 0.7) -> dict:
+    """Depois de uma ação na tela, devolve junto uma captura nova: o modelo vê o resultado sem gastar outra chamada."""
+    pc.wait(espera)
+    try:
+        data, _ = pc.screenshot()
+    except pc.PCError:
+        return result
+    result["_image"] = (data, "image/jpeg")
+    result["nota"] = "Captura da tela DEPOIS da ação anexada abaixo (o círculo vermelho é onde você clicou). Confira se deu certo."
+    return result
 
 
 def t_clicar(ctx, a):
     ctx.hide_window()
-    return pc.click(a["x"], a["y"], a.get("botao") or "left", a.get("cliques") or 1)
+    return _com_captura(pc.click(a["x"], a["y"], a.get("botao") or "left", a.get("cliques") or 1))
 
 
 def t_digitar(ctx, a):
     ctx.hide_window()
-    return pc.type_text(a["texto"])
+    return _com_captura(pc.type_text(a["texto"]))
 
 
 def t_teclas(ctx, a):
     ctx.hide_window()
-    return pc.hotkey(a["combinacao"])
+    return _com_captura(pc.hotkey(a["combinacao"]))
 
 
 def t_rolar(ctx, a):
     ctx.hide_window()
-    return pc.scroll(int(a["quantidade"]))
+    return _com_captura(pc.scroll(int(a["quantidade"])))
 
 
 def t_esperar(ctx, a):
@@ -371,12 +393,20 @@ def _tools():
           lambda a: "Enviar o projeto ao GitHub"),
         T("abrir_no_vscode", "Abre a pasta do projeto no Visual Studio Code.", {"projeto": PROJETO}, [], "abrir",
           t_abrir_vscode, lambda a: "Abrir o projeto no VS Code"),
-        T("ver_tela", "Tira uma foto da tela inteira para você enxergar o que está aberto. Chame antes de clicar.", {}, [],
+        T("ver_tela", "Tira uma foto da tela inteira, com uma grade de números amarelos de 0 a 1000, para você enxergar "
+          "o que está aberto e ler as coordenadas. Chame antes do primeiro clique.", {}, [],
           "tela", t_ver_tela, lambda a: "Capturar a tela"),
-        T("clicar", "Clica em uma posição da tela, usando as coordenadas da última captura (ver_tela).",
-          {"x": I("Coordenada x na captura."), "y": I("Coordenada y na captura."),
-           "botao": S("Botão.", ["left", "right", "middle"]), "cliques": I("1 a 3.")}, ["x", "y"], "entrada", t_clicar,
-          lambda a: f"Clicar na tela em ({a.get('x')}, {a.get('y')})"),
+        T("ver_regiao", "Amplia uma parte da tela (com grade mais fina) para achar um botão ou texto pequeno com precisão. "
+          "Os números continuam sendo as coordenadas da tela inteira (0 a 1000).",
+          {"x1": N("Esquerda (0-1000)."), "y1": N("Topo (0-1000)."), "x2": N("Direita (0-1000)."),
+           "y2": N("Base (0-1000).")}, ["x1", "y1", "x2", "y2"], "tela", t_ver_regiao,
+          lambda a: f"Ampliar a região ({a.get('x1')}, {a.get('y1')}) a ({a.get('x2')}, {a.get('y2')})"),
+        T("clicar", "Clica na tela. x e y vão de 0 a 1000 (0,0 = canto superior esquerdo; 1000,1000 = canto inferior "
+          "direito): leia nos números amarelos da grade da captura, mirando no CENTRO do alvo. Depois do clique você "
+          "recebe uma captura nova mostrando onde clicou (círculo vermelho).",
+          {"x": N("Coordenada x, de 0 a 1000."), "y": N("Coordenada y, de 0 a 1000."),
+           "botao": S("Botão.", ["left", "right", "middle"]), "cliques": I("1 a 3 (2 = duplo clique).")}, ["x", "y"],
+          "entrada", t_clicar, lambda a: f"Clicar na tela em ({a.get('x')}, {a.get('y')})"),
         T("digitar", "Digita um texto onde o cursor estiver (aceita acentos).", {"texto": S("Texto a digitar.")}, ["texto"],
           "entrada", t_digitar, lambda a: f"Digitar o texto: “{_short(a.get('texto', ''), 200)}”"),
         T("teclas", "Pressiona uma combinação de teclas, ex.: ctrl+s, enter, win+d.",

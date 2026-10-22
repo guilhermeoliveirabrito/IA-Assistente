@@ -216,7 +216,7 @@ class ScreenAndPlanTest(ToolsBase):
     def test_ver_tela_separa_a_imagem_e_esconde_a_janela(self):
         events = []
         self.hooks = {"hide_window": lambda: events.append("hide"), "show_window": lambda: events.append("show")}
-        pc.screenshot = lambda: (b"\xff\xd8jpeg", {"largura": 10, "altura": 5})
+        pc.screenshot = lambda **kw: (b"\xff\xd8jpeg", {"largura": 10, "altura": 5})
         pc.click = lambda x, y, b="left", c=1: events.append(("click", x, y)) or {"ok": True}
         reg, ctx = self.reg()
         res, image = reg.execute("ver_tela", {})
