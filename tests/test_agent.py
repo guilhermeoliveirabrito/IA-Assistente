@@ -268,6 +268,59 @@ class TaskTest(EngineBase):
         self.assertEqual(len(self.sent), 1)
 
 
+class AutonomoTest(EngineBase):
+    def setUp(self):
+        super().setUp()
+        self.cfg["pc"] = {"modo_autonomo": True}
+        import pc_control as pc
+        self.pc, self.opened = pc, []
+        self._open_url = pc.open_url
+        pc.open_url = lambda u: self.opened.append(u) or {"ok": True, "aberto": u}
+
+    def tearDown(self):
+        self.pc.open_url = self._open_url
+        super().tearDown()
+
+    def test_age_sem_perguntar(self):
+        self.script = [call_chunk("abrir_site", {"url": "https://opera.com"}), text_chunks("Pronto.")]
+        self.engine().run(self.user(), "sys")
+        self.assertEqual(self.opened, ["https://opera.com"])
+        self.assertEqual(self.asked, [])
+        self.assertNotIn("confirm", self.types())
+
+    def test_so_pede_permissao_quando_vai_contra_uma_regra(self):
+        self.approvals = ["deny"]
+        self.script = [call_chunk("pedir_permissao", {"acao": "Apagar a pasta Fotos", "regra": "Nunca apagar fotos"}),
+                       text_chunks("Entendi, não vou apagar.")]
+        self.engine().run(self.user(), "sys")
+        self.assertEqual(len(self.asked), 1)
+        self.assertEqual(self.asked[0]["category"], "regra")
+        self.assertIn("Nunca apagar fotos", self.asked[0]["summary"])
+
+    def test_regra_aprovada_segue(self):
+        self.approvals = ["allow"]
+        self.script = [call_chunk("pedir_permissao", {"acao": "x", "regra": "y"}), text_chunks("ok")]
+        self.engine().run(self.user(), "sys")
+        self.assertIn("autorizou", str(self.sent[1]["contents"][-1]))
+
+    def test_ferramenta_so_existe_no_modo_autonomo(self):
+        names = lambda cfg: [t["name"] for t in at.Registry(at.ToolContext(cfg)).declarations()]
+        self.assertIn("pedir_permissao", names(self.cfg))
+        self.assertNotIn("pedir_permissao", names({"pc": {}}))
+
+    def test_tarefa_autonoma_nao_espera_aprovacao(self):
+        self.script = [call_chunk("abrir_site", {"url": "https://a.com"}), text_chunks("ok")]
+        self.engine("task", granted=perm.grants_for("leitura"), project="p").run(self.user(), "sys")
+        self.assertEqual(self.opened, ["https://a.com"])
+        self.assertEqual(self.asked, [])
+
+    def test_prompt_orienta_a_agir_sem_perguntar(self):
+        p = agent.build_system_prompt(self.cfg, "chat", now=datetime.now(ZoneInfo("America/Sao_Paulo")))
+        self.assertIn("MODO AUTÔNOMO", p)
+        self.assertIn("pedir_permissao", p)
+        self.assertNotIn("MODO AUTÔNOMO", agent.build_system_prompt({}, "chat", now=datetime.now(ZoneInfo("America/Sao_Paulo"))))
+
+
 class PromptTest(unittest.TestCase):
     def test_prompt_de_tarefa_e_de_chat(self):
         now = datetime(2026, 10, 21, 9, 30, tzinfo=ZoneInfo("America/Sao_Paulo"))

@@ -55,6 +55,24 @@ class PermissionsTest(unittest.TestCase):
         self.assertEqual(p.decide("entrada", "task", granted), "ask")
         self.assertEqual(p.decide("tela", "task", granted), "ask")
 
+    def test_modo_autonomo_libera_tudo_menos_regra(self):
+        p = perm.Policy({"pc": {"modo_autonomo": True}})
+        for cat in ("abrir", "projeto_escrever", "comandos", "git_push", "tela", "entrada"):
+            self.assertEqual(p.decide(cat, "chat"), "allow", cat)
+            self.assertEqual(p.decide(cat, "task", set()), "allow", cat)
+        self.assertEqual(p.decide("regra", "chat"), "ask")
+        self.assertEqual(p.decide("regra", "task", perm.grants_for("total")), "ask")
+
+    def test_modo_autonomo_muda_sem_reabrir(self):
+        cfg = {"pc": {"modo_autonomo": False}}
+        p = perm.Policy(cfg)
+        self.assertEqual(p.decide("tela", "chat"), "ask")
+        cfg["pc"]["modo_autonomo"] = True
+        self.assertEqual(p.decide("tela", "chat"), "allow")
+
+    def test_sem_modo_autonomo_regra_tambem_pergunta(self):
+        self.assertEqual(perm.Policy().decide("regra", "chat"), "ask")
+
     def test_tarefa_sem_concessao_pergunta_ate_para_risco_baixo(self):
         self.assertEqual(perm.Policy().decide("midia", "task", set()), "ask")
 

@@ -7,7 +7,12 @@ No chat (você está na frente do computador):
   - o resto pergunta, a não ser que você tenha liberado a categoria em `pc.confiar_sem_perguntar`
     (só categorias de risco médio podem ser liberadas) ou clicado em "permitir por alguns minutos".
 
-Nas tarefas autônomas (você pode estar longe):
+MODO AUTÔNOMO (`pc.modo_autonomo`, o padrão do app): nada pede permissão. O assistente age e você vê tudo
+depois no histórico. A única exceção é a categoria "regra": quando uma ação iria contra uma regra que
+VOCÊ escreveu (arquivo regras.md), ele para e pergunta. As travas técnicas (pasta de projetos, lista de
+programas permitidos, repositórios permitidos para push) continuam valendo: elas bloqueiam, não perguntam.
+
+Nas tarefas autônomas (você pode estar longe), com o modo autônomo desligado:
   - roda só o que o PERFIL da tarefa já concedeu;
   - o resto vira um pedido de aprovação e a tarefa espera por você.
 """
@@ -27,6 +32,8 @@ CATEGORIES = {
     "git_push": ("Enviar código ao GitHub", "high"),
     "tela": ("Ver a sua tela", "high"),
     "entrada": ("Controlar teclado e mouse", "high"),
+    # só aparece no modo autônomo: o assistente pede quando uma ação iria contra uma regra sua
+    "regra": ("Ação que vai contra uma regra sua", "high"),
 }
 
 _LEITURA = ["tarefa", "memoria", "ler_arquivos", "email_agenda", "midia", "projeto_ler"]
@@ -74,12 +81,22 @@ class Policy:
         self.trusted = {c for c in wanted if c in CATEGORIES and risk_of(c) == "medium"}
         self.window_minutes = float(pc.get("janela_de_permissao_minutos", 5))
         self._clock = clock
+        self._cfg = cfg if cfg is not None else {}
+
+    @property
+    def autonomous(self) -> bool:
+        """Lê a configuração na hora, para a mudança em Ajustes valer sem reabrir o app."""
+        return bool((self._cfg.get("pc") or {}).get("modo_autonomo", False))
 
     def decide(self, category: str, mode: str = "chat", granted=None, window_until: float = 0.0) -> str:
         """Retorna 'allow' (pode rodar) ou 'ask' (precisa de aprovação)."""
         if category not in CATEGORIES:
             return "ask"
+        if category == "regra":
+            return "ask"            # sempre pergunta: é o próprio assistente avisando que vai quebrar uma regra
         if category == "tarefa":
+            return "allow"
+        if self.autonomous:
             return "allow"
         if mode == "task":
             return "allow" if category in (granted or ()) else "ask"

@@ -47,6 +47,14 @@ def build_system_prompt(cfg: dict, mode: str = "chat", project: str = None, task
         "Para usar a tela: chame ver_tela antes de clicar, use as coordenadas da última captura, faça uma ação por vez "
         "e confira o resultado com nova captura.",
     ]
+    if (cfg.get("pc") or {}).get("modo_autonomo"):
+        lines += [
+            "MODO AUTÔNOMO: você tem permissão para usar o computador sem pedir confirmação: abrir programas e sites, "
+            "ver a tela, usar teclado e mouse, criar arquivos, rodar comandos. NÃO pergunte 'posso?' nem peça autorização "
+            "em texto: faça, e no fim conte ao usuário o que fez. Aja direto e com poucos passos.",
+            "A ÚNICA exceção: se uma ação iria contra uma regra escrita pelo usuário nas regras dele, chame pedir_permissao "
+            "ANTES de agir. Se ele negar, não faça.",
+        ]
     if mode == "task":
         lines += [
             f"MODO TAREFA AUTÔNOMA. O usuário pode estar longe e não vai responder na hora. Tarefa: {(task or {}).get('title', '')}.",

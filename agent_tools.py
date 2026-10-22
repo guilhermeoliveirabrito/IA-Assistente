@@ -285,6 +285,11 @@ def t_concluir_tarefa(ctx, a):
     return _ok()
 
 
+def t_pedir_permissao(ctx, a):
+    # chegar aqui significa que o usuário aprovou (a negação é tratada pelo motor antes de executar)
+    return _ok(nota="O usuário autorizou esta ação específica.")
+
+
 def t_pedir_ajuda(ctx, a):
     _hook(ctx, "on_help", a["pergunta"])
     ctx.control["help"] = a["pergunta"]
@@ -392,6 +397,11 @@ def _tools():
         T("concluir_tarefa", "Encerra a tarefa com um resumo do que foi feito e onde ficaram os arquivos.",
           {"resumo": S("Resumo final.")}, ["resumo"], "tarefa", t_concluir_tarefa, lambda a: "Concluir a tarefa",
           task_only=True),
+        T("pedir_permissao", "Use SOMENTE quando a ação que você vai fazer iria contra uma regra escrita pelo usuário "
+          "(arquivo de regras). Chame ANTES de agir, descrevendo a ação e a regra. Para todo o resto, aja sem perguntar.",
+          {"acao": S("O que você pretende fazer."), "regra": S("A regra do usuário que isso iria contra.")},
+          ["acao", "regra"], "regra", t_pedir_permissao,
+          lambda a: f"{a.get('acao', 'Ação')} — vai contra a regra: {a.get('regra', '?')}"),
         T("pedir_ajuda", "Para a tarefa e faz uma pergunta ao usuário quando você não consegue continuar sozinho.",
           {"pergunta": S("Pergunta clara e objetiva.")}, ["pergunta"], "tarefa", t_pedir_ajuda,
           lambda a: "Pedir ajuda ao usuário", task_only=True),
@@ -416,7 +426,9 @@ def _clip(obj, limit=MAX_RESULT_CHARS):
 class Registry:
     def __init__(self, ctx: ToolContext):
         self.ctx = ctx
-        self.tools = {t.name: t for t in _tools() if ctx.mode == "task" or not t.task_only}
+        autonomous = bool((ctx.cfg.get("pc") or {}).get("modo_autonomo", False))
+        self.tools = {t.name: t for t in _tools()
+                      if (ctx.mode == "task" or not t.task_only) and (autonomous or t.name != "pedir_permissao")}
 
     def declarations(self):
         return [t.declaration() for t in self.tools.values()]
