@@ -34,7 +34,7 @@ class PCTest(unittest.TestCase):
     def setUp(self):
         self._saved = {k: getattr(pc, k) for k in
                        ("_platform", "_startfile", "_popen", "_open_browser", "_sleep",
-                        "_backend_override", "_grab_override", "_key_sender", "_last_scale", "_paste")}
+                        "_backend_override", "_grab_override", "_key_sender", "_marker", "_paste")}
         self.started, self.popen, self.browser, self.keys = [], [], [], []
         self.pg = FakePG()
         pc._platform = "win32"
@@ -44,7 +44,7 @@ class PCTest(unittest.TestCase):
         pc._sleep = lambda s: None
         pc._backend_override = self.pg
         pc._key_sender = lambda vk: self.keys.append(vk)
-        pc._last_scale = 1.0
+        pc._marker = None
 
     def tearDown(self):
         for k, v in self._saved.items():
@@ -133,23 +133,63 @@ class PCTest(unittest.TestCase):
             pc.media("formatar")
 
     # tela e mouse
-    def test_captura_reduz_e_cliques_voltam_para_escala_real(self):
+    def test_captura_tem_grade_e_info_em_0_a_1000(self):
         from PIL import Image
 
         pc._grab_override = lambda: Image.new("RGB", (2560, 1440), "red")
-        data, info = pc.screenshot(max_width=1280)
-        self.assertEqual((info["largura"], info["altura"]), (1280, 720))
+        data, info = pc.screenshot()
         self.assertEqual(data[:2], b"\xff\xd8")  # JPEG
-        res = pc.click(100, 50)
-        self.assertEqual((res["x"], res["y"]), (200, 100))
-        self.assertEqual(self.pg.calls[-1], ("click", 200, 100, 1, "left"))
+        self.assertEqual(info["tela_real"], "2560x1440")
+        self.assertEqual(info["regiao"], [0, 0, 1000, 1000])
+        import io
+        img = Image.open(io.BytesIO(data))
+        self.assertEqual(img.size, (1400, 788))          # reduzida
+        # a grade foi desenhada: a imagem deixou de ser vermelha lisa
+        self.assertGreater(len({img.getpixel((x, 300)) for x in range(0, 1400, 7)}), 3)
 
-    def test_clique_fora_da_tela(self):
-        with self.assertRaises(pc.PCError):
-            pc.click(99999, 5)
-        with self.assertRaises(pc.PCError):
-            pc.click(-1, 5)
+    def test_clique_converte_0_a_1000_para_pixels_reais(self):
+        res = pc.click(500, 250)
+        self.assertEqual(res["pixel_real"], [1280, 360])
+        self.assertEqual(self.pg.calls[-1], ("click", 1280, 360, 1, "left"))
+        pc.click(1000, 1000)                              # canto: nunca passa da tela
+        self.assertEqual(self.pg.calls[-1], ("click", 2559, 1439, 1, "left"))
+        pc.click(0, 0)
+        self.assertEqual(self.pg.calls[-1], ("click", 0, 0, 1, "left"))
+
+    def test_clique_fora_da_escala_explica_o_erro(self):
+        for bad in ((1200, 5), (5, 1920), (-1, 5), ("a", 5)):
+            with self.assertRaises(pc.PCError, msg=str(bad)) as cm:
+                pc.click(*bad)
+            self.assertIn("0 a 1000", str(cm.exception))
         self.assertEqual(self.pg.calls, [])
+
+    def test_clique_aparece_marcado_na_proxima_captura(self):
+        from PIL import Image
+
+        pc._grab_override = lambda: Image.new("RGB", (1000, 1000), (0, 0, 0))
+        pc.click(500, 500)
+        data, _ = pc.screenshot(grid=False)               # sem grade: só o marcador
+        import io
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+        reds = sum(1 for x in range(1000) for y in range(0, 1000, 3) if img.getpixel((x, y))[0] > 150 and img.getpixel((x, y))[1] < 90)
+        self.assertGreater(reds, 20)
+        pc.clear_marker()
+        data, _ = pc.screenshot(grid=False)
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+        self.assertLess(max(img.getpixel((x, y))[0] for x in range(0, 1000, 5) for y in range(0, 1000, 5)), 40)
+
+    def test_zoom_de_regiao(self):
+        from PIL import Image
+        import io
+
+        pc._grab_override = lambda: Image.new("RGB", (1920, 1080), "blue")
+        data, info = pc.screenshot(region=(400, 400, 600, 600))
+        self.assertEqual(info["regiao"], [400, 400, 600, 600])
+        img = Image.open(io.BytesIO(data))
+        self.assertGreater(img.size[0], 384)               # ampliada (a região real tem 384 px de largura)
+        for bad in ((600, 400, 400, 600), (0, 0, 1500, 10), (0, 0, 5, 5), ("a", 1, 2, 3), (-1, 0, 10, 100)):
+            with self.assertRaises(pc.PCError, msg=str(bad)):
+                pc.screenshot(region=bad)
 
     def test_botao_invalido(self):
         with self.assertRaises(pc.PCError):

@@ -30,7 +30,6 @@ _backend_override = None     # objeto com a mesma interface do pyautogui
 _grab_override = None        # função que devolve uma imagem PIL
 _key_sender = None           # função(vk) que envia uma tecla de mídia
 
-_last_scale = 1.0            # captura enviada à IA / tela real (para converter cliques)
 _dpi_done = False
 
 DEFAULT_APPS = {
@@ -193,9 +192,79 @@ def _pg():
     return pyautogui
 
 
-def screenshot(max_width: int = 1280):
-    """Captura a tela inteira. Retorna (bytes JPEG, info). Guarda a escala para os cliques."""
-    global _last_scale
+# Coordenadas da IA: SEMPRE de 0 a 1000 nos dois eixos, em relação à tela inteira
+# (0,0 = canto superior esquerdo; 1000,1000 = canto inferior direito). É a escala em que o Gemini enxerga
+# melhor, e não depende da resolução nem do zoom do Windows.
+SCALE = 1000
+_marker = None               # último clique (x, y de 0 a 1000), desenhado nas capturas seguintes
+
+
+def _font(size):
+    from PIL import ImageFont
+
+    for name in ("arialbd.ttf", "arial.ttf", "DejaVuSans-Bold.ttf", "DejaVuSans.ttf"):
+        try:
+            return ImageFont.truetype(name, size)
+        except OSError:
+            continue
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
+def _nice_step(span: float) -> int:
+    for step in (10, 20, 25, 50, 100):
+        if span / step <= 10:
+            return step
+    return 100
+
+
+def _annotate(img, x1, y1, x2, y2, marker=None, grid=True):
+    """Desenha a grade (com os números 0-1000 da TELA INTEIRA) e o último clique sobre a captura."""
+    from PIL import Image, ImageDraw
+
+    w, h = img.size
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(overlay)
+    font = _font(max(12, round(w / 90)))
+    step = _nice_step(max(x2 - x1, y2 - y1))
+
+    def label(xy, text, anchor):
+        box = d.textbbox(xy, text, font=font, anchor=anchor)
+        d.rectangle((box[0] - 2, box[1] - 1, box[2] + 2, box[3] + 1), fill=(0, 0, 0, 200))
+        d.text(xy, text, font=font, fill=(255, 224, 70, 255), anchor=anchor)
+
+    v = (int(x1) // step + 1) * step if x1 % step else int(x1)
+    while grid and v <= x2:
+        px = round((v - x1) / (x2 - x1) * (w - 1))
+        d.line((px, 0, px, h), fill=(0, 220, 255, 90), width=1)
+        label((px, 2), str(v), "mt")
+        label((px, h - 2), str(v), "mb")
+        v += step
+    v = (int(y1) // step + 1) * step if y1 % step else int(y1)
+    while grid and v <= y2:
+        py = round((v - y1) / (y2 - y1) * (h - 1))
+        d.line((0, py, w, py), fill=(0, 220, 255, 90), width=1)
+        label((2, py), str(v), "lm")
+        label((w - 2, py), str(v), "rm")
+        v += step
+    if marker and x1 <= marker[0] <= x2 and y1 <= marker[1] <= y2:
+        mx = round((marker[0] - x1) / (x2 - x1) * (w - 1))
+        my = round((marker[1] - y1) / (y2 - y1) * (h - 1))
+        r = max(10, round(w / 80))
+        d.ellipse((mx - r, my - r, mx + r, my + r), outline=(255, 40, 40, 255), width=3)
+        d.line((mx - r - 6, my, mx + r + 6, my), fill=(255, 40, 40, 255), width=2)
+        d.line((mx, my - r - 6, mx, my + r + 6), fill=(255, 40, 40, 255), width=2)
+        label((mx + r + 8, my - r - 8), "último clique", "lb")
+    return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+
+
+def screenshot(region=None, max_width: int = 1400, grid: bool = True):
+    """Captura a tela (ou só uma região, ampliada) com uma grade numerada de 0 a 1000.
+
+    region: (x1, y1, x2, y2) nas mesmas coordenadas 0-1000 da tela inteira. Retorna (bytes JPEG, info).
+    """
     _set_dpi_aware()
     try:
         if _grab_override:
@@ -206,30 +275,55 @@ def screenshot(max_width: int = 1280):
             img = ImageGrab.grab()
     except Exception as e:
         raise PCError(f"Não consegui capturar a tela: {e}") from e
-    real_w, real_h = img.size
     img = img.convert("RGB")
-    if real_w > max_width:
-        new_h = round(real_h * max_width / real_w)
-        img = img.resize((max_width, new_h))
-    _last_scale = real_w / img.size[0]
+    real_w, real_h = img.size
+    x1, y1, x2, y2 = 0.0, 0.0, float(SCALE), float(SCALE)
+    if region is not None:
+        try:
+            x1, y1, x2, y2 = (float(v) for v in region)
+        except (TypeError, ValueError) as e:
+            raise PCError("A região precisa de 4 números: x1, y1, x2, y2 (de 0 a 1000).") from e
+        if not (0 <= x1 < x2 <= SCALE and 0 <= y1 < y2 <= SCALE) or (x2 - x1) < 20 or (y2 - y1) < 20:
+            raise PCError("Região inválida: use x1<x2 e y1<y2 entre 0 e 1000, com pelo menos 20 de largura e altura.")
+        img = img.crop((round(x1 / SCALE * real_w), round(y1 / SCALE * real_h),
+                        round(x2 / SCALE * real_w), round(y2 / SCALE * real_h)))
+    w, h = img.size
+    if w > max_width or region is not None:
+        factor = max_width / w if region is None else min(max_width / w, 3.0)
+        img = img.resize((max(1, round(w * factor)), max(1, round(h * factor))))
+    if grid or _marker:
+        img = _annotate(img, x1, y1, x2, y2, _marker, grid)
     buf = io.BytesIO()
-    img.save(buf, "JPEG", quality=80)
-    info = {"largura": img.size[0], "altura": img.size[1], "largura_real": real_w, "altura_real": real_h}
+    img.save(buf, "JPEG", quality=82)
+    info = {"tela_real": f"{real_w}x{real_h}", "regiao": [round(x1), round(y1), round(x2), round(y2)],
+            "coordenadas": "0 a 1000 nos dois eixos, lidas nos números amarelos da grade; (0,0) = canto superior esquerdo"}
     return buf.getvalue(), info
 
 
-def click(x: int, y: int, button: str = "left", clicks: int = 1) -> dict:
-    """Clica em (x, y) nas coordenadas da ÚLTIMA captura de tela enviada à IA."""
+def click(x, y, button: str = "left", clicks: int = 1) -> dict:
+    """Clica em (x, y) em coordenadas de 0 a 1000 da tela inteira."""
+    global _marker
     if button not in ("left", "right", "middle"):
         raise PCError("Botão inválido (left, right ou middle).")
+    try:
+        nx, ny = float(x), float(y)
+    except (TypeError, ValueError) as e:
+        raise PCError("x e y precisam ser números de 0 a 1000.") from e
+    if not (0 <= nx <= SCALE and 0 <= ny <= SCALE):
+        raise PCError(f"Coordenada ({x}, {y}) fora da escala: x e y vão de 0 a {SCALE} "
+                      "(use os números amarelos da grade da captura).")
     clicks = max(1, min(int(clicks or 1), 3))
     pg = _pg()
-    real_x, real_y = round(float(x) * _last_scale), round(float(y) * _last_scale)
     w, h = pg.size()
-    if not (0 <= real_x < w and 0 <= real_y < h):
-        raise PCError(f"Coordenada fora da tela ({real_x}, {real_y}); a tela é {w}x{h}.")
+    real_x, real_y = min(w - 1, round(nx / SCALE * w)), min(h - 1, round(ny / SCALE * h))
     pg.click(real_x, real_y, clicks=clicks, button=button)
-    return {"ok": True, "x": real_x, "y": real_y, "botao": button, "cliques": clicks}
+    _marker = (nx, ny)
+    return {"ok": True, "clicou_em": [nx, ny], "pixel_real": [real_x, real_y], "botao": button, "cliques": clicks}
+
+
+def clear_marker():
+    global _marker
+    _marker = None
 
 
 def _paste(text: str, pg):
