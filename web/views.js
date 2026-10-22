@@ -331,7 +331,7 @@
         const deps = v.deps || {};
         const missing = Object.keys(deps).filter((k) => !deps[k]);
         if (missing.length) {
-          kids.push(h("p", { class: "desc" }, "Falta instalar: ", h("code", { text: missing.join(", ") }), ". Feche o app e rode ", h("code", { text: "pip install -r requirements.txt" }), " (o Abrir Assistente.bat faz isso). Depois reabra."));
+          kids.push(h("p", { class: "desc" }, "Falta instalar: ", h("code", { text: missing.join(", ") }), ". Feche o app e rode ", h("code", { text: "pip install -r requirements.txt" }), ". Depois reabra."));
         }
         if (v.model_download) {
           kids.push(h("p", { class: "desc", text: `Baixando o modelo de voz… ${v.model_download.percent}%` }));

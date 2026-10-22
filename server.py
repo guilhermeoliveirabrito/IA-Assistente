@@ -131,6 +131,12 @@ class App:
             cid = self.chat.send(None, text, [], voice=True)
         self._voice_conv.update(id=cid, ts=now)
         self.bus.publish({"type": "voice_command", "conversation_id": cid, "text": text})
+        reveal = self.window_hooks.get("reveal_window")
+        if reveal:
+            try:
+                reveal()
+            except Exception:
+                pass
 
     def _usage_changed(self, event):
         """O medidor mudou (chamada feita, recusa do Google ou troca de modelo): avisa a interface na hora."""

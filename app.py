@@ -14,6 +14,25 @@ import server
 import settings
 
 
+def make_tray(on_open, on_quit):
+    """Ícone na bandeja do Windows (para o app continuar ouvindo a frase de chamada com a janela fechada).
+    Retorna o ícone ou None se o pystray/Pillow não estiver instalado."""
+    try:
+        import pystray
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return None
+    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.ellipse((4, 4, 60, 60), fill=(217, 119, 87, 255))
+    d.rounded_rectangle((26, 16, 38, 38), radius=6, fill=(255, 255, 255, 255))
+    d.arc((20, 26, 44, 48), 0, 180, fill=(255, 255, 255, 255), width=3)
+    d.line((32, 48, 32, 54), fill=(255, 255, 255, 255), width=3)
+    menu = pystray.Menu(pystray.MenuItem("Abrir o Assistente", lambda icon, item: on_open(), default=True),
+                        pystray.MenuItem("Sair", lambda icon, item: on_quit()))
+    return pystray.Icon("assistente", img, "Assistente", menu)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     gemini.load_dotenv()
@@ -29,9 +48,20 @@ def main(argv=None):
         webview = None
 
     # esconde a janela enquanto o assistente mexe na tela/teclado, para ela não atrapalhar
-    holder = {}
+    holder = {"quit": False}
+
+    def reveal():
+        w = holder.get("w")
+        if w:
+            try:
+                w.show()
+                w.restore()
+            except Exception:
+                pass
+
     hooks = {"hide_window": lambda: holder["w"].minimize() if holder.get("w") else None,
-             "show_window": lambda: holder["w"].restore() if holder.get("w") else None}
+             "show_window": lambda: holder["w"].restore() if holder.get("w") else None,
+             "reveal_window": reveal}
     try:
         srv = server.start(cfg, window_hooks=hooks)
     except OSError:
@@ -57,6 +87,19 @@ def main(argv=None):
         if show_window and webview is not None:
             holder["w"] = webview.create_window("Assistente", srv.url, width=1180, height=800, min_size=(420, 560),
                                                 background_color="#1f1e1d")
+            tray = make_tray(reveal, lambda: (holder.update(quit=True), holder["w"].destroy()))
+            if tray is not None:
+                tray.run_detached()
+                holder["tray"] = tray
+
+                def on_closing():
+                    # com a voz ligada, fechar a janela só a esconde: o app segue ouvindo (Sair fica na bandeja)
+                    if srv.app.voice.enabled and not holder["quit"]:
+                        holder["w"].hide()
+                        return False
+                    return True
+
+                holder["w"].events.closing += on_closing
             webview.start()          # bloqueia até fechar a janela
         elif show_window:
             print("pywebview não está instalado: abrindo no navegador. (pip install pywebview para ter a janela própria)")
@@ -70,6 +113,8 @@ def main(argv=None):
     except KeyboardInterrupt:
         pass
     finally:
+        if holder.get("tray"):
+            holder["tray"].stop()
         auto.stop()
         srv.shutdown()
     return 0

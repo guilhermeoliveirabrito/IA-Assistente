@@ -8,3 +8,6 @@ tzdata
 pywebview
 pyautogui
 pillow
+vosk
+sounddevice
+pystray
