@@ -234,6 +234,30 @@ class ServerTest(unittest.TestCase):
         self.req("POST", "/api/settings", {"changes": {"pc.modo_autonomo": False}})
         self.assertFalse(self.req("GET", "/api/state")[1]["autonomous"])
 
+    def test_consumo_por_modelo_e_ajuste(self):
+        u = self.req("GET", "/api/usage")[1]
+        self.assertEqual([m["model"] for m in u["models"]][:1], ["gemini-3.8-flash"])
+        status, u, _ = self.req("POST", "/api/usage/calibrate", {"model": "gemini-3.8-flash", "requests": 12})
+        self.assertEqual((status, u["models"][0]["requests_day"]["used"]), (200, 12))
+        self.assertEqual(self.req("POST", "/api/usage/calibrate", {"model": "gemini-3.8-flash", "requests": "x"})[0], 400)
+        self.assertEqual(self.req("POST", "/api/usage/calibrate", {"model": "../x", "requests": 1})[0], 400)
+
+    def test_troca_de_modelo_chega_a_interface_em_tempo_real(self):
+        import usage
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        conn.request("GET", "/api/events", headers={"Host": f"127.0.0.1:{self.port}", "X-Access-Code": self.token})
+        r = conn.getresponse()
+        r.fp.readline(); r.fp.readline(); r.fp.readline(); r.fp.readline()
+        usage.note_model("gemini-3.8-flash")
+        usage.note_model("gemini-3.6-flash", [("gemini-3.8-flash", "quota")])
+        seen = b""
+        end = time.time() + 5
+        while time.time() < end and b"model_switch" not in seen:
+            seen += r.fp.readline()
+        conn.close()
+        self.assertIn(b"model_switch", seen)
+        self.assertIn(b"Troquei de gemini-3.8-flash para gemini-3.6-flash", seen)
+
     def test_json_invalido(self):
         status, _, _ = self.req("POST", "/api/chat", raw=b"{nao", headers={"Content-Type": "application/json"})
         self.assertEqual(status, 400)

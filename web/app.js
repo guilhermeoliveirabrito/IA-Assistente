@@ -188,6 +188,12 @@
   function onEvent(e) {
     if (e.type === "toast") return toast(e.text, e.kind);
     if (e.type === "usage") { if (S.state) { S.state.usage = e.usage; paintUsage(); } return; }
+    if (e.type === "model_switch") {
+      toast(e.text, "ok");
+      Object.keys(S.live).forEach((cid) => { S.live[cid].info = e.text; });
+      if (liveFor()) scheduleLive();
+      return;
+    }
     if (e.type === "task_update" || e.type === "task_removed") {
       if (e.type === "task_update") {
         const i = S.tasks.findIndex((t) => t.id === e.task.id);
@@ -322,19 +328,25 @@
 
   // ------------------------------------------------------------------ consumo (cota)
 
+  const shortModel = (m) => String(m || "—").replace(/^gemini-/, "");
+  const currentModel = (u) => (u.models || []).find((m) => m.model === u.current_model) || (u.models || [])[0];
+
   function paintUsage() {
     const box = document.getElementById("usage");
     if (!box || !S.state) return;
     const u = S.state.usage;
-    const pct = Math.min(100, Math.round(u.requests_day.percent));
-    const cls = u.quota_hit || pct >= 100 ? "err" : pct >= 80 ? "warn" : "";
+    const cur = currentModel(u);
+    const pct = cur ? Math.min(100, Math.round(cur.requests_day.percent)) : Math.min(100, Math.round(u.requests_day.percent));
+    const out = cur && (cur.status === "esgotado" || cur.status === "cheio");
+    const cls = out || pct >= 100 ? "err" : pct >= 80 ? "warn" : "";
     const r = 9, c = 2 * Math.PI * r;
     const open = box.querySelector(".pop");
+    const label = cur ? `${shortModel(cur.model)} · ${F.num(cur.requests_day.used)}/${F.num(cur.requests_day.limit)}` : `${F.num(u.requests_day.remaining)} restantes`;
     box.replaceChildren(
-      h("button", { class: "usage-pill", type: "button", "aria-expanded": open ? "true" : "false", "aria-label": `Consumo: ${pct}% da cota diária usada`, onclick: () => togglePop() },
+      h("button", { class: "usage-pill", type: "button", "aria-expanded": open ? "true" : "false", "aria-label": `Modelo em uso: ${cur ? cur.model : "—"}. ${pct}% da cota diária dele usada. Abrir detalhes`, onclick: () => togglePop() },
         h("span", { html: `<svg class="ring ${cls}" viewBox="0 0 24 24" aria-hidden="true"><circle class="bg" cx="12" cy="12" r="${r}"/><circle class="fg" cx="12" cy="12" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - pct / 100)}"/></svg>` }),
-        h("span", { class: "lbl", text: u.quota_hit ? "Cota esgotada" : `${F.num(u.requests_day.remaining)} restantes` })));
-    if (open) box.append(usagePop());
+        h("span", { class: "lbl", text: label })));
+    if (open) { const keep = open.scrollTop; box.append(usagePop()); box.querySelector(".pop").scrollTop = keep; }
   }
 
   function togglePop() {
@@ -342,28 +354,72 @@
     const open = box.querySelector(".pop");
     if (open) { open.remove(); return; }
     box.append(usagePop());
-    const off = (e) => { if (!box.contains(e.target)) { const p = box.querySelector(".pop"); if (p) p.remove(); document.removeEventListener("mousedown", off, true); } };
+    const off = (e) => {
+      if (document.querySelector(".modal-bg")) return;
+      if (!box.contains(e.target)) { const p = box.querySelector(".pop"); if (p) p.remove(); document.removeEventListener("mousedown", off, true); }
+    };
     setTimeout(() => document.addEventListener("mousedown", off, true), 0);
   }
 
-  function meter(label, used, limit, pct, extra) {
+  function bar(pct, label) {
     const p = Math.min(100, Math.round(pct));
-    return h("div", { class: "meter" },
-      h("div", { class: "row" }, h("span", { text: label }), h("b", { text: `${F.num(used)} de ${F.num(limit)}${extra || ""}` })),
-      h("div", { class: "bar " + (p >= 100 ? "err" : p >= 80 ? "warn" : ""), role: "progressbar", "aria-valuenow": p, "aria-valuemin": 0, "aria-valuemax": 100, "aria-label": label }, h("i", { style: `width:${p}%` })));
+    return h("div", { class: "bar " + (p >= 100 ? "err" : p >= 80 ? "warn" : ""), role: "progressbar", "aria-valuenow": p, "aria-valuemin": 0, "aria-valuemax": 100, "aria-label": label }, h("i", { style: `width:${p}%` }));
+  }
+
+  const STATUS_CLASS = { em_uso: "running", disponivel: "done", esgotado: "failed", espera: "waiting_user", cheio: "waiting_user" };
+  const SRC = { Google: "limite confirmado pelo Google", "seu config": "limite do seu config", estimado: "limite estimado (ainda não confirmado)" };
+
+  function modelCard(m, resetLeft) {
+    const rd = m.requests_day;
+    const card = h("div", { class: "mcard" + (m.in_use ? " active" : "") },
+      h("div", { class: "mhead" }, h("code", { text: m.model }), h("span", { class: "st-chip " + (STATUS_CLASS[m.status] || ""), text: m.status === "em_uso" ? "Em uso" : m.status === "disponivel" ? "Disponível" : m.status === "esgotado" ? "Esgotado hoje" : m.status === "espera" ? "Aguardando" : "No limite" })),
+      h("div", { class: "meter", style: "margin:8px 0 6px" }, h("div", { class: "row" }, h("span", { text: "Requisições hoje" }), h("b", { text: `${F.num(rd.used)} de ${F.num(rd.limit)} · restam ${F.num(rd.remaining)}` })), bar(rd.percent, "Requisições hoje de " + m.model)),
+      h("div", { class: "mfine" },
+        h("span", { text: `Último minuto: ${m.requests_minute.used}/${m.requests_minute.limit} req.` }),
+        h("span", { text: `Tokens no minuto: ${F.num(m.tokens_minute.used)}/${F.num(m.tokens_minute.limit)}` }),
+        h("span", { text: `Tokens hoje: ${F.num(m.tokens_day)}` }),
+        m.rejections_day ? h("span", { class: "bad", text: `Recusas do Google hoje: ${m.rejections_day}` }) : null),
+      h("div", { class: "mfine faint" }, h("span", { text: SRC[rd.limit_source] || rd.limit_source }), m.calibrated ? h("span", { text: "· ajustado pelo painel" }) : null));
+    if (m.status === "esgotado") card.append(h("div", { class: "mnote", text: `O Google recusou: a cota diária deste modelo acabou. Volta em ${F.dur(resetLeft)}.` }));
+    else if (m.status === "cheio") card.append(h("div", { class: "mnote", text: rd.limit_source === "Google" ? "Chegou ao limite real deste modelo (confirmado pelo Google): as próximas chamadas devem ser recusadas e o app troca de modelo." : "A contagem chegou ao limite estimado. O Google ainda não recusou; se estiver impreciso, use “Ajustar”." }));
+    else if (m.status === "espera") card.append(h("div", { class: "mnote", text: m.status_label }));
+    card.append(h("button", { class: "btn sm", type: "button", text: "Ajustar com o painel do Google", onclick: () => calibrateModal(m) }));
+    return card;
+  }
+
+  function calibrateModal(m) {
+    const input = h("input", { type: "number", min: "0", value: String(m.requests_day.used), "aria-label": "Requisições hoje no painel do Google" });
+    modal({ title: "Ajustar " + m.model, body: h("div", {},
+      h("p", { class: "desc", style: "margin-top:0", text: "Abra aistudio.google.com/rate-limit (ou o painel da API), ache este modelo e digite quantas requisições ele mostra hoje. O app soma a diferença à contagem dele. Serve para quando você usa a mesma chave em outro lugar." }),
+      h("label", { class: "f" }, h("span", { text: "Requisições hoje, segundo o painel do Google" }), input)),
+      actions: [{ label: "Cancelar" }, { label: "Ajustar", kind: "primary", run: async () => {
+        try { const u = await api("POST", "/api/usage/calibrate", { model: m.model, requests: Number(input.value) }); S.state.usage = u; paintUsage(); toast("Contagem ajustada.", "ok"); }
+        catch (e) { toast(e.message, "error"); return false; }
+      } }] });
   }
 
   function usagePop() {
     const u = S.state.usage;
     const left = Math.max(0, u.reset_epoch - Date.now() / 1000);
-    const pop = h("div", { class: "pop", role: "dialog", "aria-label": "Consumo da cota" }, h("h3", { text: "Consumo de hoje" }));
-    if (u.quota_hit) pop.append(h("div", { class: "alert err", text: `O Google avisou que a cota gratuita acabou. O assistente volta a responder quando ela renovar (em ${F.dur(left)}). Tarefas pausadas retomam sozinhas.` }));
-    pop.append(
-      meter("Requisições hoje", u.requests_day.used, u.requests_day.limit, u.requests_day.percent, ` · restam ${F.num(u.requests_day.remaining)}`),
-      meter("Neste minuto", u.requests_minute.used, u.requests_minute.limit, u.requests_minute.percent),
-      meter("Tokens neste minuto", u.tokens_minute.used, u.tokens_minute.limit, u.tokens_minute.percent),
-      h("div", { class: "reset" }, icon("clock", 16), h("span", {}, "Renova em ", h("b", { text: F.dur(left) }), ` (${F.dayTime(u.reset_epoch)})`)),
-      h("div", { class: "note", text: "Contagem feita aqui no app (o Google não informa o que sobrou). Os limites reais podem ser menores — ajuste em Ajustes › Limites." }));
+    const cur = currentModel(u);
+    const pop = h("div", { class: "pop wide", role: "dialog", "aria-label": "Consumo por modelo" },
+      h("h3", { text: "Consumo por modelo" }),
+      h("div", { class: "now" }, h("span", { class: "orb-s" }), h("span", {}, "Modelo em uso agora: ", h("b", { text: cur ? cur.model : "nenhum ainda" }))));
+    if ((u.models || []).length && u.models.every((m) => m.status === "esgotado")) pop.append(h("div", { class: "alert err", text: `Todos os modelos foram recusados pelo Google hoje. Tarefas pausam e voltam sozinhas quando renovar (em ${F.dur(left)}).` }));
+    const seen = store("usage_notice_seen") === "1";
+    const truth = h("details", { class: "truth" }, h("summary", {}, h("b", { text: "Contagem real, feita a cada chamada — como funciona" })),
+      h("ul", {},
+        h("li", { text: "Cada requisição que este app faz a cada modelo é contada na hora, junto com os tokens." }),
+        h("li", { text: "“Esgotado” e os limites reais vêm do próprio Google: o app só marca quando ele recusa a chamada." }),
+        h("li", { text: "Limitação: o app não enxerga uso da mesma chave fora dele (o painel do Google pode mostrar mais). Use “Ajustar” para igualar." })));
+    if (!seen) { truth.open = true; truth.addEventListener("toggle", () => store("usage_notice_seen", "1")); }
+    pop.append(truth);
+    (u.models || []).forEach((m) => pop.append(modelCard(m, left)));
+    pop.append(h("div", { class: "reset" }, icon("clock", 16), h("span", {}, "A cota diária renova em ", h("b", { text: F.dur(left) }), ` (${F.dayTime(u.reset_epoch)})`)));
+    if ((u.switches || []).length) {
+      pop.append(h("div", { class: "sw-title", text: "Trocas de modelo recentes" }),
+        h("ul", { class: "sw" }, u.switches.map((s) => h("li", {}, h("time", { text: F.clock(s.t) }), `${s.from ? shortModel(s.from) + " → " : ""}${shortModel(s.to)}`, h("span", { class: "why", text: " · " + s.reason })))));
+    }
     return pop;
   }
 

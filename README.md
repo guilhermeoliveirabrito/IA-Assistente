@@ -11,7 +11,7 @@ Custo: **zero** (Gemini na camada gratuita, Gmail e Google Agenda, Spotify com a
 | Recurso | Como funciona |
 |---|---|
 | **App com janela própria** | Interface escura, respostas com tabelas, listas e código formatados, indicador de "pensando", voz opcional (falar em vez de digitar; ler respostas em voz alta) |
-| **Medidor de consumo** | Mostra quanto da cota do dia você já usou, quanto resta e **quando renova** |
+| **Medidor por modelo** | Mostra **qual Gemini está em uso**, quanto cada modelo já gastou hoje, quando a cota renova e avisa quando o app troca de modelo e por quê |
 | **Arquivos e imagens** | Arraste ou cole imagens, PDFs, Word e arquivos de texto/código no chat |
 | **E-mails** | Triagem a cada 15 min (importante / normal / newsletter / spam), resumo diário. Spam só vai para a lixeira com a sua aprovação (por padrão) e nunca é apagado para sempre |
 | **Agenda** | Aponta conflitos, dias lotados e janelas livres (só leitura) |
@@ -87,7 +87,9 @@ As travas técnicas continuam sempre ligadas, no modo autônomo também: comando
 - Se todos acabarem, as tarefas **pausam** (nada se perde) e **retomam sozinhas** logo depois da renovação diária (por padrão, meia-noite no horário do Pacífico; o app mostra a hora no seu fuso).
 - O chat avisa que a cota acabou e quando volta. Se o Google der só um limite por minuto, o app espera alguns segundos e tenta de novo.
 
-**Expectativa honesta:** o plano gratuito dá conta de **uma tarefa de cada vez**, de tamanho pequeno a médio (um site simples, um script, organizar arquivos, pesquisar e resumir). Trabalho longo de programação, com muitas idas e vindas, consome a cota do dia rápido e termina em vários dias. Vários agentes trabalhando em paralelo ("empresa de agentes") **não cabem** no plano gratuito. Os limites do Google mudam; confira os seus em https://aistudio.google.com/rate-limit e ajuste em **Ajustes › Limites da cota**. O medidor é uma estimativa feita pelo app, porque o Google não informa a cota restante.
+**Expectativa honesta:** o plano gratuito dá conta de **uma tarefa de cada vez**, de tamanho pequeno a médio (um site simples, um script, organizar arquivos, pesquisar e resumir). Trabalho longo de programação, com muitas idas e vindas, consome a cota do dia rápido e termina em vários dias. Vários agentes trabalhando em paralelo ("empresa de agentes") **não cabem** no plano gratuito. Os limites do Google mudam; confira os seus em https://aistudio.google.com/rate-limit e ajuste em **Ajustes › Limites da cota**. 
+
+**Como o medidor funciona (e o que ele não consegue):** o Google não tem nenhuma chamada que informe a cota restante. Então o app conta **cada requisição e cada token que ele mesmo envia a cada modelo** (contagem exata do que passa pelo app) e usa o que o Google diz quando **recusa** uma chamada (erro 429): aí o modelo é marcado como esgotado e o app aprende o **limite real** dele. O que o app não vê é uso da mesma chave fora dele (outro programa, o AI Studio). Para esse caso, em cada modelo há o botão **Ajustar com o painel do Google**: você digita o número que o painel mostra e o app soma a diferença. Limites conhecidos podem ser escritos em Ajustes › Limites de cada modelo.
 
 ## Usar pelo celular (iPhone)
 

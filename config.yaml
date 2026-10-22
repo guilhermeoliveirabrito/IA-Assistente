@@ -16,6 +16,10 @@ limites:
   requisicoes_por_dia: 250
   requisicoes_por_minuto: 10
   tokens_por_minuto: 250000
+  # O limite é DIFERENTE para cada modelo. Os números acima valem para todos, como ESTIMATIVA. Quando o Google recusa
+  # uma chamada, o app aprende o limite real daquele modelo sozinho. Se você já sabe os limites (painel em
+  # aistudio.google.com/rate-limit), escreva um por linha: "modelo=por_dia,por_minuto,tokens_por_minuto".
+  por_modelo: []
   fuso_renovacao: "America/Los_Angeles"   # a cota diária renova à meia-noite do Pacífico
   hora_renovacao: "00:00"
 

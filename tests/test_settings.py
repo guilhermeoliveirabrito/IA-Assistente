@@ -71,6 +71,13 @@ class SettingsTest(unittest.TestCase):
         settings.update(self.cfg, ok)
         self.assertEqual(self.cfg["projetos"]["repos_permitidos"], ["dono/repo"])
 
+    def test_limites_por_modelo(self):
+        settings.update(self.cfg, {"limites.por_modelo": ["gemini-3.8-flash=20,5,250000", "gemini-3.6-flash = 500"]})
+        self.assertEqual(self.cfg["limites"]["por_modelo"], ["gemini-3.8-flash=20,5,250000", "gemini-3.6-flash = 500"])
+        for bad in (["sem-igual"], ["m=abc"], ["m=1,2,3,4"], ["=5"]):
+            with self.assertRaises(ValueError, msg=str(bad)):
+                settings.update(self.cfg, {"limites.por_modelo": bad})
+
     def test_listas_aceitam_texto_separado_por_virgula_ou_linha(self):
         settings.update(self.cfg, {"arquivos.pastas_permitidas": "C:/a, C:/b\nC:/c"})
         self.assertEqual(self.cfg["arquivos"]["pastas_permitidas"], ["C:/a", "C:/b", "C:/c"])

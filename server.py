@@ -100,13 +100,22 @@ class App:
         self.window_hooks = window_hooks or {}
         activity.configure(cfg)
         ai.configure(cfg)
+        usage.configure(cfg)
+        usage.subscribe(self._usage_changed)
         memory.ensure()
         self.tasks = tasks.TaskManager(cfg, bus=self.bus, notifier=self.notifier, window_hooks=self.window_hooks)
         self.chat = chatsvc.ChatService(cfg, self.bus, self.window_hooks, self.notifier)
         self.automation = automation.Automation(cfg)
         self.started = time.time()
 
+    def _usage_changed(self, event):
+        """O medidor mudou (chamada feita, recusa do Google ou troca de modelo): avisa a interface na hora."""
+        if event.get("type") == "model_switch":
+            self.bus.publish({**event, "text": f"Troquei de {event['from']} para {event['to']}: {event['reason']}."})
+        self.bus.publish({"type": "usage", "usage": usage.summary(self.cfg)})
+
     def shutdown(self):
+        usage.unsubscribe(self._usage_changed)
         self.automation.stop()
         self.chat.shutdown()
         self.tasks.shutdown()
@@ -443,6 +452,19 @@ button{{margin-top:10px;background:#d08a62;color:#1b1410;border:0;font-weight:60
 @route("GET", "/api/state")
 def r_state(h, q):
     h._json(h.app.state())
+
+
+@route("POST", "/api/usage/calibrate")
+def r_usage_calibrate(h, q):
+    b = h._body()
+    model = str(b.get("model") or "")
+    if not re.match(r"^[\w.\-]{1,60}$", model):
+        raise HTTPError(400, "Modelo inválido.")
+    try:
+        usage.calibrate(model, int(b.get("requests")))
+    except (TypeError, ValueError):
+        raise HTTPError(400, "Digite o número de requisições que o painel do Google mostra para este modelo hoje.")
+    h._json(usage.summary(h.app.cfg))
 
 
 @route("GET", "/api/usage")

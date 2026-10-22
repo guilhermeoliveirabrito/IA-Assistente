@@ -87,6 +87,7 @@ FIELDS = {
     "limites.requisicoes_por_dia": (_num(1, 1_000_000), False),
     "limites.requisicoes_por_minuto": (_num(1, 100_000), False),
     "limites.tokens_por_minuto": (_num(1000, 100_000_000), False),
+    "limites.por_modelo": (_list(12, _text(120, r"^[\w.\-]+\s*=\s*\d+(\s*,\s*\d+){0,2}$", allow_empty=False)), False),
     "limites.fuso_renovacao": (_text(40, r"^[A-Za-z_]+/[A-Za-z_]+$", allow_empty=False), False),
     "limites.hora_renovacao": (_text(5, r"^([01]\d|2[0-3]):[0-5]\d$", allow_empty=False), False),
     "historico.dias_de_retencao": (_num(1, 365, integer=False), False),
