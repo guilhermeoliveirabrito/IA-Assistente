@@ -276,7 +276,7 @@
           await A.refreshState(); this.paint();
         } catch (e) { toast(e.message, "error"); ev.currentTarget.disabled = false; }
       } });
-      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.phoneCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
+      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.phoneCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
     },
 
     field(inputs, key, label, type, help, options) {
@@ -317,6 +317,52 @@
         a.urls.forEach((u) => card.append(h("div", { class: "kv", style: "margin-top:6px" }, h("code", { style: "overflow-wrap:anywhere", text: u }))));
         card.append(h("p", { class: "desc", style: "margin-top:12px", text: "No iPhone, abra um desses endereços no Safari (a mesma rede Wi-Fi) e use Compartilhar › Adicionar à Tela de Início. Para usar fora de casa com segurança (e o microfone), instale o Tailscale no PC e no iPhone e abra o endereço do Tailscale com o mesmo código. Nunca exponha a porta direto na internet." }));
       } else card.append(h("p", { class: "desc", style: "margin:0", text: "Desligado: só este computador acessa." }));
+      return card;
+    },
+
+    voiceCard() {
+      const card = h("div", { class: "card" }, h("h3", { text: "Ativação por voz" }));
+      const body = h("div");
+      card.append(h("p", { class: "desc", text: "Fale a frase de chamada e o assistente começa a ouvir o seu comando na hora, como a Siri ou o “Ok Google”. Funciona com o app aberto (pode ficar minimizado)." }), body);
+      const save = async (changes) => { try { const r = await api("POST", "/api/settings", { changes }); this.values = r.values; await A.refreshState(); } catch (e) { toast(e.message, "error"); } };
+      const paint = () => {
+        const v = (S.state && S.state.voice) || {};
+        const kids = [];
+        const deps = v.deps || {};
+        const missing = Object.keys(deps).filter((k) => !deps[k]);
+        if (missing.length) {
+          kids.push(h("p", { class: "desc" }, "Falta instalar: ", h("code", { text: missing.join(", ") }), ". Feche o app e rode ", h("code", { text: "pip install -r requirements.txt" }), " (o Abrir Assistente.bat faz isso). Depois reabra."));
+        }
+        if (v.model_download) {
+          kids.push(h("p", { class: "desc", text: `Baixando o modelo de voz… ${v.model_download.percent}%` }));
+        } else if (!v.model_ready) {
+          kids.push(h("p", { class: "desc", text: "Falta o modelo de voz em português (≈ 30 MB, baixado uma vez, fica no seu computador)." }),
+            h("button", { class: "btn primary", type: "button", text: "Baixar modelo de voz", onclick: async () => { try { await api("POST", "/api/voice/model"); } catch (e) { toast(e.message, "error"); } } }));
+        } else kids.push(h("p", { class: "desc", text: "Modelo de voz instalado." }));
+        const on = h("input", { type: "checkbox", checked: !!v.enabled });
+        on.addEventListener("change", async () => { await save({ "voz.ativada": on.checked }); });
+        kids.push(h("label", { class: "switch", style: "margin:8px 0" }, on, h("span", { text: "Ouvir a frase de chamada" })));
+        if (v.enabled) {
+          const text = { off: "Desligada.", listening: "Ouvindo…", idle: "Ouvindo…", recording: "Gravando o seu comando…", processing: "Entendendo…", paused: "Em pausa.", error: "Problema: " + (v.detail || "") }[v.state] || "";
+          kids.push(h("p", { class: "desc", style: v.state === "error" ? "color:var(--err)" : "", text: text }));
+        }
+        const phrase = h("input", { type: "text", value: v.phrase || "ei assistente", maxlength: "40" });
+        kids.push(h("label", { class: "f" }, h("span", { text: "Frase de chamada" }), phrase,
+          h("small", { text: "Precisa ser palavras que existam no modelo de voz; se não existirem, o app avisa. Frases de 2 a 3 palavras funcionam melhor. Marcas estrangeiras (“Siri”, “Google”) costumam não ser entendidas." })));
+        kids.push(h("button", { class: "btn", type: "button", text: "Salvar frase", onclick: () => save({ "voz.frase_de_ativacao": phrase.value.trim() }) }));
+        const spk = h("input", { type: "checkbox", checked: v.speak_reply !== false });
+        spk.addEventListener("change", () => save({ "voz.falar_resposta": spk.checked }));
+        kids.push(h("label", { class: "switch", style: "margin-top:12px" }, spk, h("span", { text: "Ler a resposta em voz alta quando eu pedir por voz" })));
+        const tr = h("select", {}, h("option", { value: "gemini", text: "Gemini (acerta mais, gasta 1 requisição por comando)" }), h("option", { value: "local", text: "Local (grátis e sem internet, erra mais)" }));
+        tr.value = v.transcription || "gemini";
+        tr.addEventListener("change", () => save({ "voz.transcricao": tr.value }));
+        kids.push(h("label", { class: "f", style: "margin-top:12px" }, h("span", { text: "Entender o comando com" }), tr));
+        kids.push(h("p", { class: "desc", style: "margin:12px 0 0", text: "Privacidade: a frase de chamada é reconhecida no seu computador e o que você fala fora dela é descartado na hora. Só o trecho depois da chamada é transcrito (pelo Gemini, se você escolher essa opção). Use fones ou fale perto do microfone; a escuta pausa sozinha enquanto o assistente fala." }));
+        body.replaceChildren(...kids);
+      };
+      paint();
+      const listener = () => { if (!card.isConnected) { A.voiceListeners = (A.voiceListeners || []).filter((f) => f !== listener); return; } const a = document.activeElement; if (!(a && body.contains(a) && a.tagName === "INPUT" && a.type === "text")) paint(); };
+      A.voiceListeners = [...(A.voiceListeners || []), listener];
       return card;
     },
 

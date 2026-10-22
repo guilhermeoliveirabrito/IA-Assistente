@@ -368,3 +368,12 @@ textarea.field { resize: vertical; min-height: 90px; line-height: 1.5; }
 @media (max-width: 860px) { .pop.wide { position: fixed; left: 12px; right: 12px; top: calc(56px + var(--safe-t)); width: auto; } }
 .truth summary { cursor: pointer; list-style-position: inside; }
 .truth[open] summary { margin-bottom: 2px; }
+
+/* ---------- ativação por voz ---------- */
+.mic-btn.listening, .mic-btn.idle { color: var(--ok); }
+.mic-btn.recording { color: var(--err); animation: micpulse 1s ease-in-out infinite; }
+.mic-btn.processing { color: var(--accent); }
+.mic-btn.paused, .mic-btn.off { color: var(--muted); }
+.mic-btn.error { color: var(--warn); }
+@keyframes micpulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .mic-btn.recording { animation: none; } }

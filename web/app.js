@@ -187,6 +187,12 @@
 
   function onEvent(e) {
     if (e.type === "toast") return toast(e.text, e.kind);
+    if (e.type === "voice") { if (S.state) { S.state.voice = e.voice; paintWake(); (A.voiceListeners || []).forEach((f) => f()); } return; }
+    if (e.type === "voice_command") {
+      S.voiceCid = e.conversation_id;
+      openConv(e.conversation_id).then(() => { refreshConvs(); });
+      return;
+    }
     if (e.type === "usage") { if (S.state) { S.state.usage = e.usage; paintUsage(); } return; }
     if (e.type === "model_switch") {
       toast(e.text, "ok");
@@ -252,12 +258,14 @@
     const top = h("header", { class: "topbar" },
       h("button", { class: "icon-btn menu-btn", type: "button", "aria-label": "Abrir menu", onclick: () => toggleSidebar(true) }, icon("menu")),
       h("h1", { id: "page-title", text: "Nova conversa" }),
+      h("button", { class: "icon-btn mic-btn hidden", id: "wake-btn", type: "button", onclick: toggleWake }, icon("mic")),
       h("button", { class: "icon-btn", id: "speak-btn", type: "button", title: "Ler respostas em voz alta", "aria-label": "Ler respostas em voz alta", "aria-pressed": "false", onclick: toggleSpeak }, icon("speaker")),
       h("div", { class: "usage", id: "usage" }));
     const shell = h("div", { class: "shell", id: "shell" }, side, h("div", { class: "overlay", onclick: () => toggleSidebar(false) }),
       h("main", { class: "main" }, top, h("div", { id: "content", style: "display:flex;flex-direction:column;flex:1;min-height:0" })));
     app.append(shell, h("div", { class: "approvals-bar", id: "approvals", "aria-live": "assertive" }));
     paintSpeak();
+    paintWake();
   }
 
   function toggleSidebar(open) {
@@ -479,6 +487,25 @@
   }
   A.speak = speak;
 
+  // ------------------------------------------------------------------ ativação por voz ("ei assistente")
+
+  const WAKE_LABEL = { off: "desligada", listening: "ouvindo a frase de chamada", recording: "gravando o seu comando", processing: "entendendo…", idle: "ouvindo a frase de chamada", paused: "em pausa", error: "com problema" };
+  function paintWake() {
+    const b = document.getElementById("wake-btn");
+    if (!b) return;
+    const v = (S.state && S.state.voice) || {};
+    b.classList.toggle("hidden", !v.enabled);
+    b.className = "icon-btn mic-btn" + (v.enabled ? "" : " hidden") + " " + (v.state || "off");
+    const label = `Ativação por voz (“${v.phrase || "ei assistente"}”): ${WAKE_LABEL[v.state] || ""}${v.detail ? ". " + v.detail : ""}`;
+    b.title = label + (v.state === "error" ? "" : ". Clique para pausar ou retomar.");
+    b.setAttribute("aria-label", b.title);
+  }
+  async function toggleWake() {
+    const v = (S.state && S.state.voice) || {};
+    if (v.state === "error") { go("settings"); return; }
+    try { const r = await api("POST", "/api/voice/pause", { paused: v.state === "paused" ? false : true }); S.state.voice = r; paintWake(); } catch (e) { toast(e.message, "error"); }
+  }
+
   // ------------------------------------------------------------------ navegação
 
   function go(view) {
@@ -641,7 +668,7 @@
       delete S.live[cid]; paintConvList(); refreshConvs(); refreshState();
       if (cid === S.convId) {
         loadConv(cid, true).then(() => {
-          if (S.speak && S.conv) { const last = [...S.conv.messages].reverse().find((m) => m.role === "assistant"); if (last && last.text) speak(last.text); }
+          if (S.speak && S.conv && !(cid === S.voiceCid && S.state && S.state.voice && S.state.voice.speak_reply)) { const last = [...S.conv.messages].reverse().find((m) => m.role === "assistant"); if (last && last.text) speak(last.text); }
         });
       }
       updateSendState();
