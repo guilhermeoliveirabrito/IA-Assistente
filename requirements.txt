@@ -1,7 +1,7 @@
+schedule
 google-api-python-client
 google-auth-oauthlib
 pyyaml
-schedule
 pypdf
 python-docx
 tzdata

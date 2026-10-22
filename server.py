@@ -106,7 +106,7 @@ class App:
         memory.ensure()
         self.tasks = tasks.TaskManager(cfg, bus=self.bus, notifier=self.notifier, window_hooks=self.window_hooks)
         self.chat = chatsvc.ChatService(cfg, self.bus, self.window_hooks, self.notifier)
-        self.automation = automation.Automation(cfg)
+        self.automation = automation.Automation(cfg, on_change=self._checks_changed)
         self._voice_conv = {"id": None, "ts": 0.0}
         self.voice = wake.VoiceService(cfg, self.voice_command, self.bus.publish, self._transcribe_voice)
         self.chat.on_voice_reply = self.voice.speak_reply
@@ -137,6 +137,13 @@ class App:
                 reveal()
             except Exception:
                 pass
+
+    def checks(self):
+        """Verificações em segundo plano (e-mail, agenda...) com a contagem para a próxima."""
+        return self.automation.status()
+
+    def _checks_changed(self):
+        self.bus.publish({"type": "checks", "checks": self.checks()})
 
     def _usage_changed(self, event):
         """O medidor mudou (chamada feita, recusa do Google ou troca de modelo): avisa a interface na hora."""
@@ -184,6 +191,7 @@ class App:
             "google": {"credentials": Path("credentials.json").exists(), "connected": automation.google_ready(),
                        "running": self.automation.running},
             "voice": self.voice.status(),
+            "checks": self.checks(),
             "autonomous": bool((cfg.get("pc") or {}).get("modo_autonomo", False)),
             "permission_window_minutes": (cfg.get("pc") or {}).get("janela_de_permissao_minutos", 10),
         }
@@ -765,6 +773,18 @@ def r_notify_test(h, q):
         raise HTTPError(400, "Crie um tópico de avisos primeiro.")
     ok = h.app.notifier.notify("pronta", "Teste do assistente", "Se você recebeu isto, os avisos estão funcionando.")
     h._json({"sent": ok})
+
+
+@route("POST", "/api/automation/run")
+def r_automation_run(h, q):
+    job = str(h._body().get("job") or "")
+    if job not in automation.Automation.JOBS:
+        raise HTTPError(400, "Rotina desconhecida.")
+    try:
+        h.app.automation.run_job_async(job)
+    except RuntimeError as e:
+        raise HTTPError(400, str(e))
+    h._json({"ok": True})
 
 
 @route("GET", "/api/voice")

@@ -377,3 +377,16 @@ textarea.field { resize: vertical; min-height: 90px; line-height: 1.5; }
 .mic-btn.error { color: var(--warn); }
 @keyframes micpulse { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .mic-btn.recording { animation: none; } }
+
+/* ---------- verificações automáticas ---------- */
+.side-checks { font-size: 12px; color: var(--muted); padding: 8px 8px 0; cursor: pointer; min-height: 1em; font-variant-numeric: tabular-nums; }
+.side-checks:empty { display: none; }
+.pop .checks { margin-top: 12px; border-top: 1px solid var(--line-soft); padding-top: 12px; }
+.pop .checks h4 { margin: 0 0 8px; font-size: 13.5px; }
+.chk { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: var(--panel); font-size: 13px; }
+.chk-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.chk-every { color: var(--faint); font-size: 12px; }
+.chk-next { margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+.chk-last { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
+.chk-last .bad { color: var(--err); }
+.chk-now { color: var(--accent); }

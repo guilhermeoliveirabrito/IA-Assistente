@@ -163,7 +163,7 @@
       S.state = await api("GET", "/api/state");
       S.approvals = S.state.approvals || [];
       S.live_ids = new Set(S.state.running_chats || []);
-      paintNav(); paintUsage(); paintApprovals(); paintConvList();
+      paintNav(); paintUsage(); paintApprovals(); paintConvList(); S.skew = ((S.state.checks || {}).now || Date.now() / 1000) - Date.now() / 1000; tickChecks();
     } catch (e) { /* sem conexão: o indicador já mostra */ }
   }
   A.refreshState = refreshState;
@@ -187,6 +187,7 @@
 
   function onEvent(e) {
     if (e.type === "toast") return toast(e.text, e.kind);
+    if (e.type === "checks") { if (S.state) { S.state.checks = e.checks; S.skew = e.checks.now - Date.now() / 1000; tickChecks(); if (document.querySelector("#usage .pop")) paintUsage(); } return; }
     if (e.type === "voice") { if (S.state) { S.state.voice = e.voice; paintWake(); (A.voiceListeners || []).forEach((f) => f()); } return; }
     if (e.type === "voice_command") {
       S.voiceCid = e.conversation_id;
@@ -254,6 +255,7 @@
       nav,
       h("div", { class: "side-title", text: "Conversas" }),
       h("div", { class: "conv-list", id: "conv-list" }),
+      h("div", { class: "side-checks", id: "side-checks", title: "Verificações automáticas (clique para ver os detalhes)", onclick: () => { const b = document.querySelector(".usage-pill"); if (b) b.click(); } }),
       h("div", { class: "side-foot" }, h("span", { class: "status-dot off" }), h("span", { id: "conn-text", text: "Conectando…", style: "font-size:13px;color:var(--muted)" })));
     const top = h("header", { class: "topbar" },
       h("button", { class: "icon-btn menu-btn", type: "button", "aria-label": "Abrir menu", onclick: () => toggleSidebar(true) }, icon("menu")),
@@ -369,6 +371,49 @@
     setTimeout(() => document.addEventListener("mousedown", off, true), 0);
   }
 
+  // ------------------------------------------------------------------ verificações automáticas (e-mail, agenda, encomendas)
+
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const nowS = () => Date.now() / 1000 + (S.skew || 0);
+  function countdown(ts) {
+    const sec = Math.round(ts - nowS());
+    if (sec <= 0) return "agora";
+    if (sec >= 3600) return F.dur(sec);
+    return `${Math.floor(sec / 60)}:${pad2(sec % 60)}`;
+  }
+  function tickChecks() {
+    document.querySelectorAll("[data-next]").forEach((el) => { el.textContent = countdown(Number(el.dataset.next)); });
+    const box = document.getElementById("side-checks");
+    if (!box || !S.state) return;
+    const c = S.state.checks;
+    if (!c || !c.jobs || !c.jobs.length) { box.textContent = ""; return; }
+    const mail = c.jobs.find((j) => j.id === "triagem") || c.jobs[0];
+    if (!c.running) box.textContent = "E-mails: ligue o Google em Ajustes";
+    else if (mail.running) box.textContent = "Verificando os e-mails…";
+    else if (mail.next_ts) box.textContent = `Próxima checagem de e-mail em ${countdown(mail.next_ts)}`;
+    else box.textContent = "";
+  }
+  function checkRow(j) {
+    const status = j.running ? h("span", { class: "chk-now", text: "Verificando agora…" })
+      : j.next_ts ? h("span", {}, "Próxima ", j.every === "todo dia" ? "" : "em ", h("b", { "data-next": String(j.next_ts), text: countdown(j.next_ts) }), ` (${F.dayTime(j.next_ts)})`)
+      : h("span", { text: "Parada" });
+    const last = j.last_ts ? h("div", { class: "chk-last" }, `Última ${F.ago(j.last_ts - (S.skew || 0))}: `, h("span", { class: j.last_ok === false ? "bad" : "", text: j.last_text || (j.last_ok ? "ok" : "") }))
+      : h("div", { class: "chk-last", text: "Ainda não verificou desde que o app abriu." });
+    return h("div", { class: "chk" },
+      h("div", { class: "chk-top" }, h("b", { text: j.label }), h("span", { class: "chk-every", text: j.every })),
+      h("div", { class: "chk-next" }, status), last,
+      j.can_run && !j.running && j.next_ts ? h("button", { class: "btn sm", type: "button", text: "Verificar agora", onclick: async () => { try { await api("POST", j.run_url || "/api/automation/run", { job: j.id }); } catch (e) { toast(e.message, "error"); } } }) : null);
+  }
+  function checksBlock() {
+    const c = S.state.checks || { jobs: [] };
+    const box = h("div", { class: "checks" }, h("h4", { text: "Verificações automáticas" }));
+    if (!c.running) {
+      box.append(h("p", { class: "desc", style: "margin:0", text: c.connected ? "A rotina de e-mails e agenda está parada. Reabra o app para ligar." : "Não estou verificando e-mails nem agenda: o Google ainda não está conectado (Ajustes › Gmail e Agenda)." }));
+    }
+    (c.jobs || []).filter((j) => c.running || j.id !== "triagem" && j.id !== "agenda" && j.id !== "resumo").forEach((j) => box.append(checkRow(j)));
+    return box;
+  }
+
   function bar(pct, label) {
     const p = Math.min(100, Math.round(pct));
     return h("div", { class: "bar " + (p >= 100 ? "err" : p >= 80 ? "warn" : ""), role: "progressbar", "aria-valuenow": p, "aria-valuemin": 0, "aria-valuemax": 100, "aria-label": label }, h("i", { style: `width:${p}%` }));
@@ -423,6 +468,7 @@
     if (!seen) { truth.open = true; truth.addEventListener("toggle", () => store("usage_notice_seen", "1")); }
     pop.append(truth);
     (u.models || []).forEach((m) => pop.append(modelCard(m, left)));
+    pop.append(checksBlock());
     pop.append(h("div", { class: "reset" }, icon("clock", 16), h("span", {}, "A cota diária renova em ", h("b", { text: F.dur(left) }), ` (${F.dayTime(u.reset_epoch)})`)));
     if ((u.switches || []).length) {
       pop.append(h("div", { class: "sw-title", text: "Trocas de modelo recentes" }),
@@ -880,6 +926,7 @@
     if (S.view === "chat" && !S.conv) renderView();   // saudação com o nome
     connect();
     setInterval(() => { if (S.state && S.state.usage) paintUsage(); }, 30000);
+    setInterval(tickChecks, 1000);
     setInterval(refreshState, 60000);
     if ("speechSynthesis" in window) speechSynthesis.getVoices();
   }
