@@ -343,3 +343,7 @@ textarea.field { resize: vertical; min-height: 90px; line-height: 1.5; }
 .ico { display: inline-grid; place-items: center; line-height: 0; }
 .btn, .btn-new { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .btn-new { width: 100%; justify-content: flex-start; }
+
+/* pedidos de permissão: acima da caixa de texto, sem cobrir os botões dela */
+.approvals-bar { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(168px + var(--safe-b)); width: min(560px, calc(100vw - 24px)); }
+@media (min-width: 861px) { .approvals-bar { left: calc(50% + var(--sidebar) / 2); } }

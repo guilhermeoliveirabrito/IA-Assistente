@@ -66,8 +66,8 @@ Em **Ajustes › Projetos**, escolha a pasta onde ele cria os projetos e liste o
 
 Em **Tarefas › Nova tarefa** você escolhe o que ele pode fazer sozinho:
 
-- **Só leitura**: lê, pesquisa e responde.
-- **Projetos**: cria e edita arquivos na pasta de projetos e roda comandos de desenvolvimento permitidos.
+- **Só leitura**: lê arquivos, e-mails e agenda, mexe na memória e na música.
+- **Projeto**: também cria arquivos, roda comandos de desenvolvimento permitidos, abre apps e envia ao GitHub (só para os repositórios que você listou).
 - **Controle total**: também usa tela, teclado e mouse (a janela do app se esconde enquanto isso).
 
 Ações de risco alto (comandos, tela/teclado/mouse, `git push`) **sempre pedem a sua aprovação**, no app ou por aviso no celular. Se você não responder no tempo configurado, o pedido é negado e a tarefa segue por outro caminho. Cada tarefa tem um **orçamento de requisições** para não gastar a cota do dia inteira; ao acabar, ela pausa e espera você liberar mais.

@@ -4,6 +4,8 @@
   const A = window.A, S = A.S, h = A.h, api = A.api, toast = A.toast, F = A.fmt;
 
   const FINAL = ["done", "failed", "stopped"];
+  // "Só leitura: lê arquivos..." -> ["Só leitura", "lê arquivos..."]
+  const splitLabel = (label) => { const i = String(label).indexOf(": "); return i < 0 ? [String(label), ""] : [label.slice(0, i), label.slice(i + 2)]; };
   const page = (title, sub, ...kids) => h("div", { class: "scroll" }, h("div", { class: "column page" }, h("h2", { text: title }), sub ? h("p", { class: "sub", text: sub }) : null, ...kids));
 
   // =================================================================== TAREFAS
@@ -66,7 +68,7 @@
       const c = h("div", { class: "card" });
       c.append(h("div", { style: "display:flex;gap:10px;align-items:center;flex-wrap:wrap" }, h("h3", { text: t.title, style: "margin:0;flex:1;font-size:17px" }), h("span", { class: "st-chip " + t.status, text: t.status_label })));
       c.append(h("div", { class: "kv", style: "margin:8px 0 12px;color:var(--muted);font-size:13px" },
-        h("span", { text: `Permissões: ${(S.state.profiles || {})[t.profile] ? S.state.profiles[t.profile].split(" — ")[0] : t.profile}` }), "·",
+        h("span", { text: `Permissões: ${(S.state.profiles || {})[t.profile] ? splitLabel(S.state.profiles[t.profile])[0] : t.profile}` }), "·",
         h("span", { text: `${t.requests} de ${t.budget} requisições` }), "·", h("span", { text: "Pasta: " }), h("code", { text: t.project })));
       c.append(h("p", { style: "margin:0 0 14px;white-space:pre-wrap;overflow-wrap:anywhere", text: t.prompt }));
       if (t.question && t.status === "waiting_user") c.append(this.questionBox(t));
@@ -125,8 +127,8 @@
       const budget = h("input", { type: "number", min: "1", max: "1000", value: String(S.state.default_budget || 60) });
       let profile = Object.keys(profiles).includes("projeto") ? "projeto" : Object.keys(profiles)[0];
       const opts = Object.entries(profiles).map(([id, label]) => {
-        const [name, ...rest] = String(label).split(" — ");
-        return h("label", { class: "profile-opt" }, h("input", { type: "radio", name: "profile", value: id, checked: id === profile, onchange: () => { profile = id; } }), h("div", {}, h("b", { text: name }), h("span", { text: rest.join(" — ") })));
+        const [name, desc] = splitLabel(label);
+        return h("label", { class: "profile-opt" }, h("input", { type: "radio", name: "profile", value: id, checked: id === profile, onchange: () => { profile = id; } }), h("div", {}, h("b", { text: name }), h("span", { text: desc })));
       });
       const body = h("div", {}, h("label", { class: "f" }, h("span", { text: "O que fazer" }), prompt), h("label", { class: "f" }, h("span", { text: "Título" }), title),
         h("div", { style: "margin-bottom:12px" }, h("div", { style: "font-size:13px;color:var(--muted);margin-bottom:6px", text: "O que ele pode fazer sozinho" }), h("div", { style: "display:flex;flex-direction:column;gap:8px" }, opts)),
