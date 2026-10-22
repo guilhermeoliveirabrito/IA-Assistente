@@ -120,6 +120,17 @@ class GeminiTest(unittest.TestCase):
         self.assertEqual(gemini.text_of(gemini.generate(self.user(), ["a"])), "voltou")
         self.assertEqual(len(self.calls), 3)
 
+    def test_modelo_sobrecarregado_usa_reserva(self):
+        self.queue += [http_error(503, "high demand")] * 3 + [ok_response("do reserva")]
+        obj = gemini.generate(self.user(), ["principal", "reserva"])
+        self.assertEqual((obj["_model"], gemini.text_of(obj)), ("reserva", "do reserva"))
+
+    def test_todos_sobrecarregados_da_erro_de_servidor(self):
+        self.queue += [http_error(503, "high demand")] * 6
+        with self.assertRaises(gemini.GeminiError) as cm:
+            gemini.generate(self.user(), ["a", "b"])
+        self.assertEqual(cm.exception.kind, "server")
+
     def test_sem_internet(self):
         self.queue += [urllib.error.URLError("sem rede")] * 3
         with self.assertRaises(gemini.GeminiError) as cm:

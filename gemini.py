@@ -89,7 +89,7 @@ def error_from_response(status: int, body: str) -> GeminiError:
     if status in (401, 403) or "api key" in low:
         return GeminiError(f"Chave do Gemini recusada: {message}", status, "auth")
     if status >= 500:
-        return GeminiError(f"Gemini indisponível no momento: {message}", status, "server")
+        return GeminiError("O Gemini está sobrecarregado ou fora do ar agora (problema do lado do Google, costuma passar em poucos minutos). Tente de novo daqui a pouco.", status, "server")
     return GeminiError(message, status, "other")
 
 
@@ -135,8 +135,8 @@ def _open_with_fallback(models, method, payload, stream):
             last = e
             if e.kind == "quota":
                 usage.record_quota_error(e.retry_after)
-            if e.kind in ("quota", "model"):
-                continue  # a cota é por modelo: tenta o reserva
+            if e.kind in ("quota", "model", "server"):
+                continue  # cota é por modelo e a sobrecarga costuma ser de um modelo só: tenta o reserva
             raise
     raise last
 
