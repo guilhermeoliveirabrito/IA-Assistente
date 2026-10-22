@@ -121,12 +121,13 @@ class GeminiTest(unittest.TestCase):
         self.assertEqual(len(self.calls), 3)
 
     def test_modelo_sobrecarregado_usa_reserva(self):
-        self.queue += [http_error(503, "high demand")] * 3 + [ok_response("do reserva")]
+        self.queue += [http_error(503, "high demand"), ok_response("do reserva")]
         obj = gemini.generate(self.user(), ["principal", "reserva"])
         self.assertEqual((obj["_model"], gemini.text_of(obj)), ("reserva", "do reserva"))
+        self.assertEqual(len(self.calls), 2)      # não insiste no sobrecarregado quando há reserva
 
     def test_todos_sobrecarregados_da_erro_de_servidor(self):
-        self.queue += [http_error(503, "high demand")] * 6
+        self.queue += [http_error(503, "high demand")] * 4
         with self.assertRaises(gemini.GeminiError) as cm:
             gemini.generate(self.user(), ["a", "b"])
         self.assertEqual(cm.exception.kind, "server")

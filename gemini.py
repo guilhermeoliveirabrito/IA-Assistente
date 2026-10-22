@@ -104,7 +104,7 @@ def build_payload(contents, system=None, tools=None, json_mode=False, temperatur
     return payload
 
 
-def _open(model: str, method: str, payload: dict, stream: bool):
+def _open(model: str, method: str, payload: dict, stream: bool, attempts: int = 3):
     url = BASE.format(model=model, method=method) + ("?alt=sse" if stream else "")
     req = urllib.request.Request(
         url,
@@ -113,7 +113,7 @@ def _open(model: str, method: str, payload: dict, stream: bool):
         method="POST",
     )
     last = None
-    for attempt in range(3):  # tenta de novo em erro de servidor/rede
+    for attempt in range(attempts):  # tenta de novo em erro de servidor/rede
         try:
             return _urlopen(req, timeout=TIMEOUT)
         except urllib.error.HTTPError as e:
@@ -128,9 +128,10 @@ def _open(model: str, method: str, payload: dict, stream: bool):
 
 def _open_with_fallback(models, method, payload, stream):
     last = None
-    for model in models:
+    for i, model in enumerate(models):
         try:
-            return model, _open(model, method, payload, stream)
+            # com reservas disponíveis, não perde tempo insistindo num modelo sobrecarregado
+            return model, _open(model, method, payload, stream, attempts=3 if i == len(models) - 1 else 1)
         except GeminiError as e:
             last = e
             if e.kind == "quota":
