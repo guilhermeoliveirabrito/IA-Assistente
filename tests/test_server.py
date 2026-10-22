@@ -234,6 +234,44 @@ class ServerTest(unittest.TestCase):
         self.req("POST", "/api/settings", {"changes": {"pc.modo_autonomo": False}})
         self.assertFalse(self.req("GET", "/api/state")[1]["autonomous"])
 
+    def test_voz_estado_e_ajustes(self):
+        v = self.req("GET", "/api/state")[1]["voice"]
+        self.assertEqual((v["enabled"], v["state"], v["phrase"]), (False, "off", "ei assistente"))
+        self.assertEqual(self.req("POST", "/api/settings", {"changes": {"voz.frase_de_ativacao": "ok <b>"}})[0], 400)
+        status, r, _ = self.req("POST", "/api/settings", {"changes": {"voz.frase_de_ativacao": "oi jarvis"}})
+        self.assertEqual(status, 200)
+        self.assertEqual(self.req("GET", "/api/voice")[1]["phrase"], "oi jarvis")
+        # ativar sem as bibliotecas/modelo: informa o motivo em vez de quebrar
+        self.req("POST", "/api/settings", {"changes": {"voz.ativada": True}})
+        v = self.req("GET", "/api/voice")[1]
+        self.assertTrue(v["enabled"])
+        if not v["deps_ok"] or not v["model_ready"]:
+            self.assertEqual(v["state"], "error")
+            self.assertTrue(v["detail"])
+        self.assertEqual(self.req("POST", "/api/voice/pause", {"paused": True})[0], 200)
+
+    def test_comando_de_voz_abre_conversa_e_fala_a_resposta(self):
+        spoken = []
+        self.srv.app.chat.on_voice_reply = spoken.append
+        self.script = [text("Pronto, abri o Spotify.")]
+        self.srv.app.voice_command("abre o Spotify")
+        cid = self.srv.app._voice_conv["id"]
+        for _ in range(100):
+            if not self.srv.app.chat.is_running(cid):
+                break
+            time.sleep(0.05)
+        for _ in range(100):
+            if spoken:
+                break
+            time.sleep(0.05)
+        self.assertEqual(spoken, ["Pronto, abri o Spotify."])
+        conv = self.req("GET", f"/api/conversations/{cid}")[1]
+        self.assertEqual(conv["messages"][0]["text"], "abre o Spotify")
+        # segundo comando logo depois continua a mesma conversa
+        self.script = [text("Feito.")]
+        self.srv.app.voice_command("e agora toca rock")
+        self.assertEqual(self.srv.app._voice_conv["id"], cid)
+
     def test_consumo_por_modelo_e_ajuste(self):
         u = self.req("GET", "/api/usage")[1]
         self.assertEqual([m["model"] for m in u["models"]][:1], ["gemini-3.8-flash"])

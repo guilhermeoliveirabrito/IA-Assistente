@@ -106,6 +106,10 @@ FIELDS = {
     "pc.esconder_janela": (_bool, False),
     "pc.confiar_sem_perguntar": (_list(2, _choice("abrir", "projeto_escrever")), True),
     "pc.janela_de_permissao_minutos": (_num(1, 60, integer=False), True),
+    "voz.ativada": (_bool, False),
+    "voz.frase_de_ativacao": (_text(40, r"^[A-Za-zÀ-ÿ ]{3,40}$", allow_empty=False), False),
+    "voz.falar_resposta": (_bool, False),
+    "voz.transcricao": (_choice("gemini", "local"), False),
     "spotify.porta_login": (_num(1024, 65535), True),
 }
 

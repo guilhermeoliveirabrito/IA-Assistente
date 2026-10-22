@@ -34,7 +34,8 @@ class ApprovalTimeout(Exception):
     """Ninguém respondeu ao pedido de aprovação a tempo."""
 
 
-def build_system_prompt(cfg: dict, mode: str = "chat", project: str = None, task: dict = None, now: datetime = None) -> str:
+def build_system_prompt(cfg: dict, mode: str = "chat", project: str = None, task: dict = None, now: datetime = None,
+                        voice: bool = False) -> str:
     now = now or datetime.now(ZoneInfo(TIMEZONE))
     name = ((cfg.get("app") or {}).get("seu_nome") or "").strip()
     who = f"o assistente pessoal de {name}" if name else "o assistente pessoal do usuário"
@@ -55,6 +56,10 @@ def build_system_prompt(cfg: dict, mode: str = "chat", project: str = None, task
         "onde você clicou) e corrija. NUNCA repita as mesmas coordenadas que não funcionaram: amplie com ver_regiao ou "
         "mude de abordagem (teclado). Nunca invente coordenadas fora de 0 a 1000.",
     ]
+    if voice:
+        lines.append("PEDIDO POR VOZ: o usuário falou com você e a sua resposta será LIDA EM VOZ ALTA. Responda em no máximo "
+                     "2 ou 3 frases curtas, em texto corrido, sem markdown, tabelas, listas ou links. Se fez uma ação, "
+                     "diga em uma frase o que fez.")
     if (cfg.get("pc") or {}).get("modo_autonomo"):
         lines += [
             "MODO AUTÔNOMO: você tem permissão para usar o computador sem pedir confirmação: abrir programas e sites, "

@@ -46,6 +46,17 @@ email:
     modo: "pedir_aprovacao"
     confianca_minima_automatico: 0.95
 
+voz:
+  # ATIVAÇÃO POR VOZ (como "Ok Google"): o app fica ouvindo a frase de chamada e, ao ouvi-la, grava o seu comando.
+  # Precisa de: pip install -r requirements.txt, e baixar o modelo de voz em Ajustes › Ativação por voz.
+  ativada: false
+  # Frase que chama o assistente. Precisa existir no vocabulário do modelo de voz (o app avisa se não existir).
+  frase_de_ativacao: "ei assistente"
+  # Lê a resposta em voz alta quando o pedido foi feito por voz (voz do Windows).
+  falar_resposta: true
+  # Quem transcreve o comando: "gemini" (acerta mais, usa 1 requisição) ou "local" (grátis, sem internet).
+  transcricao: gemini
+
 pc:
   # MODO AUTÔNOMO: o assistente usa o PC sem pedir permissão (abrir apps, tela, teclado, mouse, comandos) e você
   # vê o que ele fez no Histórico. Só para e pergunta se a ação for contra uma regra que você escreveu em Memória › Regras.

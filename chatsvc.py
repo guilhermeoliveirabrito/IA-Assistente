@@ -36,6 +36,7 @@ class ChatService:
         self._pending = {}             # req_id -> request (para a interface reconectar)
         self._lock = threading.RLock()
         self.approval_timeout = APPROVAL_TIMEOUT
+        self.on_voice_reply = None     # função(texto) chamada com a resposta de um pedido feito por voz
 
     # ---- estado ---------------------------------------------------------------------
 
@@ -77,7 +78,7 @@ class ChatService:
             parts.append({"text": "Analise o(s) arquivo(s) anexado(s) e me diga o que é importante."})
         return parts, shown
 
-    def send(self, conv_id, text, files=None):
+    def send(self, conv_id, text, files=None, voice=False):
         text = (text or "").strip()
         if len(text) > 30000:
             raise ChatError("Mensagem longa demais (máximo 30.000 caracteres). Anexe como arquivo.")
@@ -97,7 +98,7 @@ class ChatService:
                 conv["title"] = storage.make_title(text or (shown[0]["name"] if shown else ""))
             storage.save(conv)
             stop = threading.Event()
-            thread = threading.Thread(target=self._run, args=(conv_id, stop), name=f"chat-{conv_id}", daemon=True)
+            thread = threading.Thread(target=self._run, args=(conv_id, stop, voice), name=f"chat-{conv_id}", daemon=True)
             self._runs[conv_id] = {"thread": thread, "stop": stop}
             thread.start()
         return conv_id
@@ -155,7 +156,7 @@ class ChatService:
     def _publish(self, conv_id, event):
         self.bus.publish({**event, "scope": "chat", "conversation_id": conv_id})
 
-    def _run(self, conv_id, stop):
+    def _run(self, conv_id, stop, voice=False):
         model = (self.cfg.get("ia") or {}).get("modelo", "gemini-3.8-flash")
         assistant = {"id": uuid.uuid4().hex[:8], "role": "assistant", "text": "", "ts": time.time(), "tools": [],
                      "error": ""}
@@ -195,7 +196,7 @@ class ChatService:
                                   ask_approval=self._approval_fn(conv_id, stop), stop_event=stop,
                                   window=self._windows.setdefault(conv_id, {"until": 0.0}),
                                   resolve=lambda c: storage.resolve_contents(conv_id, c))
-            status = engine.run(contents, agent.build_system_prompt(self.cfg, "chat"))
+            status = engine.run(contents, agent.build_system_prompt(self.cfg, "chat", voice=voice))
             if status == "empty":
                 assistant["error"] = "O modelo não devolveu resposta. Tente de novo."
         except gemini.GeminiError as e:
@@ -224,6 +225,11 @@ class ChatService:
             with self._lock:
                 self._runs.pop(conv_id, None)      # antes do aviso: quem recarregar a conversa já a vê como parada
             self._publish(conv_id, {"type": "done", "message_id": assistant["id"], "stopped": stop.is_set()})
+            if voice and self.on_voice_reply and not stop.is_set():
+                try:
+                    self.on_voice_reply(assistant["text"] or assistant["error"])
+                except Exception as e:
+                    activity.log("erro", f"Voz: {e}")
 
     # ---- recomeçar com resumo -----------------------------------------------------------
 

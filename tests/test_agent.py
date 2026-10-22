@@ -439,3 +439,10 @@ class PromptTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VozPromptTest(unittest.TestCase):
+    def test_prompt_de_voz_pede_resposta_curta(self):
+        import agent as a
+        self.assertIn("LIDA EM VOZ ALTA", a.build_system_prompt({}, "chat", voice=True))
+        self.assertNotIn("LIDA EM VOZ ALTA", a.build_system_prompt({}, "chat"))

@@ -36,6 +36,7 @@ import spotify_control
 import storage
 import tasks
 import usage
+import wake
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 TOKEN_FILE = Path("data") / "access_token.txt"
@@ -106,7 +107,30 @@ class App:
         self.tasks = tasks.TaskManager(cfg, bus=self.bus, notifier=self.notifier, window_hooks=self.window_hooks)
         self.chat = chatsvc.ChatService(cfg, self.bus, self.window_hooks, self.notifier)
         self.automation = automation.Automation(cfg)
+        self._voice_conv = {"id": None, "ts": 0.0}
+        self.voice = wake.VoiceService(cfg, self.voice_command, self.bus.publish, self._transcribe_voice)
+        self.chat.on_voice_reply = self.voice.speak_reply
         self.started = time.time()
+        if self.voice.enabled:
+            self.voice.start()
+
+    # ---- voz ---------------------------------------------------------------------------
+
+    def _transcribe_voice(self, wav: bytes) -> str:
+        return ai.transcribe(wav, "audio/wav", (self.cfg.get("ia") or {}).get("modelo", "gemini-3.8-flash"))
+
+    def voice_command(self, text: str):
+        """Comando falado: continua a conversa por voz recente (até 30 min) ou abre uma nova."""
+        now = time.time()
+        cid = self._voice_conv["id"]
+        if cid and (now - self._voice_conv["ts"] > 1800 or self.chat.is_running(cid)):
+            cid = None
+        try:
+            cid = self.chat.send(cid, text, [], voice=True)
+        except KeyError:                                   # a conversa foi apagada
+            cid = self.chat.send(None, text, [], voice=True)
+        self._voice_conv.update(id=cid, ts=now)
+        self.bus.publish({"type": "voice_command", "conversation_id": cid, "text": text})
 
     def _usage_changed(self, event):
         """O medidor mudou (chamada feita, recusa do Google ou troca de modelo): avisa a interface na hora."""
@@ -116,6 +140,7 @@ class App:
 
     def shutdown(self):
         usage.unsubscribe(self._usage_changed)
+        self.voice.stop()
         self.automation.stop()
         self.chat.shutdown()
         self.tasks.shutdown()
@@ -152,6 +177,7 @@ class App:
             "access": (cfg.get("app") or {}).get("acesso", "local"),
             "google": {"credentials": Path("credentials.json").exists(), "connected": automation.google_ready(),
                        "running": self.automation.running},
+            "voice": self.voice.status(),
             "autonomous": bool((cfg.get("pc") or {}).get("modo_autonomo", False)),
             "permission_window_minutes": (cfg.get("pc") or {}).get("janela_de_permissao_minutos", 10),
         }
@@ -705,6 +731,8 @@ def r_settings_save(h, q):
         except ValueError:
             raise HTTPError(400, str(e))
     activity.configure(h.app.cfg)
+    if any(k.startswith("voz.") for k in changed):
+        h.app.voice.restart() if h.app.voice.enabled else h.app.voice.stop()
     h._json({"changed": changed, "restart": restart, "values": settings.current_values(h.app.cfg)})
 
 
@@ -731,6 +759,24 @@ def r_notify_test(h, q):
         raise HTTPError(400, "Crie um tópico de avisos primeiro.")
     ok = h.app.notifier.notify("pronta", "Teste do assistente", "Se você recebeu isto, os avisos estão funcionando.")
     h._json({"sent": ok})
+
+
+@route("GET", "/api/voice")
+def r_voice(h, q):
+    h._json(h.app.voice.status())
+
+
+@route("POST", "/api/voice/model")
+def r_voice_model(h, q):
+    if not h.app.voice.download_model_async():
+        raise HTTPError(409, "O download do modelo já está em andamento.")
+    h._json({"ok": True})
+
+
+@route("POST", "/api/voice/pause")
+def r_voice_pause(h, q):
+    h.app.voice.toggle_pause(h._body().get("paused"))
+    h._json(h.app.voice.status())
 
 
 @route("POST", "/api/google/connect")
