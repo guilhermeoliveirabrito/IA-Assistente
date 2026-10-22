@@ -50,7 +50,7 @@ def run_triage(gmail, cfg):
     emails = gmail_tools.list_new_emails(gmail, processed, cfg["email"]["max_por_rodada"])
     if not emails:
         print("Nenhum email novo.")
-        return
+        return {"novos": 0, "pendentes": len(_load(PENDING_FILE, [])), "categorias": {}}
 
     # lotes pequenos para respeitar o limite gratuito
     classified = []
@@ -97,6 +97,10 @@ def run_triage(gmail, cfg):
     _save(RESULTS_FILE, results)
     _save(PENDING_FILE, pending)
     print(f"{len(classified)} emails classificados. Pendentes de aprovação: {len(pending)}")
+    cats = {}
+    for c in classified:
+        cats[c.get("categoria") or "?"] = cats.get(c.get("categoria") or "?", 0) + 1
+    return {"novos": len(classified), "pendentes": len(pending), "categorias": cats}
 
 
 def approve_pending(gmail):
