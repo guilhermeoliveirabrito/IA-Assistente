@@ -1,6 +1,7 @@
 """Assistente pessoal automático: emails + agenda, rodando sozinho em segundo plano.
 
 Uso:
+  python app.py             # ABRE O APP (janela própria) — o jeito normal de usar
   python main.py setup      # login no Google (só na primeira vez)
   python main.py triagem    # classifica emails novos agora
   python main.py resumo     # resumo do que chegou nas últimas 24h
