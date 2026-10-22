@@ -464,6 +464,9 @@
       const c = await api("GET", `/api/conversations/${id}`);
       if (S.convId !== id) return;
       S.conv = c;
+      // o servidor é quem sabe se ainda está respondendo (a página pode ter sido recarregada no meio)
+      if (c.running && !S.live[id]) S.live[id] = { text: "", tools: [], label: "Pensando…", info: "", error: "" };
+      if (!c.running && S.live[id]) delete S.live[id];
       if (S.view === "chat") renderChat(document.getElementById("content"));
     } catch (e) {
       if (e.status === 404) { S.convId = null; S.conv = null; if (S.view === "chat") renderChat(document.getElementById("content")); refreshConvs(); }
@@ -667,7 +670,8 @@
     sendBtn.replaceChildren(icon(running ? "stop" : "send", 18));
     sendBtn.classList.toggle("stop", running);
     sendBtn.setAttribute("aria-label", running ? "Parar resposta" : "Enviar");
-    sendBtn.disabled = !running && !(textarea.value.trim() || S.attachments.length);
+    const stopping = running && S.live[S.convId].stopping;
+    sendBtn.disabled = stopping || (!running && !(textarea.value.trim() || S.attachments.length));
   }
 
   const MAX_FILE = 15 * 1024 * 1024, MAX_FILES = 6;
@@ -741,6 +745,9 @@
 
   async function stopChat() {
     if (!S.convId) return;
+    const live = S.live[S.convId];
+    if (live) { live.label = "Parando…"; live.stopping = true; drawLive(); }
+    if (sendBtn) sendBtn.disabled = true;
     try { await api("POST", "/api/chat/stop", { conversation_id: S.convId }); } catch (e) { toast(e.message, "error"); }
   }
 

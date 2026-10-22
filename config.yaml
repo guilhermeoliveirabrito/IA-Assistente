@@ -48,6 +48,9 @@ pc:
   # As travas técnicas (pasta de projetos, programas permitidos, repositórios permitidos) continuam valendo.
   # Coloque false para voltar a ser perguntado a cada ação.
   modo_autonomo: true
+  # Minimiza a janela do assistente enquanto ele usa tela, teclado e mouse (para não digitar nela mesma nem
+  # tampar o que ele precisa ver). Ela volta sozinha quando ele termina. Coloque false para ela ficar aberta.
+  esconder_janela: true
   # Ações de risco médio que podem rodar SEM perguntar no chat. Opções: abrir, projeto_escrever.
   # Ver a tela, teclado/mouse, comandos e enviar ao GitHub SEMPRE pedem confirmação no chat.
   confiar_sem_perguntar: []

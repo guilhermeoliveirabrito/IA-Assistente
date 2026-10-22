@@ -102,6 +102,7 @@ FIELDS = {
     "projetos.pasta": (_folder, True),
     "arquivos.pastas_permitidas": (_list(20, _folder), False),
     "pc.modo_autonomo": (_bool, False),
+    "pc.esconder_janela": (_bool, False),
     "pc.confiar_sem_perguntar": (_list(2, _choice("abrir", "projeto_escrever")), True),
     "pc.janela_de_permissao_minutos": (_num(1, 60, integer=False), True),
     "spotify.porta_login": (_num(1024, 65535), True),

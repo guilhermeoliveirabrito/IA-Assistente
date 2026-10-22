@@ -62,6 +62,12 @@ Com o login feito, o app liga sozinho a rotina de e-mails e agenda em segundo pl
 ### 6. Projetos e GitHub (opcional)
 Em **Ajustes › Projetos**, escolha a pasta onde ele cria os projetos e liste os repositórios (`usuario/repo`) em que ele **pode** enviar código. Fora dessa lista ele nunca faz push. O envio usa o `git` e as credenciais que já estão no seu computador.
 
+## Como ele enxerga e controla o mouse
+
+Para clicar, ele recebe uma foto da tela com uma **grade de números de 0 a 1000** (a escala em que o Gemini enxerga melhor, independente da resolução e do zoom do Windows), mira no alvo e, depois de cada clique, tecla ou texto, recebe uma foto nova mostrando **onde clicou** (círculo vermelho). Para alvos pequenos ele amplia uma região antes de clicar. Sempre que dá, ele prefere atalhos de teclado e abrir programas e sites direto, que são mais confiáveis que clicar.
+
+Enquanto usa tela, teclado e mouse ele **minimiza a janela do assistente** (para não digitar nela mesma) e a restaura ao terminar. Dá para desligar em Ajustes › Permissões. Se mover o mouse para um canto da tela, tudo é interrompido (trava de segurança do pyautogui), e o botão Parar do app também interrompe na hora.
+
 ## Como funcionam as tarefas autônomas
 
 Em **Tarefas › Nova tarefa** você escolhe o que ele pode fazer sozinho:

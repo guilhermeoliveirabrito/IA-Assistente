@@ -221,9 +221,9 @@ class ChatService:
                 storage.save(conv)
             except KeyError:
                 pass  # a conversa foi apagada durante a resposta
-            self._publish(conv_id, {"type": "done", "message_id": assistant["id"], "stopped": stop.is_set()})
             with self._lock:
-                self._runs.pop(conv_id, None)
+                self._runs.pop(conv_id, None)      # antes do aviso: quem recarregar a conversa já a vê como parada
+            self._publish(conv_id, {"type": "done", "message_id": assistant["id"], "stopped": stop.is_set()})
 
     # ---- recomeçar com resumo -----------------------------------------------------------
 
