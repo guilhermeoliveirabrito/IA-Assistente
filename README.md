@@ -15,6 +15,7 @@ Custo: **zero** (Gemini na camada gratuita, Gmail e Google Agenda, Spotify com a
 | **Arquivos e imagens** | Arraste ou cole imagens, PDFs, Word e arquivos de texto/código no chat |
 | **E-mails** | Triagem a cada 15 min (importante / normal / newsletter / spam), resumo diário. Spam só vai para a lixeira com a sua aprovação (por padrão) e nunca é apagado para sempre |
 | **Agenda** | Aponta conflitos, dias lotados e janelas livres (só leitura) |
+| **Ativação por voz** | Diga **"ei assistente"** e ele começa a ouvir o seu comando na hora, como a Siri/"Ok Google", e responde falando (veja abaixo) |
 | **Controle do PC** | Abre apps e sites, controla mídia, vê a tela, digita, clica. **Cada ação de risco pede a sua permissão** |
 | **Spotify** | "Toque tal música" pela API oficial (precisa de Premium) |
 | **Tarefas autônomas** | Você descreve um trabalho; ele faz um plano, cria o projeto numa pasta própria, escreve código, roda comandos e (se você permitir) envia ao GitHub. Orçamento por tarefa, pausa quando a cota acaba e **continua sozinho quando ela renova** |
@@ -61,6 +62,20 @@ Com o login feito, o app liga sozinho a rotina de e-mails e agenda em segundo pl
 
 ### 6. Projetos e GitHub (opcional)
 Em **Ajustes › Projetos**, escolha a pasta onde ele cria os projetos e liste os repositórios (`usuario/repo`) em que ele **pode** enviar código. Fora dessa lista ele nunca faz push. O envio usa o `git` e as credenciais que já estão no seu computador.
+
+## Ativação por voz ("ei assistente")
+
+Ligue em **Ajustes › Ativação por voz**: instale as dependências (`pip install -r requirements.txt`), clique em *Baixar modelo de voz* (≈ 30 MB, uma vez) e ative. Aí é só falar **"ei assistente, abre o bloco de notas"** (ou falar a frase, esperar o bipe e dizer o comando). Ele grava até você ficar em silêncio, transcreve, executa e **lê a resposta curta em voz alta** (voz do Windows). Os pedidos por voz continuam a mesma conversa por voz por até 30 minutos.
+
+Como funciona: um reconhecedor **offline** (Vosk) só procura a frase de chamada, no seu computador; o resto que você fala é descartado na hora. Só o trecho **depois** da chamada é transcrito, pelo Gemini (acerta mais; gasta 1 requisição) ou localmente (grátis, sem internet, erra mais; escolha em Ajustes). A escuta fica em pausa enquanto ele fala, para não ouvir a si mesmo.
+
+Com a voz ligada, **fechar a janela só a esconde** e o app continua ouvindo (ícone na bandeja do Windows: *Abrir* / *Sair*; precisa do `pystray`, que está no `requirements.txt`). Sem o ícone da bandeja, fechar a janela encerra o app.
+
+Limites honestos:
+- **"Ok Google" e "Siri" provavelmente não funcionam**: o modelo de voz só entende palavras do português; o app testa a frase ao ligar e avisa quais palavras não conhece. O padrão **"ei assistente"** foi escolhido por existir no vocabulário; frases de 2 a 3 palavras funcionam melhor.
+- Sem a Siri/Google, não existe hardware dedicado: ruído alto, TV ligada ou microfone ruim causam falhas e ativações falsas. Fones ajudam.
+- Bipe e resposta falada só no Windows. O microfone precisa estar liberado em *Configurações › Privacidade › Microfone*.
+- Esta parte depende de microfone e foi testada **só com áudio simulado**; se algo se comportar diferente no seu PC, me conte.
 
 ## Como ele enxerga e controla o mouse
 
@@ -134,6 +149,7 @@ permissions.py     o que pede permissão e o que não pede
 workspace.py       pasta de projetos, comandos e git com travas
 pc_control.py      abrir apps, tela, teclado, mouse
 spotify_control.py Spotify (API oficial)
+wake.py            ativação por voz (frase de chamada, gravação, resposta falada)
 automation.py      rotina de e-mails e agenda em segundo plano
 main.py            comandos de terminal (setup, triagem, memória...)
 tests/             testes automáticos (não chamam Gemini nem Google)
