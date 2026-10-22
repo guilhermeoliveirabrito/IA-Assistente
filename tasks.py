@@ -45,6 +45,10 @@ class TaskError(Exception):
     pass
 
 
+class TaskNotFound(TaskError):
+    pass
+
+
 def _check_id(tid):
     if not isinstance(tid, str) or not ID_RE.match(tid):
         raise TaskError("Tarefa inválida.")
@@ -134,7 +138,7 @@ class TaskManager:
         _check_id(tid)
         with self._lock:
             if tid not in self.tasks:
-                raise TaskError("Tarefa não encontrada.")
+                raise TaskNotFound("Tarefa não encontrada.")
             return self.public(self.tasks[tid], with_contents=True)
 
     def pending_approvals(self):
@@ -194,7 +198,7 @@ class TaskManager:
         with self._lock:
             task = self.tasks.get(tid)
             if not task:
-                raise TaskError("Tarefa não encontrada.")
+                raise TaskNotFound("Tarefa não encontrada.")
             if task["status"] in FINAL:
                 return self.public(task)
             ev = self._stops.get(tid)
@@ -216,7 +220,7 @@ class TaskManager:
         with self._lock:
             task = self.tasks.get(tid)
             if not task:
-                raise TaskError("Tarefa não encontrada.")
+                raise TaskNotFound("Tarefa não encontrada.")
             if task["status"] not in ("paused_quota", "paused_budget", "stopped", "failed"):
                 raise TaskError("Esta tarefa não está pausada.")
             if extra_budget:
@@ -238,7 +242,7 @@ class TaskManager:
         with self._lock:
             task = self.tasks.get(tid)
             if not task:
-                raise TaskError("Tarefa não encontrada.")
+                raise TaskNotFound("Tarefa não encontrada.")
             if task["status"] not in ("waiting_user", "stopped", "paused_budget", "paused_quota", "failed", "done"):
                 raise TaskError("Esta tarefa não está esperando resposta.")
             task["contents"].append({"role": "user", "parts": [{"text": text[:MAX_PROMPT]}]})
