@@ -377,7 +377,7 @@
     for (const a of S.approvals) {
       const inTask = !!a.task;
       const always = inTask ? "Permitir nesta tarefa" : `Permitir por ${win} min`;
-      const canAlways = inTask || !["tela", "entrada", "comandos", "git_push"].includes(a.category);
+      const canAlways = a.category !== "regra" && (inTask || !["tela", "entrada", "comandos", "git_push", "regra"].includes(a.category));
       const taskTitle = inTask ? ((S.tasks.find((t) => t.id === a.task) || {}).title || "tarefa") : "";
       box.append(h("div", { class: "confirm " + (a.risk === "high" ? "high" : ""), role: "alertdialog", "aria-label": "Pedido de permissão" },
         h("div", { class: "top" }, h("span", { class: "risk " + a.risk, text: a.risk === "high" ? "Risco alto" : a.risk === "medium" ? "Risco médio" : "Risco baixo" }), h("span", { text: a.categoryLabel || "Permissão" }), inTask ? h("span", { style: "color:var(--faint)", text: "· " + taskTitle }) : null),

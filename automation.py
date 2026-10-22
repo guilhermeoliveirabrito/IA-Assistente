@@ -63,9 +63,16 @@ class Automation:
         self._stop = threading.Event()
         self._thread = None
 
+    @property
+    def running(self) -> bool:
+        return bool(self._thread and self._thread.is_alive())
+
     def start(self):
+        if self.running:
+            return True
         if not google_ready():
             return False
+        self._stop.clear()
         import schedule
 
         s = self.cfg.get("automatico") or {}

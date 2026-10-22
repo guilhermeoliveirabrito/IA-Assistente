@@ -222,6 +222,18 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(a["urls"], [])
         self.assertEqual(a["code"], self.token)
 
+    def test_google_sem_credenciais_explica_o_que_fazer(self):
+        st = self.req("GET", "/api/state")[1]
+        self.assertEqual(st["google"], {"credentials": False, "connected": False, "running": False})
+        status, r, _ = self.req("POST", "/api/google/connect")
+        self.assertEqual(status, 400)
+        self.assertIn("credentials.json", r["error"])
+
+    def test_modo_autonomo_aparece_no_estado_e_nos_ajustes(self):
+        self.assertTrue(self.req("GET", "/api/state")[1]["autonomous"])
+        self.req("POST", "/api/settings", {"changes": {"pc.modo_autonomo": False}})
+        self.assertFalse(self.req("GET", "/api/state")[1]["autonomous"])
+
     def test_json_invalido(self):
         status, _, _ = self.req("POST", "/api/chat", raw=b"{nao", headers={"Content-Type": "application/json"})
         self.assertEqual(status, 400)

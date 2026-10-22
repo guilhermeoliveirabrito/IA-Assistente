@@ -23,6 +23,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import activity
+import automation
 import ai
 import bus as busmod
 import chatsvc
@@ -102,9 +103,11 @@ class App:
         memory.ensure()
         self.tasks = tasks.TaskManager(cfg, bus=self.bus, notifier=self.notifier, window_hooks=self.window_hooks)
         self.chat = chatsvc.ChatService(cfg, self.bus, self.window_hooks, self.notifier)
+        self.automation = automation.Automation(cfg)
         self.started = time.time()
 
     def shutdown(self):
+        self.automation.stop()
         self.chat.shutdown()
         self.tasks.shutdown()
 
@@ -138,6 +141,9 @@ class App:
             "profiles": permissions.PROFILE_LABELS,
             "default_budget": int((cfg.get("tarefas") or {}).get("orcamento_de_requisicoes", 60)),
             "access": (cfg.get("app") or {}).get("acesso", "local"),
+            "google": {"credentials": Path("credentials.json").exists(), "connected": automation.google_ready(),
+                       "running": self.automation.running},
+            "autonomous": bool((cfg.get("pc") or {}).get("modo_autonomo", False)),
             "permission_window_minutes": (cfg.get("pc") or {}).get("janela_de_permissao_minutos", 10),
         }
 
@@ -162,6 +168,25 @@ class App:
         if not isinstance(name, str) or not MEMORY_NAME.match(name) or name in CORE_MEMORY:
             raise HTTPError(400, "Só é possível apagar arquivos extras (não perfil, regras ou notas).")
         (memory.MEMORY_DIR / name).unlink(missing_ok=True)
+
+    # ---- google (gmail + agenda) ------------------------------------------------------
+
+    def google_connect(self):
+        if not Path("credentials.json").exists():
+            raise HTTPError(400, "Falta o arquivo credentials.json na pasta do projeto. Veja o passo 4 do README "
+                                 "(criar o acesso no Google Cloud).")
+
+        def go():
+            try:
+                import google_auth
+
+                google_auth.get_credentials()          # abre o navegador para você entrar e autorizar
+                self.automation.start()
+                self.bus.publish({"type": "toast", "kind": "ok", "text": "Google conectado. Gmail e Agenda ligados."})
+            except BaseException as e:                  # inclui o SystemExit do login
+                self.bus.publish({"type": "toast", "kind": "error", "text": f"Google: {e}"})
+
+        threading.Thread(target=go, daemon=True).start()
 
     # ---- spotify ---------------------------------------------------------------------
 
@@ -684,6 +709,12 @@ def r_notify_test(h, q):
         raise HTTPError(400, "Crie um tópico de avisos primeiro.")
     ok = h.app.notifier.notify("pronta", "Teste do assistente", "Se você recebeu isto, os avisos estão funcionando.")
     h._json({"sent": ok})
+
+
+@route("POST", "/api/google/connect")
+def r_google(h, q):
+    h.app.google_connect()
+    h._json({"ok": True})
 
 
 @route("POST", "/api/spotify/connect")

@@ -49,9 +49,9 @@ Pronto: já dá para conversar, mandar arquivos e imagens e criar tarefas. O res
 1. Em https://console.cloud.google.com crie um projeto e ative a **Gmail API** e a **Google Calendar API**.
 2. Em "Tela de consentimento OAuth": tipo **Externo** e, em "Usuários de teste", adicione o seu e-mail.
 3. Em "Credenciais" crie um **ID do cliente OAuth** do tipo **App para computador**, baixe o JSON e salve como `credentials.json` na pasta do projeto.
-4. Rode `python main.py setup` e autorize no navegador (o aviso de "app não verificado" é o seu próprio app: Avançado > continuar).
+4. Abra o app, vá em **Ajustes › Gmail e Agenda** e clique em **Conectar Google**. Autorize no navegador que abrir (o aviso de "app não verificado" é o seu próprio app: Avançado > continuar). Se preferir o terminal: `python main.py setup`.
 
-Com o login feito, o app liga sozinho a rotina de e-mails e agenda em segundo plano. Para revisar o que a IA quer mandar para a lixeira: `python main.py aprovar`.
+Com o login feito, o app liga sozinho a rotina de e-mails e agenda em segundo plano, e você também pode pedir no chat ("resuma meus e-mails"). Para revisar o que a IA quer mandar para a lixeira: `python main.py aprovar`.
 
 ### 5. Spotify (opcional, precisa de Premium)
 1. Em https://developer.spotify.com/dashboard crie um app.
@@ -70,7 +70,11 @@ Em **Tarefas › Nova tarefa** você escolhe o que ele pode fazer sozinho:
 - **Projeto**: também cria arquivos, roda comandos de desenvolvimento permitidos, abre apps e envia ao GitHub (só para os repositórios que você listou).
 - **Controle total**: também usa tela, teclado e mouse (a janela do app se esconde enquanto isso).
 
-Ações de risco alto (comandos, tela/teclado/mouse, `git push`) **sempre pedem a sua aprovação**, no app ou por aviso no celular. Se você não responder no tempo configurado, o pedido é negado e a tarefa segue por outro caminho. Cada tarefa tem um **orçamento de requisições** para não gastar a cota do dia inteira; ao acabar, ela pausa e espera você liberar mais.
+(Com o modo autônomo ligado, que é o padrão, essa escolha some: ele já pode tudo isso.)
+
+Por padrão o app roda em **modo autônomo**: ele usa o PC (abrir apps, tela, teclado, mouse, comandos) **sem pedir permissão** e você vê tudo depois no **Histórico**. Ele só para e pergunta se uma ação for **contra uma regra que você escreveu** em Memória › Regras (por exemplo, "nunca apague fotos"). Para voltar a ser perguntado a cada ação, desligue o modo autônomo em Ajustes › Permissões; aí valem os perfis acima, e ações de risco alto (comandos, tela/teclado/mouse, `git push`) pedem aprovação, no app ou por aviso no celular.
+
+As travas técnicas continuam sempre ligadas, no modo autônomo também: comandos só rodam na pasta de projetos e só com programas da lista permitida, e o `git push` só vai para os repositórios que você listou. Elas bloqueiam em vez de perguntar. Cada tarefa tem um **orçamento de requisições** para não gastar a cota do dia inteira; ao acabar, ela pausa e espera você liberar mais.
 
 ### E se a cota gratuita acabar?
 - O app tenta primeiro os **modelos reserva** (a cota gratuita é separada por modelo).

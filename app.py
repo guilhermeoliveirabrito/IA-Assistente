@@ -9,7 +9,6 @@ import threading
 import time
 import webbrowser
 
-import automation
 import gemini
 import server
 import settings
@@ -42,11 +41,11 @@ def main(argv=None):
             webbrowser.open(f"http://127.0.0.1:{port}/")
         return 1
 
-    auto = automation.Automation(cfg)
+    auto = srv.app.automation
     if auto.start():
         print("Rotina de e-mails e agenda ligada.")
     else:
-        print("Rotina de e-mails e agenda desligada (faça `python main.py setup` para entrar no Google).")
+        print("Rotina de e-mails e agenda desligada (conecte em Ajustes › Gmail e Agenda).")
 
     print(f"Assistente em http://127.0.0.1:{srv.port}/")
     if srv.mode == "rede":

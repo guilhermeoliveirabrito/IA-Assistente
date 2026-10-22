@@ -125,13 +125,14 @@
       const title = h("input", { type: "text", maxlength: "80", placeholder: "Opcional" });
       const prompt = h("textarea", { class: "field", style: "min-height:130px", placeholder: "Ex.: Crie um site de portfólio em HTML e CSS, salve em uma pasta nova e suba para o meu GitHub." });
       const budget = h("input", { type: "number", min: "1", max: "1000", value: String(S.state.default_budget || 60) });
-      let profile = Object.keys(profiles).includes("projeto") ? "projeto" : Object.keys(profiles)[0];
+      const auto = !!S.state.autonomous;
+      let profile = auto ? "total" : Object.keys(profiles).includes("projeto") ? "projeto" : Object.keys(profiles)[0];
       const opts = Object.entries(profiles).map(([id, label]) => {
         const [name, desc] = splitLabel(label);
         return h("label", { class: "profile-opt" }, h("input", { type: "radio", name: "profile", value: id, checked: id === profile, onchange: () => { profile = id; } }), h("div", {}, h("b", { text: name }), h("span", { text: desc })));
       });
       const body = h("div", {}, h("label", { class: "f" }, h("span", { text: "O que fazer" }), prompt), h("label", { class: "f" }, h("span", { text: "Título" }), title),
-        h("div", { style: "margin-bottom:12px" }, h("div", { style: "font-size:13px;color:var(--muted);margin-bottom:6px", text: "O que ele pode fazer sozinho" }), h("div", { style: "display:flex;flex-direction:column;gap:8px" }, opts)),
+        auto ? h("p", { class: "desc", text: "Modo autônomo ligado: ele faz tudo sozinho, sem pedir permissão, e só para se algo for contra uma regra sua." }) : h("div", { style: "margin-bottom:12px" }, h("div", { style: "font-size:13px;color:var(--muted);margin-bottom:6px", text: "O que ele pode fazer sozinho" }), h("div", { style: "display:flex;flex-direction:column;gap:8px" }, opts)),
         h("label", { class: "f" }, h("span", { text: "Orçamento de requisições" }), budget, h("small", { text: "Limite de chamadas à IA para esta tarefa, para ela não gastar a cota do dia inteira." })));
       A.modal({ title: "Nova tarefa", body, wide: true, actions: [{ label: "Cancelar" }, { label: "Começar", kind: "primary", run: async () => {
         try { const t = await api("POST", "/api/tasks", { title: title.value, prompt: prompt.value, profile, budget: Number(budget.value) }); this.sel = t.id; toast("Tarefa na fila.", "ok"); } catch (e) { toast(e.message, "error"); return false; }
@@ -238,7 +239,7 @@
     ["Geral", null, [["app.seu_nome", "Seu nome", "text", "Usado na saudação."], ["ia.modelo", "Modelo do Gemini", "text", "Se esse modelo não estiver disponível, o assistente usa os reservas."], ["ia.modelos_reserva", "Modelos reserva", "list", "Um por linha. Usados quando a cota do principal acaba."]]],
     ["Limites da cota", "O Google não informa quanto sobrou, então o app conta por conta própria. Ajuste conforme a sua conta.", [["limites.requisicoes_por_dia", "Requisições por dia", "number"], ["limites.requisicoes_por_minuto", "Requisições por minuto", "number"], ["limites.tokens_por_minuto", "Tokens por minuto", "number"], ["limites.fuso_renovacao", "Fuso da renovação", "text", "A cota gratuita do Google renova à meia-noite do Pacífico (America/Los_Angeles)."], ["limites.hora_renovacao", "Hora da renovação", "text", "No formato 00:00."]]],
     ["Tarefas autônomas", null, [["tarefas.orcamento_de_requisicoes", "Orçamento padrão por tarefa", "number"], ["tarefas.espera_de_aprovacao_minutos", "Esperar sua aprovação por (min)", "number", "Passado esse tempo, o pedido é negado e a tarefa segue por outro caminho."], ["tarefas.retomar_apos_renovacao", "Retomar sozinho depois que a cota renovar", "bool"]]],
-    ["Permissões", "Sem confirmação, só ações de baixo risco acontecem. Tela, teclado, comandos e envio ao GitHub sempre perguntam no chat.", [["pc.confiar_sem_perguntar", "Fazer sem perguntar", "multi", "", [["abrir", "Abrir apps e sites"], ["projeto_escrever", "Escrever na pasta de projetos"]]], ["pc.janela_de_permissao_minutos", "Duração de “permitir por um tempo” (min)", "number"]]],
+    ["Permissões", "Com o modo autônomo desligado, tela, teclado, comandos e envio ao GitHub sempre perguntam no chat.", [["pc.modo_autonomo", "Modo autônomo: usar o PC sem pedir permissão", "bool", "Ele age e você vê tudo no Histórico. Só pergunta se a ação for contra uma regra que você escreveu em Memória › Regras."], ["pc.confiar_sem_perguntar", "Se o modo autônomo estiver desligado, fazer sem perguntar", "multi", "", [["abrir", "Abrir apps e sites"], ["projeto_escrever", "Escrever na pasta de projetos"]]], ["pc.janela_de_permissao_minutos", "Duração de “permitir por um tempo” (min)", "number"]]],
     ["Projetos", null, [["projetos.pasta", "Pasta dos projetos", "text", "Onde o assistente cria e edita projetos."], ["projetos.repos_permitidos", "Repositórios onde ele pode enviar (push)", "list", "Um por linha, no formato usuario/repositorio. Vazio = nunca envia."], ["arquivos.pastas_permitidas", "Pastas que ele pode ler", "list", "Um caminho por linha."]]],
     ["Histórico", null, [["historico.dias_de_retencao", "Apagar o histórico depois de (dias)", "number"]]],
   ];
@@ -275,7 +276,7 @@
           await A.refreshState(); this.paint();
         } catch (e) { toast(e.message, "error"); ev.currentTarget.disabled = false; }
       } });
-      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.phoneCard(), this.notifyCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
+      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.phoneCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
     },
 
     field(inputs, key, label, type, help, options) {
@@ -337,6 +338,23 @@
           cb.addEventListener("change", async () => { try { const r = await api("POST", "/api/settings", { changes: { [k]: cb.checked } }); this.values = r.values; } catch (e) { toast(e.message, "error"); cb.checked = !cb.checked; } });
           return h("label", { class: "switch", style: "margin-bottom:8px" }, cb, h("span", { text: l }));
         })));
+      }
+      return card;
+    },
+
+    googleCard() {
+      const g = S.state.google || {};
+      const card = h("div", { class: "card" }, h("h3", { text: "Gmail e Agenda" }));
+      if (g.connected) {
+        card.append(h("p", { class: "desc", text: g.running ? "Conectado. A triagem de e-mails (a cada 15 min), o resumo diário e a análise da agenda rodam sozinhos enquanto o app estiver aberto." : "Conectado. Reabra o app para ligar a rotina automática." }),
+          h("p", { class: "desc", style: "margin:0", text: "Para pedir agora, é só falar no chat: “resuma meus e-mails” ou “como está minha agenda?”." }));
+      } else if (!g.credentials) {
+        card.append(h("p", { class: "desc", style: "margin:0" }, "Falta o arquivo ", h("code", { text: "credentials.json" }), " na pasta do projeto. Ele é criado no Google Cloud (grátis) — veja o passo 4 do README. Depois volte aqui e clique em Conectar."));
+      } else {
+        card.append(h("p", { class: "desc", text: "Vai abrir o navegador para você entrar na sua conta Google e autorizar. (Se aparecer “app não verificado”, é o seu próprio app: Avançado › continuar.)" }),
+          h("button", { class: "btn primary", type: "button", text: "Conectar Google", onclick: async () => {
+            try { await api("POST", "/api/google/connect"); toast("Autorize no navegador que abriu…"); } catch (e) { toast(e.message, "error"); }
+          } }));
       }
       return card;
     },
