@@ -22,11 +22,12 @@ _sleep = time.sleep
 class GeminiError(Exception):
     """kind: quota | model | auth | blocked | network | server | other"""
 
-    def __init__(self, message, status=None, kind="other", retry_after=None):
+    def __init__(self, message, status=None, kind="other", retry_after=None, quota=None):
         super().__init__(message)
         self.status = status
         self.kind = kind
         self.retry_after = retry_after
+        self.quota = quota          # em erro de cota: {"scope": day|minute, "kind": requests|tokens, "limit": int, "model": str}
 
 
 def load_dotenv(path: str = ".env"):
@@ -74,6 +75,24 @@ def _parse_retry_delay(error_obj: dict):
     return None
 
 
+def _parse_quota(error_obj: dict):
+    """Lê do erro 429 qual limite foi atingido (por dia/minuto, requisições/tokens) e o valor REAL dele."""
+    for d in error_obj.get("details", []) or []:
+        for v in d.get("violations", []) or []:
+            qid = str(v.get("quotaId") or v.get("quotaMetric") or "").lower()
+            if not qid:
+                continue
+            scope = "day" if "perday" in qid or "per_day" in qid else "minute" if "perminute" in qid or "per_minute" in qid else None
+            kind = "tokens" if "token" in qid else "requests"
+            try:
+                limit = int(v.get("quotaValue"))
+            except (TypeError, ValueError):
+                limit = None
+            return {"scope": scope, "kind": kind, "limit": limit, "id": v.get("quotaId"),
+                    "model": (v.get("quotaDimensions") or {}).get("model")}
+    return None
+
+
 def error_from_response(status: int, body: str) -> GeminiError:
     try:
         err = json.loads(body).get("error", {})
@@ -83,7 +102,14 @@ def error_from_response(status: int, body: str) -> GeminiError:
     code = err.get("status", "")
     low = message.lower()
     if status == 429 or code == "RESOURCE_EXHAUSTED":
-        return GeminiError("Limite de uso do Gemini atingido. " + message, status, "quota", _parse_retry_delay(err))
+        quota = _parse_quota(err)
+        extra = ""
+        if quota:
+            what = ("requisições" if quota["kind"] == "requests" else "tokens") + (
+                " por dia" if quota["scope"] == "day" else " por minuto" if quota["scope"] == "minute" else "")
+            extra = f" (limite de {what}" + (f": {quota['limit']}" if quota["limit"] else "") + ")"
+        return GeminiError("Limite de uso do Gemini atingido" + extra + ". " + message, status, "quota",
+                           _parse_retry_delay(err), quota)
     if status == 404 or "is not found" in low or "not supported for generatecontent" in low:
         return GeminiError(f"Modelo indisponível: {message}", status, "model")
     if status in (401, 403) or "api key" in low:
@@ -128,17 +154,24 @@ def _open(model: str, method: str, payload: dict, stream: bool, attempts: int = 
 
 def _open_with_fallback(models, method, payload, stream):
     last = None
-    for i, model in enumerate(models):
+    ordered = usage.prefer_order(models)
+    # os que o Google acabou de recusar por cota e ficaram para o fim da fila também contam como "pulados"
+    pre_skipped = [(m, "quota") for m in usage.blocked_models(models)]
+    skipped = []                 # (modelo, motivo) dos que não puderam atender antes do escolhido
+    for i, model in enumerate(ordered):
         try:
             # com reservas disponíveis, não perde tempo insistindo num modelo sobrecarregado
-            return model, _open(model, method, payload, stream, attempts=3 if i == len(models) - 1 else 1)
+            resp = _open(model, method, payload, stream, attempts=3 if i == len(ordered) - 1 else 1)
         except GeminiError as e:
             last = e
             if e.kind == "quota":
-                usage.record_quota_error(e.retry_after)
+                usage.record_quota_error(e.retry_after, model=model, quota=e.quota)
             if e.kind in ("quota", "model", "server"):
+                skipped.append((model, e.kind))
                 continue  # cota é por modelo e a sobrecarga costuma ser de um modelo só: tenta o reserva
             raise
+        usage.note_model(model, skipped + [p for p in pre_skipped if p[0] != model and p not in skipped])
+        return model, resp
     raise last
 
 

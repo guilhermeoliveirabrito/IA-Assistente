@@ -132,6 +132,46 @@ class GeminiTest(unittest.TestCase):
             gemini.generate(self.user(), ["a", "b"])
         self.assertEqual(cm.exception.kind, "server")
 
+    def test_429_traz_o_limite_real_e_o_app_aprende(self):
+        details = [{"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [{
+            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+            "quotaDimensions": {"model": "principal", "location": "global"}, "quotaValue": "20"}]}]
+        self.queue += [http_error(429, "quota", "RESOURCE_EXHAUSTED", details), ok_response("do reserva")]
+        obj = gemini.generate(self.user(), ["principal", "reserva"])
+        self.assertEqual(obj["_model"], "reserva")
+        s = usage.summary({"ia": {"modelo": "principal", "modelos_reserva": ["reserva"]}})
+        p, r = s["models"]
+        self.assertEqual((p["status"], p["requests_day"]["limit"], p["requests_day"]["limit_source"]), ("esgotado", 20, "Google"))
+        self.assertEqual((r["status"], r["requests_day"]["used"]), ("em_uso", 1))
+        self.assertEqual(s["current_model"], "reserva")
+        self.assertIn("a cota acabou", s["switches"][0]["reason"])
+
+    def test_modelo_esgotado_nao_e_tentado_primeiro_na_proxima(self):
+        usage.record_quota_error(None, model="principal", quota={"scope": "day", "kind": "requests", "limit": 20})
+        self.queue += [ok_response("direto")]
+        obj = gemini.generate(self.user(), ["principal", "reserva"])
+        self.assertEqual(obj["_model"], "reserva")
+        self.assertEqual(len(self.calls), 1)                 # nem gastou uma tentativa no esgotado
+        self.assertIn("reserva:generateContent", self.calls[0][0])
+
+    def test_se_todos_estao_marcados_esgotados_ainda_tenta(self):
+        for m in ("a", "b"):
+            usage.record_quota_error(None, model=m, quota={"scope": "day", "kind": "requests", "limit": 20})
+        self.queue += [ok_response("voltou")]                # a marca pode estar velha: tenta mesmo assim
+        self.assertEqual(gemini.generate(self.user(), ["a", "b"])["_model"], "a")
+
+    def test_voltar_ao_principal_e_registrado(self):
+        usage.note_model("reserva")
+        self.queue += [ok_response()]
+        gemini.generate(self.user(), ["principal", "reserva"])
+        sw = usage.summary({})["switches"][0]
+        self.assertEqual((sw["from"], sw["to"]), ("reserva", "principal"))
+
+    def test_429_sem_detalhes_continua_funcionando(self):
+        self.queue += [http_error(429, "quota"), ok_response("ok")]
+        self.assertEqual(gemini.generate(self.user(), ["a", "b"])["_model"], "b")
+
     def test_sem_internet(self):
         self.queue += [urllib.error.URLError("sem rede")] * 3
         with self.assertRaises(gemini.GeminiError) as cm:
