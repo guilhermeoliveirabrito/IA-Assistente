@@ -16,6 +16,9 @@ ia:
   raciocinio_pc: minimal
   # Ao mexer no PC cada passo é curto; estes modelos (cota alta: 500/dia) entram na frente para ganhar velocidade.
   # Deixe [] para usar sempre o modelo principal (mais esperto, porém 20 usos por dia).
+  # Quem atende, em ordem. Se o Gemini não puder (cota, fora do ar, sem chave), vai para o próximo que tiver chave
+  # (coloque as chaves em Ajustes › Provedores de IA). Inclua "ollama" para usar um modelo local, sem limite.
+  ordem_provedores: [gemini, groq, cerebras, openrouter, mistral, github, nvidia, deepseek]
   modelos_pc: [gemini-3.5-flash-lite, gemini-3.1-flash-lite]
 
 # Limites usados pelo medidor de consumo do app. O Gemini não informa a cota restante,

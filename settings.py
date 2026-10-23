@@ -10,6 +10,8 @@ from pathlib import Path
 
 import yaml
 
+import providers
+
 SETTINGS_FILE = Path("data") / "settings.json"
 CONFIG_FILE = Path("config.yaml")
 
@@ -85,6 +87,7 @@ FIELDS = {
     "ia.modelo": (_text(60, r"^[\w.\-]+$", allow_empty=False), False),
     "ia.raciocinio": (_choice("auto", "minimal", "low", "medium", "high"), False),
     "ia.raciocinio_pc": (_choice("minimal", "low", "medium", "high", "auto"), False),
+    "ia.ordem_provedores": (_list(12, _choice("gemini", *providers.PRESETS)), False),
     "ia.modelos_reserva": (_list(5, _text(60, r"^[\w.\-]+$", allow_empty=False)), False),
     "limites.requisicoes_por_dia": (_num(1, 1_000_000), False),
     "limites.requisicoes_por_minuto": (_num(1, 100_000), False),
@@ -116,6 +119,9 @@ FIELDS = {
     "voz.transcricao": (_choice("gemini", "local"), False),
     "spotify.porta_login": (_num(1024, 65535), True),
 }
+for _pid in providers.PRESETS:            # modelo de cada provedor reserva (os catálogos deles mudam com o tempo)
+    FIELDS[f"provedores.{_pid}.modelo"] = (_text(100, r"^[\w.\-:/]+$"), False)
+FIELDS["provedores.ollama.url"] = (_text(120, r"^https?://[\w.\-:/]+$", allow_empty=False), False)
 
 
 def _set(cfg: dict, dotted: str, value):

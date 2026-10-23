@@ -406,3 +406,17 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 a.btn:visited { color: inherit; }
 .thinking .el { color: var(--faint); font-variant-numeric: tabular-nums; }
 .thinking .el.slow { color: var(--warn); }
+
+/* Provedores de IA */
+.prov-row { border: 1px solid var(--line, rgba(255,255,255,.1)); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.prov-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.prov-mv { margin-left: auto; display: flex; gap: 4px; }
+.prov-tag { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: rgba(80,200,120,.16); color: #6fdc8c; }
+.prov-tag.paid { background: rgba(255,190,70,.16); color: #ffc45c; }
+.prov-st { font-size: 12px; color: var(--muted); }
+.prov-st.ok { color: #6fdc8c; }
+.prov-edit { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.prov-edit input { flex: 1 1 180px; min-width: 0; }
+.prov-out { display: block; margin-top: 6px; }
+.prov-out.good { color: #6fdc8c; }
+.prov-out.bad { color: #ff8c8c; }

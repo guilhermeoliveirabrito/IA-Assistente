@@ -31,6 +31,7 @@ import gemini
 import memory
 import notify
 import permissions
+import providers
 import settings
 import spotify_control
 import storage
@@ -189,6 +190,7 @@ class App:
                 key_ok = True
             except gemini.GeminiError:
                 key_ok = False
+        key_ok = key_ok or bool(providers.extras(cfg))      # sem Gemini, mas com outro provedor configurado, segue funcionando
         t = self.tasks.list()
         counts = {}
         for item in t:
@@ -770,6 +772,30 @@ def r_settings_save(h, q):
     if any(k.startswith("voz.") for k in changed):
         h.app.voice.restart() if h.app.voice.enabled else h.app.voice.stop()
     h._json({"changed": changed, "restart": restart, "values": settings.current_values(h.app.cfg)})
+
+
+@route("GET", "/api/providers")
+def r_providers(h, q):
+    h._json({"providers": providers.status(h.app.cfg), "order": providers.order(h.app.cfg)})
+
+
+@route("POST", "/api/providers/key")
+def r_provider_key(h, q):
+    b = h._body()
+    try:
+        providers.save_key(str(b.get("id") or ""), b.get("key"))
+    except ValueError as e:
+        raise HTTPError(400, str(e))
+    h._json({"providers": providers.status(h.app.cfg)})
+
+
+@route("POST", "/api/providers/test")
+def r_provider_test(h, q):
+    pid = str(h._body().get("id") or "")
+    try:
+        h._json(providers.ping(h.app.cfg, pid))
+    except (gemini.GeminiError, ValueError) as e:
+        h._json({"ok": False, "erro": str(e)})
 
 
 @route("GET", "/api/access")

@@ -404,7 +404,7 @@
           await A.refreshState(); this.paint();
         } catch (e) { toast(e.message, "error"); ev.currentTarget.disabled = false; }
       } });
-      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.phoneCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
+      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.providersCard(), this.phoneCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
     },
 
     field(inputs, key, label, type, help, options) {
@@ -450,6 +450,62 @@
         a.urls.forEach((u) => card.append(h("div", { class: "kv", style: "margin-top:6px" }, h("code", { style: "overflow-wrap:anywhere", text: u }))));
         card.append(h("p", { class: "desc", style: "margin-top:12px", text: "No iPhone, abra um desses endereços no Safari (a mesma rede Wi-Fi) e use Compartilhar › Adicionar à Tela de Início. Para usar fora de casa com segurança (e o microfone), instale o Tailscale no PC e no iPhone e abra o endereço do Tailscale com o mesmo código. Nunca exponha a porta direto na internet." }));
       } else card.append(h("p", { class: "desc", style: "margin:0", text: "Desligado: só este computador acessa." }));
+      return card;
+    },
+
+    providersCard() {
+      const card = h("div", { class: "card" }, h("h3", { text: "Provedores de IA" }),
+        h("p", { class: "desc", text: "O Gemini atende primeiro. Se ele acabar a cota, cair ou ficar sem chave, o assistente passa sozinho para o próximo da fila que tiver chave, sem perder a conversa. Marque quem pode ser usado, ajuste a ordem com as setas e cole a chave de cada um (ela fica só no arquivo .env do seu PC). Os limites grátis mudam: confira no site de cada um." }));
+      const list = h("div", { class: "prov-list" }, h("p", { class: "desc", text: "Carregando…" }));
+      card.append(list);
+      let rows = [];                                     // { p, on }
+      const saveOrder = async () => {
+        const order = rows.filter((r) => r.on).map((r) => r.p.id);
+        if (!order.length) { toast("Deixe pelo menos um provedor marcado.", "error"); return; }
+        try { const r = await api("POST", "/api/settings", { changes: { "ia.ordem_provedores": order } }); this.values = r.values; paintRows(); } catch (e) { toast(e.message, "error"); }
+      };
+      const paintRows = () => {
+        list.replaceChildren(...rows.map((r, i) => {
+          const p = r.p;
+          const key = h("input", { type: "password", placeholder: p.local ? "não precisa de chave" : (p.configurada ? "chave guardada (cole outra para trocar)" : "cole a chave aqui"), autocomplete: "off", disabled: p.local });
+          const model = h("input", { type: "text", value: p.modelo || "", "aria-label": "Modelo de " + p.nome, spellcheck: "false" });
+          const status = h("span", { class: "prov-st " + (p.configurada ? "ok" : ""), text: p.configurada ? "pronto" : "sem chave" });
+          const out = h("small", { class: "prov-out" });
+          const cb = h("input", { type: "checkbox", checked: r.on });
+          cb.addEventListener("change", () => { r.on = cb.checked; saveOrder(); });
+          const move = (d) => () => { const j = i + d; if (j < 0 || j >= rows.length) return; [rows[i], rows[j]] = [rows[j], rows[i]]; saveOrder(); };
+          const row = h("div", { class: "prov-row" },
+            h("div", { class: "prov-head" },
+              h("label", { class: "switch", style: "margin:0" }, cb, h("strong", { text: p.nome })),
+              p.gratis ? h("span", { class: "prov-tag", text: "grátis" }) : h("span", { class: "prov-tag paid", text: "pago" }),
+              p.visao ? h("span", { class: "prov-tag", text: "vê imagens" }) : null, status,
+              h("span", { class: "prov-mv" }, h("button", { class: "btn sm", type: "button", text: "↑", "aria-label": "Subir", onclick: move(-1) }), h("button", { class: "btn sm", type: "button", text: "↓", "aria-label": "Descer", onclick: move(1) }))),
+            h("small", { class: "desc", text: p.nota + " " }, h("a", { href: p.link, target: "_blank", rel: "noopener", text: "Pegar chave" })),
+            h("div", { class: "prov-edit" }, p.id === "gemini" ? null : model, p.local ? null : key,
+              h("button", { class: "btn sm", type: "button", text: "Salvar", onclick: async () => {
+                try {
+                  if (p.id !== "gemini" && model.value.trim() !== (p.modelo || "")) { const r = await api("POST", "/api/settings", { changes: { ["provedores." + p.id + ".modelo"]: model.value.trim() } }); this.values = r.values; }
+                  if (key.value.trim()) { await api("POST", "/api/providers/key", { id: p.id, key: key.value.trim() }); key.value = ""; }
+                  toast("Salvo.", "ok"); load();
+                } catch (e) { toast(e.message, "error"); } } }),
+              h("button", { class: "btn sm", type: "button", text: "Testar", onclick: async (ev) => {
+                const b = ev.currentTarget; b.disabled = true; out.textContent = "testando…";
+                try { const t = await api("POST", "/api/providers/test", { id: p.id }); out.textContent = t.ok ? `Funcionou (${t.segundos} s): ${t.resposta || "ok"}` : t.erro; out.className = "prov-out " + (t.ok ? "good" : "bad"); } catch (e) { out.textContent = e.message; out.className = "prov-out bad"; }
+                b.disabled = false; } })),
+            out);
+          return row;
+        }));
+      };
+      const load = async () => {
+        try {
+          const d = await api("GET", "/api/providers");
+          const byId = Object.fromEntries(d.providers.map((p) => [p.id, p]));
+          const used = d.order.map((id) => ({ p: byId[id], on: true })).filter((r) => r.p);
+          const rest = d.providers.filter((p) => !d.order.includes(p.id)).map((p) => ({ p, on: false }));
+          rows = used.concat(rest); paintRows();
+        } catch (e) { list.replaceChildren(h("p", { class: "desc", text: e.message })); }
+      };
+      load();
       return card;
     },
 

@@ -666,7 +666,7 @@
     const box = h("div", { class: "empty" },
       h("h2", { text: `${F.greeting()}${name ? ", " + name : ""}` }),
       h("p", { text: "Posso ler seus e-mails e agenda, entender arquivos e imagens, controlar o computador e trabalhar em projetos enquanto você está fora." }));
-    if (S.state && !S.state.gemini_key) box.append(h("div", { class: "alert warn", style: "max-width:460px;text-align:left" }, "Falta a chave do Gemini. Coloque ", h("code", { text: "GEMINI_API_KEY=..." }), " no arquivo ", h("code", { text: ".env" }), " e reabra o app."));
+    if (S.state && !S.state.gemini_key) box.append(h("div", { class: "alert warn", style: "max-width:460px;text-align:left" }, "Falta a chave do Gemini. Coloque ", h("code", { text: "GEMINI_API_KEY=..." }), " no arquivo ", h("code", { text: ".env" }), " e reabra o app (ou configure outro provedor em Ajustes › Provedores de IA)."));
     box.append(h("div", { class: "chips" }, SUGGESTIONS.map(([label, prompt]) => h("button", { class: "chip", type: "button", text: label, onclick: () => { textarea.value = prompt; autosize(); send(); } }))));
     return box;
   }

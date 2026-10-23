@@ -272,6 +272,28 @@ class ServerTest(unittest.TestCase):
         self.srv.app.voice_command("e agora toca rock")
         self.assertEqual(self.srv.app._voice_conv["id"], cid)
 
+    def test_provedores_rotas_chave_nunca_volta(self):
+        import providers
+
+        st, r, _ = self.req("GET", "/api/providers")
+        self.assertEqual(st, 200)
+        self.assertEqual(r["order"][0], "gemini")
+        self.assertFalse([p for p in r["providers"] if p["id"] == "groq"][0]["configurada"])
+        st, r, _ = self.req("POST", "/api/providers/key", {"id": "groq", "key": "gsk_segredo12345"})
+        self.assertEqual(st, 200)
+        self.assertNotIn("gsk_segredo12345", json.dumps(r))
+        self.assertTrue([p for p in r["providers"] if p["id"] == "groq"][0]["configurada"])
+        self.assertIn("GROQ_API_KEY=gsk_segredo12345", Path(".env").read_text())
+        self.assertEqual(self.req("POST", "/api/providers/key", {"id": "groq", "key": "x y"})[0], 400)
+        self.assertEqual(self.req("POST", "/api/providers/key", {"id": "ollama", "key": "abcdefgh12"})[0], 400)
+        # a ordem e o modelo passam pelos ajustes
+        st, r, _ = self.req("POST", "/api/settings", {"changes": {"ia.ordem_provedores": ["groq", "gemini"],
+                                                                  "provedores.groq.modelo": "llama-x"}})
+        self.assertEqual(st, 200)
+        self.assertEqual(self.req("GET", "/api/providers")[1]["order"], ["groq", "gemini"])
+        self.assertEqual(self.req("POST", "/api/settings", {"changes": {"ia.ordem_provedores": ["nada"]}})[0], 400)
+        os.environ.pop("GROQ_API_KEY", None)
+
     def test_rastreio_rotas_e_estado(self):
         import tracking
 
