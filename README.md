@@ -96,6 +96,14 @@ Para clicar, ele recebe uma foto da tela com uma **grade de números de 0 a 1000
 
 Enquanto usa tela, teclado e mouse ele **minimiza a janela do assistente** (para não digitar nela mesma) e a restaura ao terminar. Dá para desligar em Ajustes › Permissões. Se mover o mouse para um canto da tela, tudo é interrompido (trava de segurança do pyautogui), e o botão Parar do app também interrompe na hora.
 
+### Velocidade no controle do PC
+Cada passo (olhar a tela, escolher o clique) é uma chamada ao Gemini, então o tempo entre um passo e outro é quase todo o tempo "pensando" do modelo. Para acelerar:
+- **Raciocínio mínimo no controle do PC** (`ia.raciocinio_pc`, padrão `minimal`; só modelos Gemini 3). Nas conversas normais fica em `auto` (`ia.raciocinio`). Se a API recusar o parâmetro para algum modelo, o app tenta outra grafia e, por fim, segue sem ele.
+- **Várias ações por passo**: o modelo é orientado a pedir clique + digitar + enter de uma vez; só a última ação tira a foto da tela, e só a foto mais recente é enviada.
+- **Resposta travada é abandonada em 45 s** no controle do PC (o app tenta o próximo modelo) em vez de esperar 2 minutos.
+- **Sem desperdiçar chamadas**: se, pela contagem do app, um modelo já atingiu o limite por minuto ou por dia, a chamada vai direto ao próximo (com os limites reais do seu painel, os modelos de 5 por minuto passam a vez rápido para os de 15).
+- **Medidor de tempo**: enquanto pensa, a tela mostra os segundos ("Pensando… · 12 s", em amarelo após 30 s) e passos lentos ficam no Histórico dizendo se a demora foi do modelo ou das ações.
+
 ## Como funcionam as tarefas autônomas
 
 Em **Tarefas › Nova tarefa** você escolhe o que ele pode fazer sozinho:

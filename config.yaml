@@ -8,6 +8,12 @@ ia:
   modelos_reserva:
     - "gemini-3.6-flash"
     - "gemini-3.5-flash-lite"
+    - "gemini-3.1-flash-lite"
+  # Quanto o modelo "pensa" antes de responder (só modelos Gemini 3): minimal, low, medium, high ou auto.
+  # Pensar menos deixa cada passo MUITO mais rápido. No controle do PC, cada passo é só "olhar a tela e escolher o
+  # próximo clique", então o padrão lá é minimal. Nas conversas normais, auto (o modelo decide).
+  raciocinio: auto
+  raciocinio_pc: minimal
 
 # Limites usados pelo medidor de consumo do app. O Gemini não informa a cota restante,
 # então o app conta as chamadas e compara com estes números.
