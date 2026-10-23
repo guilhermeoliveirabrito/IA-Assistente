@@ -42,7 +42,7 @@ class Base(unittest.TestCase):
         self.script, self.sent = [], []
         self._stream = gemini.stream
 
-        def fake(contents, models, system=None, tools=None, temperature=0.2):
+        def fake(contents, models, system=None, tools=None, temperature=0.2, **kw):
             self.sent.append({"contents": [dict(c) for c in contents], "system": system})
             item = self.script.pop(0)
             if isinstance(item, Exception):
@@ -126,7 +126,7 @@ class SendTest(Base):
     def test_conversa_ocupada(self):
         gate = threading.Event()
 
-        def slow(contents, models, system=None, tools=None, temperature=0.2):
+        def slow(contents, models, system=None, tools=None, temperature=0.2, **kw):
             gate.wait(5)
             yield {"_model": "m"}
             for ch in text("ok"):
@@ -202,7 +202,7 @@ class ErrorTest(Base):
     def test_parar_resposta(self):
         gate = threading.Event()
 
-        def slow(contents, models, system=None, tools=None, temperature=0.2):
+        def slow(contents, models, system=None, tools=None, temperature=0.2, **kw):
             yield {"_model": "m"}
             yield text("começo ")[0]
             gate.wait(5)

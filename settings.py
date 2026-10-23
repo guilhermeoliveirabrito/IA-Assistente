@@ -83,6 +83,8 @@ FIELDS = {
     "app.acesso": (_choice("local", "rede"), True),
     "app.porta": (_num(1024, 65535), True),
     "ia.modelo": (_text(60, r"^[\w.\-]+$", allow_empty=False), False),
+    "ia.raciocinio": (_choice("auto", "minimal", "low", "medium", "high"), False),
+    "ia.raciocinio_pc": (_choice("minimal", "low", "medium", "high", "auto"), False),
     "ia.modelos_reserva": (_list(5, _text(60, r"^[\w.\-]+$", allow_empty=False)), False),
     "limites.requisicoes_por_dia": (_num(1, 1_000_000), False),
     "limites.requisicoes_por_minuto": (_num(1, 100_000), False),

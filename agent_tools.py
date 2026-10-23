@@ -39,6 +39,7 @@ class ToolContext:
         self.spotify = spotify or build_spotify(cfg)
         self.hooks = hooks or {}              # on_plan, on_step, on_finish, on_help, hide_window, show_window
         self.window_hidden = False
+        self.capture = True                   # False nas ações que não são a última do mesmo passo
         self.control = {"finished": None, "help": None}   # sinais para o motor do agente
 
     @property
@@ -276,8 +277,12 @@ def t_ver_regiao(ctx, a):
             "nota": "Zoom da região anexado. Os números amarelos continuam sendo as coordenadas da TELA INTEIRA (0 a 1000)."}
 
 
-def _com_captura(result: dict, espera: float = 0.7) -> dict:
-    """Depois de uma ação na tela, devolve junto uma captura nova: o modelo vê o resultado sem gastar outra chamada."""
+def _com_captura(ctx, result: dict, espera: float = 0.45) -> dict:
+    """Depois de uma ação na tela, devolve junto uma captura nova: o modelo vê o resultado sem gastar outra chamada.
+    Se o modelo pediu várias ações no mesmo passo, só a última tira a foto (as outras só esperam um instante)."""
+    if not getattr(ctx, "capture", True):
+        pc.wait(0.2)
+        return result
     pc.wait(espera)
     try:
         data, _ = pc.screenshot()
@@ -290,22 +295,22 @@ def _com_captura(result: dict, espera: float = 0.7) -> dict:
 
 def t_clicar(ctx, a):
     ctx.hide_window()
-    return _com_captura(pc.click(a["x"], a["y"], a.get("botao") or "left", a.get("cliques") or 1))
+    return _com_captura(ctx, pc.click(a["x"], a["y"], a.get("botao") or "left", a.get("cliques") or 1))
 
 
 def t_digitar(ctx, a):
     ctx.hide_window()
-    return _com_captura(pc.type_text(a["texto"]))
+    return _com_captura(ctx, pc.type_text(a["texto"]))
 
 
 def t_teclas(ctx, a):
     ctx.hide_window()
-    return _com_captura(pc.hotkey(a["combinacao"]))
+    return _com_captura(ctx, pc.hotkey(a["combinacao"]))
 
 
 def t_rolar(ctx, a):
     ctx.hide_window()
-    return _com_captura(pc.scroll(int(a["quantidade"])))
+    return _com_captura(ctx, pc.scroll(int(a["quantidade"])))
 
 
 def t_esperar(ctx, a):

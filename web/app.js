@@ -394,7 +394,15 @@
     if (sec >= 3600) return F.dur(sec);
     return `${Math.floor(sec / 60)}:${pad2(sec % 60)}`;
   }
+  function tickSince() {
+    document.querySelectorAll("[data-since]").forEach((el) => {
+      const s = Math.max(0, Math.round((Date.now() - Number(el.dataset.since)) / 1000));
+      el.textContent = s >= 5 ? ` · ${s} s` : "";
+      el.classList.toggle("slow", s >= 30);
+    });
+  }
   function tickChecks() {
+    tickSince();
     document.querySelectorAll("[data-next]").forEach((el) => { el.textContent = countdown(Number(el.dataset.next)); });
     const box = document.getElementById("side-checks");
     if (!box || !S.state) return;
@@ -738,7 +746,7 @@
     }
     if (!live) return;
     switch (e.type) {
-      case "thinking": live.label = live.tools.some((t) => t.ok === null) ? "Executando…" : live.text ? "Escrevendo…" : "Pensando…"; break;
+      case "thinking": live.since = e.since ? e.since * 1000 - (S.skew || 0) * 1000 : Date.now(); live.label = live.tools.some((t) => t.ok === null) ? "Executando…" : live.text ? "Escrevendo…" : "Pensando…"; break;
       case "delta": live.text += e.text; live.label = "Escrevendo…"; break;
       case "tool_start": live.tools.push({ id: e.id, summary: e.summary, ok: null, text: "" }); live.label = "Executando…"; break;
       case "tool_end": {
@@ -778,7 +786,7 @@
     if (live.text) liveEl.append(h("div", { class: "body prose", html: MD.render(live.text) }));
     if (live.info) liveEl.append(h("div", { class: "alert warn", text: live.info }));
     if (live.error) liveEl.append(h("div", { class: "err-box", text: live.error }));
-    else liveEl.append(h("div", { class: "thinking", role: "status" }, h("span", { class: "orb" }), h("span", { class: "lbl", text: live.label })));
+    else liveEl.append(h("div", { class: "thinking", role: "status" }, h("span", { class: "orb" }), h("span", { class: "lbl", text: live.label }), live.since ? h("span", { class: "el", "data-since": String(live.since), text: "" }) : null));
   }
 
   // --- caixa de texto, anexos, microfone

@@ -18,7 +18,10 @@ import memory
 import permissions
 import usage
 
-MAX_STEPS = 14                  # chamadas ao Gemini por pedido (evita laços infinitos)
+PC_TIMEOUT = 45                 # s: no controle do PC, resposta que trava por tanto tempo é abandonada (tenta o próximo modelo)
+SLOW_MODEL_S = 12
+SLOW_TOOLS_S = 6
+MAX_STEPS = 24                  # chamadas ao Gemini por pedido (evita laços infinitos)
 TIMEZONE = "America/Sao_Paulo"
 
 
@@ -55,6 +58,10 @@ def build_system_prompt(cfg: dict, mode: str = "chat", project: str = None, task
         "Cada clique, tecla, texto ou rolagem já devolve uma captura nova: olhe o resultado (o círculo vermelho mostra "
         "onde você clicou) e corrija. NUNCA repita as mesmas coordenadas que não funcionaram: amplie com ver_regiao ou "
         "mude de abordagem (teclado). Nunca invente coordenadas fora de 0 a 1000.",
+        "VELOCIDADE: cada passo custa tempo. Quando você já sabe a sequência (ex.: clicar na barra de endereço, digitar o "
+        "endereço, enter), peça TODAS essas ações de uma vez no mesmo passo (várias chamadas juntas): só a última "
+        "devolve a captura. Não chame ver_tela se a ação anterior já devolveu a captura. Seja breve: não explique o "
+        "que vai fazer a cada passo, só faça e conte no final.",
     ]
     lines.append("ENCOMENDAS: quando o usuário der um código de rastreio, use rastreio_adicionar (ele já consulta na hora) e "
                  "conte o que achou, ou diga honestamente que ainda não encontrou. Depois o app avisa sozinho das novidades.")
@@ -109,6 +116,8 @@ class Engine:
         self.resolve = resolve or (lambda contents: contents)
         self.max_steps = MAX_STEPS
         self._told_hidden = False
+        self._pc_used = False         # já mexeu na tela/teclado/mouse nesta rodada: passos rápidos
+        self.step = 0
 
     # ---- controle ---------------------------------------------------------------
 
@@ -153,7 +162,12 @@ class Engine:
         self.emit({"type": "tool_start", "id": tool_id, "name": name, "summary": summary, "category": category,
                    "risk": risk})
         activity.log("acao", summary, task=self.task_id, tool=name, risk=risk)
+        if category in ("tela", "entrada"):
+            self._pc_used = True
+        t0 = time.time()
         result, image = reg.execute(name, args)
+        if time.time() - t0 > SLOW_TOOLS_S:
+            activity.log("info", f"A ação “{summary}” levou {time.time() - t0:.0f} s.", task=self.task_id, tool=name)
         if reg.ctx.window_hidden and not self._told_hidden:
             self._told_hidden = True
             self.emit({"type": "info", "text": "Minimizei a janela do assistente para usar o PC. Ela volta quando eu terminar."})
@@ -177,6 +191,14 @@ class Engine:
         finally:
             self.registry.ctx.release()
 
+    def _speed(self):
+        """(nível de raciocínio, tempo limite) do próximo passo. No controle do PC cada passo é curto (olhar a tela e
+        escolher o próximo clique), então pensar menos e desistir mais cedo de uma resposta que travou compensa."""
+        ia = self.cfg.get("ia") or {}
+        level = str((ia.get("raciocinio_pc") or "minimal") if self._pc_used else (ia.get("raciocinio") or "auto")).lower()
+        level = level if level in gemini.THINKING_LEVELS else None
+        return level, (PC_TIMEOUT if self._pc_used else None)
+
     def _chunks(self, contents, models, system, decls):
         """Lê a resposta do Gemini numa thread própria, para o botão Parar funcionar na hora: antes, ele só
         era notado quando chegava o próximo pedaço (e a espera inicial por um modelo sobrecarregado levava minutos)."""
@@ -185,7 +207,13 @@ class Engine:
 
         def produce():
             try:
-                for chunk in gemini.stream(contents, models, system=system, tools=decls):
+                level, timeout = self._speed()
+                extra = {}
+                if level:
+                    extra["thinking"] = level
+                if timeout:
+                    extra["timeout"] = timeout
+                for chunk in gemini.stream(contents, models, system=system, tools=decls, **extra):
                     if halt.is_set():
                         return
                     q.put(("chunk", chunk))
@@ -219,15 +247,21 @@ class Engine:
             if self.on_request:
                 self.on_request()
             context.drop_old_images(contents)
-            self.emit({"type": "thinking"})
+            self.step += 1
+            self.emit({"type": "thinking", "since": time.time()})
             parts = []
+            t_model, first, used_model = time.time(), None, ""
             for chunk in self._chunks(self.resolve(contents), models, system, decls):
                 if "_model" in chunk:
+                    used_model = chunk["_model"]
                     continue
+                if first is None:
+                    first = time.time() - t_model
                 for part in gemini.parts_of(chunk):
                     parts.append(part)
                     if part.get("text") and not part.get("thought"):
                         self.emit({"type": "delta", "text": part["text"]})
+            model_s = time.time() - t_model
             self.emit({"type": "usage", "usage": usage.summary(self.cfg)})
             if not parts:
                 self.emit({"type": "error", "kind": "empty", "message": "O modelo não devolveu resposta. Tente de novo."})
@@ -237,8 +271,11 @@ class Engine:
             if not calls:
                 return "done"
             responses, images = [], []
-            for fc in calls:
+            t_tools = time.time()
+            ctx = self.registry.ctx
+            for n, fc in enumerate(calls):
                 self._check_stop()
+                ctx.capture = n == len(calls) - 1          # várias ações no mesmo passo: só a última devolve a tela
                 result, image = self._run_tool(fc.get("name", ""), fc.get("args") or {})
                 fr = {"name": fc.get("name", ""), "response": result}
                 if fc.get("id"):
@@ -246,8 +283,11 @@ class Engine:
                 responses.append({"functionResponse": fr})
                 if image:
                     images.append(image)
+            ctx.capture = True
+            tools_s = time.time() - t_tools
+            self._report_timing(model_s, first, used_model, tools_s, len(calls))
             user_parts = responses
-            for data, mime in images:
+            for data, mime in images[-1:]:
                 import base64
 
                 user_parts.append({"inlineData": {"mimeType": mime, "data": base64.b64encode(data).decode("ascii")}})
@@ -262,6 +302,16 @@ class Engine:
         self.emit({"type": "error", "kind": "max_steps",
                    "message": f"Parei após {self.max_steps} passos seguidos. Diga se devo continuar."})
         return "max_steps"
+
+
+    def _report_timing(self, model_s, first, model, tools_s, n_calls):
+        """Mede onde o tempo vai (modelo x ações) e deixa registrado quando um passo é lento."""
+        self.emit({"type": "timing", "step": self.step, "model": model, "model_s": round(model_s, 1),
+                   "first_s": round(first or 0, 1), "tools_s": round(tools_s, 1), "calls": n_calls})
+        if model_s > SLOW_MODEL_S or tools_s > SLOW_TOOLS_S:
+            activity.log("info", f"Passo {self.step} lento: o modelo {model or '?'} levou {model_s:.0f} s"
+                                 + (f" (começou a responder após {first:.0f} s)" if first and first > 3 else "")
+                                 + f" e as ações {tools_s:.0f} s.", task=self.task_id)
 
 
 def _brief(result: dict) -> str:

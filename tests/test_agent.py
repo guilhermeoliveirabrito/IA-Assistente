@@ -43,7 +43,7 @@ class EngineBase(unittest.TestCase):
         self.sent = []            # o que foi enviado ao Gemini em cada chamada
         self._stream = gemini.stream
 
-        def fake_stream(contents, models, system=None, tools=None, temperature=0.2):
+        def fake_stream(contents, models, system=None, tools=None, temperature=0.2, **kw):
             self.sent.append({"contents": [dict(c) for c in contents], "tools": tools, "system": system})
             yield {"_model": models[0]}
             for ch in self.script.pop(0):
@@ -274,7 +274,7 @@ class ParadaTest(EngineBase):
 
         release = threading.Event()
 
-        def travado(contents, models, system=None, tools=None, temperature=0.2):
+        def travado(contents, models, system=None, tools=None, temperature=0.2, **kw):
             release.wait(10)              # simula modelo sobrecarregado: nenhum pedaço chega
             yield {"_model": "m"}
 
@@ -291,7 +291,7 @@ class ParadaTest(EngineBase):
         self.assertIn("stopped", self.types())
 
     def test_erro_do_gemini_continua_chegando_ao_chamador(self):
-        def falha(contents, models, system=None, tools=None, temperature=0.2):
+        def falha(contents, models, system=None, tools=None, temperature=0.2, **kw):
             raise gemini.GeminiError("fora do ar", kind="server")
             yield
 
@@ -439,6 +439,61 @@ class PromptTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VelocidadeTest(TelaTest):
+    def setUp(self):
+        super().setUp()
+        self.kws = []
+        base = gemini.stream
+
+        def spy(contents, models, system=None, tools=None, temperature=0.2, **kw):
+            self.kws.append(kw)
+            return base(contents, models, system=system, tools=tools, temperature=temperature)
+
+        gemini.stream = spy
+
+    def two_calls(self, *calls):
+        return [[{"candidates": [{"content": {"parts": [{"functionCall": {"name": n, "args": a}} for n, a in calls]}}]}]]
+
+    def test_depois_de_usar_a_tela_pensa_menos_e_desiste_mais_cedo(self):
+        self.script = [call_chunk("clicar", {"x": 1, "y": 1}), text_chunks("ok")]
+        self.engine().run(self.user(), "sys")
+        self.assertEqual(self.kws[0], {})                                   # 1º passo: padrão ("auto")
+        self.assertEqual(self.kws[1], {"thinking": "minimal", "timeout": agent.PC_TIMEOUT})
+
+    def test_nivel_configuravel(self):
+        self.cfg["ia"].update(raciocinio="low", raciocinio_pc="low")
+        self.script = [call_chunk("clicar", {"x": 1, "y": 1}), text_chunks("ok")]
+        self.engine().run(self.user(), "sys")
+        self.assertEqual(self.kws[0], {"thinking": "low"})
+        self.assertEqual(self.kws[1]["thinking"], "low")
+
+    def test_varias_acoes_no_mesmo_passo_tiram_uma_foto_so(self):
+        self.script = [self.two_calls(("clicar", {"x": 10, "y": 20}), ("digitar", {"texto": "oi"}),
+                                      ("teclas", {"combinacao": "enter"}))[0], text_chunks("ok")]
+        self.engine().run(self.user(), "sys")
+        self.assertEqual(self.clicks, [(10, 20)])
+        self.assertEqual(len(self.shots), 1)                                # só a última ação fotografou
+        self.assertEqual(len(self.last_images()), 1)
+
+    def test_mede_o_tempo_de_cada_passo(self):
+        self.script = [call_chunk("clicar", {"x": 1, "y": 1}), text_chunks("ok")]
+        self.engine().run(self.user(), "sys")
+        t = [e for e in self.events if e["type"] == "timing"]
+        self.assertEqual([e["step"] for e in t], [1])
+        self.assertIn("model_s", t[0])
+        self.assertEqual(t[0]["calls"], 1)
+
+    def test_passo_lento_vai_para_o_historico(self):
+        eng = self.engine()
+        eng.step = 3
+        eng._report_timing(31.0, 28.0, "gemini-3.8-flash", 0.4, 1)
+        txt = [e["text"] for e in activity.recent(5)]
+        self.assertTrue(any("Passo 3 lento" in t and "31 s" in t for t in txt), txt)
+        before = len(activity.recent(50))
+        eng._report_timing(2.0, 1.0, "m", 0.4, 1)
+        self.assertEqual(len(activity.recent(50)), before)
 
 
 class VozPromptTest(unittest.TestCase):

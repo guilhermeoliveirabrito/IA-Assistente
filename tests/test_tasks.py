@@ -53,7 +53,7 @@ class Base(unittest.TestCase):
         self.sent = []
         self._stream = gemini.stream
 
-        def fake_stream(contents, models, system=None, tools=None, temperature=0.2):
+        def fake_stream(contents, models, system=None, tools=None, temperature=0.2, **kw):
             self.sent.append(list(contents))
             item = self.script.pop(0)
             if isinstance(item, Exception):

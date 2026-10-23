@@ -35,7 +35,7 @@ class ServerTest(unittest.TestCase):
         self.script = []
         self._stream = gemini.stream
 
-        def fake(contents, models, system=None, tools=None, temperature=0.2):
+        def fake(contents, models, system=None, tools=None, temperature=0.2, **kw):
             yield {"_model": models[0]}
             for ch in self.script.pop(0):
                 yield ch
