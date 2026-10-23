@@ -96,10 +96,19 @@ Para clicar, ele recebe uma foto da tela com uma **grade de números de 0 a 1000
 
 Enquanto usa tela, teclado e mouse ele **minimiza a janela do assistente** (para não digitar nela mesma) e a restaura ao terminar. Dá para desligar em Ajustes › Permissões. Se mover o mouse para um canto da tela, tudo é interrompido (trava de segurança do pyautogui), e o botão Parar do app também interrompe na hora.
 
+### Precisão no controle do PC
+Além da grade de coordenadas, no **Windows** o assistente usa o que o próprio sistema sabe sobre a janela (instale com `pip install -r requirements.txt`, que inclui `uiautomation`):
+- **Elementos numerados** (`listar_elementos` + `clicar_elemento`): os botões, campos e links da janela ativa saem numerados em caixas rosa na captura, e ele clica pelo número, no centro exato, sem adivinhar x e y. Se a janela não expõe elementos (jogos, apps customizados), ele volta para a grade.
+- **Janelas** (`listar_janelas` + `focar_janela`): traz um programa para frente pelo título, esperando ele abrir, em vez de alt+tab no escuro.
+- **Espera a tela estabilizar** antes de tirar a foto de resultado (em vez de um atraso fixo): fica rápido quando nada muda e paciente quando uma página carrega.
+- **Detecta ação sem efeito**: se a tela não mudou nada depois de um clique ou tecla, o modelo é avisado para não repetir igual e mudar de alvo ou método.
+Sem o pacote (ou fora do Windows) essas ferramentas simplesmente não aparecem e tudo segue pela grade.
+
 ### Velocidade no controle do PC
 Cada passo (olhar a tela, escolher o clique) é uma chamada ao Gemini, então o tempo entre um passo e outro é quase todo o tempo "pensando" do modelo. Para acelerar:
 - **Raciocínio mínimo no controle do PC** (`ia.raciocinio_pc`, padrão `minimal`; só modelos Gemini 3). Nas conversas normais fica em `auto` (`ia.raciocinio`). Se a API recusar o parâmetro para algum modelo, o app tenta outra grafia e, por fim, segue sem ele.
 - **Várias ações por passo**: o modelo é orientado a pedir clique + digitar + enter de uma vez; só a última ação tira a foto da tela, e só a foto mais recente é enviada.
+- **Modelos rápidos para o PC** (`ia.modelos_pc`, padrão os dois Lite, com cota de 500/dia): depois que ele começa a mexer no PC, esses modelos entram na frente. Se achar que o Lite erra demais os cliques, deixe `modelos_pc: []` para usar sempre o principal.
 - **Resposta travada é abandonada em 45 s** no controle do PC (o app tenta o próximo modelo) em vez de esperar 2 minutos.
 - **Sem desperdiçar chamadas**: se, pela contagem do app, um modelo já atingiu o limite por minuto ou por dia, a chamada vai direto ao próximo (com os limites reais do seu painel, os modelos de 5 por minuto passam a vez rápido para os de 15).
 - **Medidor de tempo**: enquanto pensa, a tela mostra os segundos ("Pensando… · 12 s", em amarelo após 30 s) e passos lentos ficam no Histórico dizendo se a demora foi do modelo ou das ações.

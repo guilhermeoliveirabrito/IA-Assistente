@@ -14,6 +14,9 @@ ia:
   # próximo clique", então o padrão lá é minimal. Nas conversas normais, auto (o modelo decide).
   raciocinio: auto
   raciocinio_pc: minimal
+  # Ao mexer no PC cada passo é curto; estes modelos (cota alta: 500/dia) entram na frente para ganhar velocidade.
+  # Deixe [] para usar sempre o modelo principal (mais esperto, porém 20 usos por dia).
+  modelos_pc: [gemini-3.5-flash-lite, gemini-3.1-flash-lite]
 
 # Limites usados pelo medidor de consumo do app. O Gemini não informa a cota restante,
 # então o app conta as chamadas e compara com estes números.
