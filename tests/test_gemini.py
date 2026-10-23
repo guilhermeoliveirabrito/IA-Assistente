@@ -241,5 +241,53 @@ class GeminiTest(unittest.TestCase):
         self.assertEqual(gemini.models_for("a"), ["a", "b"])
 
 
+class RaciocinioTest(GeminiTest):
+    def level_sent(self, i=0):
+        return self.calls[i][1]["generationConfig"].get("thinkingConfig")
+
+    def test_modelo_3_recebe_o_nivel_e_o_2_5_nao(self):
+        p = gemini.build_payload(self.user(), thinking="minimal")
+        self.assertEqual(p["generationConfig"]["thinkingConfig"], {"thinkingLevel": "minimal"})
+        self.assertNotIn("thinkingConfig", gemini.build_payload(self.user())["generationConfig"])
+        self.assertNotIn("thinkingConfig", gemini._payload_for("gemini-2.5-flash", p)["generationConfig"])
+        self.assertEqual(gemini._payload_for("gemini-3.8-flash", p)["generationConfig"]["thinkingConfig"], {"thinkingLevel": "minimal"})
+        self.assertEqual(gemini._payload_for("gemini-3.8-flash", p, "upper")["generationConfig"]["thinkingConfig"], {"thinkingLevel": "MINIMAL"})
+
+    def test_api_recusa_a_grafia_tenta_outra_e_lembra(self):
+        gemini._think_mode.clear()
+        self.queue += [http_error(400, "Invalid value at 'generation_config.thinking_config.thinking_level'", "INVALID_ARGUMENT"),
+                       ok_response("oi"), ok_response("de novo")]
+        gemini.generate(self.user(), ["gemini-3.8-flash"], thinking="minimal")
+        self.assertEqual(self.level_sent(0), {"thinkingLevel": "minimal"})
+        self.assertEqual(self.level_sent(1), {"thinkingLevel": "MINIMAL"})
+        gemini.generate(self.user(), ["gemini-3.8-flash"], thinking="minimal")
+        self.assertEqual(self.level_sent(2), {"thinkingLevel": "MINIMAL"})      # já sabe qual grafia vale
+
+    def test_modelo_que_nao_aceita_fica_sem_o_nivel_para_sempre(self):
+        gemini._think_mode.clear()
+        bad = lambda: http_error(400, "Thinking level is not supported for this model", "INVALID_ARGUMENT")
+        self.queue += [bad(), bad(), ok_response("oi"), ok_response("2")]
+        gemini.generate(self.user(), ["gemini-3.9-x"], thinking="low")
+        self.assertIsNone(self.level_sent(2))
+        gemini.generate(self.user(), ["gemini-3.9-x"], thinking="low")
+        self.assertIsNone(self.level_sent(3))
+        self.assertEqual(len(self.calls), 4)
+
+    def test_erro_400_que_nao_e_de_raciocinio_nao_e_engolido(self):
+        gemini._think_mode.clear()
+        self.queue += [http_error(400, "texto grande demais", "INVALID_ARGUMENT")]
+        with self.assertRaises(gemini.GeminiError):
+            gemini.generate(self.user(), ["gemini-3.8-flash"], thinking="low")
+        self.assertEqual(len(self.calls), 1)
+
+    def test_tempo_limite_do_passo_chega_ao_urlopen(self):
+        seen = []
+        orig = gemini._urlopen
+        gemini._urlopen = lambda req, timeout=None: seen.append(timeout) or orig(req, timeout)
+        self.queue += [ok_response("ok")]
+        list(gemini.stream(self.user(), ["gemini-3.8-flash"], timeout=45))
+        self.assertEqual(seen, [45])
+
+
 if __name__ == "__main__":
     unittest.main()

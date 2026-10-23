@@ -165,9 +165,36 @@ def blocked_models(models):
     return [m for m in models if blocked(m)]
 
 
+def at_limit(model: str, now: float = None):
+    """Motivo pelo qual, pela nossa contagem, este modelo não deve receber a próxima chamada (ou None).
+
+    Evita gastar uma ida e volta (e alguns segundos) só para o Google recusar: se já fizemos o máximo de requisições
+    por minuto (ou por dia) deste modelo, a chamada vai direto para o próximo da fila."""
+    now = time.time() if now is None else now
+    limits = _limits()
+    start, _ = _window(now, limits["fuso_renovacao"], limits["hora_renovacao"])
+    lim = {"rpd": limits["requisicoes_por_dia"], "rpm": limits["requisicoes_por_minuto"]}
+    lim.update({k: v for k, v in _configured_limits(_cfg, model).items() if k in lim})
+    with _lock:
+        state = _load()
+    f = (state.get("models") or {}).get(model) or {}
+    lim.update({k: v for k, v in (f.get("learned") or {}).items() if k in lim})
+    mine = [e for e in state["events"] if e["model"] == model]
+    if lim["rpm"] and len([e for e in mine if e["t"] >= now - 60]) >= lim["rpm"]:
+        return "minute"
+    offset = f.get("offset") or {}
+    extra = int(offset.get("requests", 0)) if offset.get("window") == start else 0
+    if lim["rpd"] and len([e for e in mine if e["t"] >= start]) + extra >= lim["rpd"]:
+        return "day"
+    return None
+
+
 def prefer_order(models):
-    """Modelos que o Google acabou de recusar por cota vão para o fim da fila (sem sumir dela)."""
+    """Quem o Google acabou de recusar, ou já está no limite pela nossa contagem, vai para o fim da fila (sem sumir dela)."""
     bad = set(blocked_models(models))
+    for m in models:
+        if m not in bad and at_limit(m):
+            bad.add(m)
     return [m for m in models if m not in bad] + [m for m in models if m in bad]
 
 

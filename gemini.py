@@ -119,8 +119,14 @@ def error_from_response(status: int, body: str) -> GeminiError:
     return GeminiError(message, status, "other")
 
 
-def build_payload(contents, system=None, tools=None, json_mode=False, temperature=0.2):
+THINKING_LEVELS = ("minimal", "low", "medium", "high")
+_think_mode = {}          # modelo -> "lower" | "upper" | "none": como a API aceitou (ou recusou) o nível de raciocínio
+
+
+def build_payload(contents, system=None, tools=None, json_mode=False, temperature=0.2, thinking=None):
     payload = {"contents": contents, "generationConfig": {"temperature": temperature}}
+    if thinking in THINKING_LEVELS:
+        payload["generationConfig"]["thinkingConfig"] = {"thinkingLevel": thinking}
     if json_mode:
         payload["generationConfig"]["responseMimeType"] = "application/json"
     if system:
@@ -130,7 +136,20 @@ def build_payload(contents, system=None, tools=None, json_mode=False, temperatur
     return payload
 
 
-def _open(model: str, method: str, payload: dict, stream: bool, attempts: int = 3):
+def _payload_for(model: str, payload: dict, variant=None) -> dict:
+    """Ajusta o nível de raciocínio ao modelo: só a família 3 aceita `thinkingLevel`, e a API é chata com maiúsculas."""
+    cfg = (payload.get("generationConfig") or {}).get("thinkingConfig")
+    if not cfg:
+        return payload
+    mode = variant or _think_mode.get(model) or "lower"
+    out = {**payload, "generationConfig": {k: v for k, v in payload["generationConfig"].items() if k != "thinkingConfig"}}
+    if mode != "none" and str(model).startswith("gemini-3"):
+        level = cfg["thinkingLevel"]
+        out["generationConfig"]["thinkingConfig"] = {"thinkingLevel": level.upper() if mode == "upper" else level.lower()}
+    return out
+
+
+def _open(model: str, method: str, payload: dict, stream: bool, attempts: int = 3, timeout: int = None):
     url = BASE.format(model=model, method=method) + ("?alt=sse" if stream else "")
     req = urllib.request.Request(
         url,
@@ -141,7 +160,7 @@ def _open(model: str, method: str, payload: dict, stream: bool, attempts: int = 
     last = None
     for attempt in range(attempts):  # tenta de novo em erro de servidor/rede
         try:
-            return _urlopen(req, timeout=TIMEOUT)
+            return _urlopen(req, timeout=timeout or TIMEOUT)
         except urllib.error.HTTPError as e:
             last = error_from_response(e.code, e.read().decode("utf-8", errors="replace"))
         except urllib.error.URLError as e:
@@ -152,7 +171,28 @@ def _open(model: str, method: str, payload: dict, stream: bool, attempts: int = 
     raise last
 
 
-def _open_with_fallback(models, method, payload, stream):
+def _open_thinking(model, method, payload, stream, attempts, timeout):
+    """Abre a requisição; se a API recusar o nível de raciocínio (400 falando de "thinking"), tenta com outra grafia
+    e, por fim, sem ele — e lembra o que funcionou para esse modelo."""
+    has = bool((payload.get("generationConfig") or {}).get("thinkingConfig"))
+    variants = [None] if not has else ([_think_mode[model]] if _think_mode.get(model) in ("none",) else
+                                       [_think_mode.get(model) or "lower"] + [v for v in ("lower", "upper", "none") if v != (_think_mode.get(model) or "lower")])
+    last = None
+    for v in variants:
+        try:
+            resp = _open(model, method, _payload_for(model, payload, v) if has else payload, stream, attempts, timeout)
+            if has and v:
+                _think_mode[model] = v
+            return resp
+        except GeminiError as e:
+            last = e
+            if has and e.status == 400 and v != "none" and ("think" in str(e).lower() or "enum" in str(e).lower() or "invalid" in str(e).lower()):
+                continue
+            raise
+    raise last
+
+
+def _open_with_fallback(models, method, payload, stream, timeout=None):
     last = None
     ordered = usage.prefer_order(models)
     # os que o Google acabou de recusar por cota e ficaram para o fim da fila também contam como "pulados"
@@ -161,7 +201,7 @@ def _open_with_fallback(models, method, payload, stream):
     for i, model in enumerate(ordered):
         try:
             # com reservas disponíveis, não perde tempo insistindo num modelo sobrecarregado
-            resp = _open(model, method, payload, stream, attempts=3 if i == len(ordered) - 1 else 1)
+            resp = _open_thinking(model, method, payload, stream, 3 if i == len(ordered) - 1 else 1, timeout)
         except GeminiError as e:
             last = e
             if e.kind == "quota":
@@ -188,10 +228,10 @@ def _check_blocked(obj: dict):
         raise GeminiError(f"O Gemini bloqueou o pedido ({block}).", kind="blocked")
 
 
-def generate(contents, models, system=None, tools=None, json_mode=False, temperature=0.2) -> dict:
+def generate(contents, models, system=None, tools=None, json_mode=False, temperature=0.2, thinking=None) -> dict:
     """Chamada sem streaming. Retorna a resposta completa (dict) com a chave extra '_model'."""
     model, resp = _open_with_fallback(
-        models, "generateContent", build_payload(contents, system, tools, json_mode, temperature), False
+        models, "generateContent", build_payload(contents, system, tools, json_mode, temperature, thinking), False
     )
     with resp:
         obj = json.loads(resp.read().decode("utf-8"))
@@ -202,11 +242,11 @@ def generate(contents, models, system=None, tools=None, json_mode=False, tempera
     return obj
 
 
-def stream(contents, models, system=None, tools=None, temperature=0.2):
+def stream(contents, models, system=None, tools=None, temperature=0.2, thinking=None, timeout=None):
     """Gera os pedaços (dicts) da resposta em streaming. O primeiro item é {'_model': nome}."""
     model, resp = _open_with_fallback(
-        models, "streamGenerateContent", build_payload(contents, system, tools, False, temperature), True
-    )
+        models, "streamGenerateContent", build_payload(contents, system, tools, False, temperature, thinking), True,
+        timeout)
     tin = tout = 0
     try:
         yield {"_model": model}
