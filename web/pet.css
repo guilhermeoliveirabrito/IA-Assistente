@@ -27,16 +27,35 @@
 .cat-svg .mouth-happy { fill: #9d3d3d; stroke: var(--ink); stroke-linejoin: round; }
 .cat-svg .whisker { stroke: #f4e6d0; stroke-width: 1.2; stroke-linecap: round; opacity: .85; }
 .cat-svg .waves path { fill: none; stroke: var(--info); stroke-width: 2.4; stroke-linecap: round; }
-.cat-svg .waves, .cat-svg .zzz, .cat-svg .heart, .cat-svg .sweat, .cat-svg .laptop, .cat-svg .parcel { opacity: 0; }
+.cat-svg .waves, .cat-svg .zzz, .cat-svg .heart, .cat-svg .sweat, .cat-svg .monitor, .cat-svg .desk, .cat-svg .parcel { opacity: 0; transition: opacity .35s; }
 .cat-svg .heart { fill: #e86a7a; transform-origin: 60px 20px; }
 .cat-svg .sweat { fill: #8fc4ee; }
 .cat-svg .z { fill: var(--muted); font: 700 12px var(--sans); }
-.cat-svg .lap-base { fill: #66727b; }
-.cat-svg .lap-screen { fill: #2f3a41; stroke: #66727b; stroke-width: 1.5; }
-.cat-svg .lap-lines { stroke: #86bb8c; stroke-width: 1.8; stroke-linecap: round; fill: none; }
-.cat-svg .lap-cursor { fill: #ece9e3; }
 .cat-svg .box { fill: #c9965a; stroke: #8a6236; stroke-width: 1.4; }
 .cat-svg .tape { stroke: #f2d9a8; stroke-width: 3; fill: none; }
+
+.cat-svg .hs-band { fill: none; stroke: #39434b; stroke-width: 3.6; stroke-linecap: round; }
+.cat-svg .hs-cup { fill: #39434b; }
+.cat-svg .hs-ring { fill: #4f9bd9; }
+.cat-svg .hs-boom { fill: none; stroke: #39434b; stroke-width: 2.2; stroke-linecap: round; }
+.cat-svg .hs-mic { fill: #39434b; stroke: #4f9bd9; stroke-width: 1.4; }
+.cat-svg .desk-top { fill: #6b5a4a; }
+.cat-svg .kb { fill: #4a545c; }
+.cat-svg .key { fill: #aeb8bf; }
+.cat-svg .mon-frame { fill: #4a545c; }
+.cat-svg .mon-stand { fill: #4a545c; }
+.cat-svg .mon-screen { fill: #1f2a30; }
+.cat-svg .scr { opacity: 0; }
+.cat-svg[data-task="code"] .scr-code, .cat-svg[data-task="mail"] .scr-mail, .cat-svg[data-task="music"] .scr-music, .cat-svg[data-task="mouse"] .scr-mouse,
+.cat-svg[data-task="web"] .scr-web, .cat-svg[data-task="parcel"] .scr-parcel, .cat-svg[data-task="docs"] .scr-docs { opacity: 1; }
+.cat-svg .scr-ln { stroke: #86bb8c; stroke-width: 2; stroke-linecap: round; fill: none; }
+.cat-svg .scr-cur { fill: #ece9e3; }
+.cat-svg .scr-env { fill: #e9e2d4; } .cat-svg .scr-env-l { fill: none; stroke: #b9a98c; stroke-width: 1.6; }
+.cat-svg .scr-note { fill: none; stroke: #8fb5db; stroke-width: 2; } .cat-svg .scr-nh { fill: #8fb5db; }
+.cat-svg .scr-arrow { fill: #ece9e3; stroke: #1f2a30; stroke-width: 1; stroke-linejoin: round; } .cat-svg .scr-click { fill: none; stroke: #e2b866; stroke-width: 1.6; opacity: 0; }
+.cat-svg .scr-globe { fill: none; stroke: #8fb5db; stroke-width: 1.8; }
+.cat-svg .scr-box { fill: #c9965a; } .cat-svg .scr-boxl { stroke: #f2d9a8; stroke-width: 2.4; fill: none; }
+.cat-svg .scr-doc { fill: #e9e2d4; } .cat-svg .scr-doc + .scr-ln { stroke: #8a7f6a; }
 
 /* parado: respira, balança a ponta do rabo, pisca */
 .cat-svg .body-wrap { transform-origin: 60px 118px; animation: cat-breathe 3.6s ease-in-out infinite; }
@@ -54,15 +73,28 @@
 .cat-svg[data-state="thinking"] .eye { transform: translate(1.8px, -2px); }
 .cat-svg[data-state="thinking"] .tail-wrap { animation-duration: 1.2s; }
 
-/* trabalhando: notebook e patinhas digitando */
-.cat-svg[data-state="working"] .laptop { opacity: 1; }
-.cat-svg[data-state="working"] .paw-l { animation: cat-type 0.38s ease-in-out infinite; }
-.cat-svg[data-state="working"] .paw-r { animation: cat-type 0.38s ease-in-out .19s infinite; }
-.cat-svg[data-state="working"] .paw { transform: translateY(-4px); }
-.cat-svg[data-state="working"] .lap-cursor { animation: cat-cursor 1s steps(2) infinite; }
+/* trabalhando: mesa com teclado e monitor; as duas patinhas teclam sem parar e as teclas acendem em sequência.
+   A telinha mostra o que ele está fazendo (código, e-mail, música, mouse, site, encomenda, documentos). */
+.cat-svg[data-state="working"] .monitor, .cat-svg[data-state="working"] .desk { opacity: 1; }
+.cat-svg[data-state="working"] .paw { transform: translateY(-5px); }
+.cat-svg[data-state="working"] .paw-l { animation: cat-type-l .42s ease-in-out infinite; }
+.cat-svg[data-state="working"] .paw-r { animation: cat-type-r .42s ease-in-out .21s infinite; }
+.cat-svg[data-state="working"] .key { animation: cat-key .84s ease-in-out infinite; }
+.cat-svg[data-state="working"] .k2 { animation-delay: .12s; } .cat-svg[data-state="working"] .k3 { animation-delay: .24s; }
+.cat-svg[data-state="working"] .k4 { animation-delay: .36s; } .cat-svg[data-state="working"] .k5 { animation-delay: .48s; }
+.cat-svg[data-state="working"] .k6 { animation-delay: .6s; } .cat-svg[data-state="working"] .k7 { animation-delay: .72s; }
+.cat-svg[data-state="working"] .scr-cur { animation: cat-cursor 1s steps(2) infinite; }
+.cat-svg[data-state="working"] .scr-ln1 { animation: cat-scroll 2.4s linear infinite; }
+.cat-svg[data-state="working"] .scr-env { animation: cat-bob 1s ease-in-out infinite alternate; }
+.cat-svg[data-state="working"] .scr-note, .cat-svg[data-state="working"] .scr-nh { animation: cat-bob .6s ease-in-out infinite alternate; }
+.cat-svg[data-state="working"] .scr-arrow { animation: cat-mouse 2.2s ease-in-out infinite; }
+.cat-svg[data-state="working"] .scr-click { animation: cat-click 2.2s ease-in-out infinite; }
+.cat-svg[data-state="working"] .scr-globe { animation: cat-pulse-s 1.8s ease-in-out infinite; transform-origin: 101px 76px; }
+.cat-svg[data-state="working"] .scr-box { animation: cat-bob .7s ease-in-out infinite alternate; }
 .cat-svg[data-state="working"] .eye { transform: translate(0, 1.5px); }
 .cat-svg[data-state="working"] .head { transform: rotate(3deg); }
 .cat-svg[data-state="working"] .tail-wrap { animation-duration: 1.6s; }
+.cat-svg[data-state="working"] .mouth-calm { animation: cat-talk 1.4s ease-in-out infinite; transform-origin: 60px 61px; }
 
 /* ouvindo: orelhas em pé, olhos grandes, ondas sonoras */
 .cat-svg[data-state="listening"] .ear-l { animation: cat-perk-l .5s ease-in-out infinite alternate; }
@@ -117,7 +149,15 @@
 @keyframes cat-tail { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(9deg); } }
 @keyframes cat-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
 @keyframes cat-ear { 0%, 90%, 100% { transform: rotate(0); } 94% { transform: rotate(-8deg); } }
-@keyframes cat-type { 50% { transform: translateY(1px); } }
+@keyframes cat-type-l { 0%, 100% { transform: translate(-1px, -6px); } 50% { transform: translate(-1px, -1px); } }
+@keyframes cat-type-r { 0%, 100% { transform: translate(1px, -6px); } 50% { transform: translate(1px, -1px); } }
+@keyframes cat-key { 0%, 70%, 100% { fill: #aeb8bf; } 80% { fill: #86bb8c; } }
+@keyframes cat-scroll { 0% { transform: translateY(0); opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-6px); opacity: 0; } }
+@keyframes cat-bob { to { transform: translateY(-3px); } }
+@keyframes cat-mouse { 0%, 100% { transform: translate(0, 0); } 35% { transform: translate(12px, 4px); } 70% { transform: translate(5px, 10px); } }
+@keyframes cat-click { 0%, 30% { opacity: 0; transform: translate(12px, 4px) scale(.3); } 38% { opacity: 1; transform: translate(12px, 4px) scale(1); } 55%, 100% { opacity: 0; } }
+@keyframes cat-pulse-s { 50% { transform: scale(1.08); } }
+@keyframes cat-talk { 50% { transform: scaleY(1.25); } }
 @keyframes cat-cursor { 50% { opacity: 0; } }
 @keyframes cat-perk-l { to { transform: rotate(-10deg) scale(1.08); } }
 @keyframes cat-perk-r { to { transform: rotate(10deg) scale(1.08); } }
