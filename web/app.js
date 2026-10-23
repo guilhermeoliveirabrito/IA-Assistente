@@ -49,6 +49,7 @@
     copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
     bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',
     box: '<path d="M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+    bell: '<path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8M13.7 21a2 2 0 01-3.4 0"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
     file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/>',
     refresh: '<path d="M20 11a8 8 0 0 0-14.5-3.5L4 9M4 4v5h5M4 13a8 8 0 0 0 14.5 3.5L20 15M20 20v-5h-5"/>',
@@ -190,6 +191,12 @@
   function onEvent(e) {
     if (A.pet) A.pet.onEvent(e);
     if (e.type === "toast") return toast(e.text, e.kind);
+    if (e.type === "reminder") { showReminder(e); return; }
+    if (e.type === "reminders") {
+      if (S.state) { S.state.reminders = { count: e.count, ringing: e.ringing }; paintNav(); }
+      if (S.view === "reminders" && A.views.reminders) A.views.reminders.refresh();
+      return;
+    }
     if (e.type === "tracking") {
       if (S.state) { S.state.tracking = { ...(S.state.tracking || {}), unread: e.unread, configured: e.configured }; paintNav(); }
       if (S.view === "tracking" && A.views.tracking) A.views.tracking.refresh();
@@ -250,7 +257,7 @@
 
   // ------------------------------------------------------------------ estrutura (barra lateral e topo)
 
-  const NAV = [["chat", "Conversa", "chat"], ["tasks", "Tarefas", "tasks"], ["tracking", "Encomendas", "box"], ["automation", "Automação", "bolt"], ["activity", "Histórico", "clock"], ["memory", "Memória", "brain"], ["settings", "Ajustes", "gear"]];
+  const NAV = [["chat", "Conversa", "chat"], ["tasks", "Tarefas", "tasks"], ["reminders", "Lembretes", "bell"], ["tracking", "Encomendas", "box"], ["automation", "Automação", "bolt"], ["activity", "Histórico", "clock"], ["memory", "Memória", "brain"], ["settings", "Ajustes", "gear"]];
 
   function buildShell() {
     const app = document.getElementById("app");
@@ -291,6 +298,8 @@
     const c = (S.state && S.state.task_counts) || {};
     const active = (c.running || 0) + (c.queued || 0);
     const waiting = (c.waiting_approval || 0) + (c.waiting_user || 0);
+    const rb = document.querySelector('[data-badge="reminders"]');
+    if (rb) { const n = (S.state && S.state.reminders && S.state.reminders.ringing) || 0; rb.textContent = n || ""; rb.classList.toggle("hidden", !n); }
     const tb = document.querySelector('[data-badge="tracking"]');
     if (tb) { const n = (S.state && S.state.tracking && S.state.tracking.unread) || 0; tb.textContent = n || ""; tb.classList.toggle("hidden", !n); }
     const badge = document.querySelector('[data-badge="tasks"]');
@@ -415,6 +424,46 @@
     else box.textContent = "";
   }
   A.countdown = countdown;
+
+  // ------------------------------------------------------------------ lembretes e alarmes (banner + som)
+
+  const ring = (() => {
+    let ctx = null, timer = null, n = 0;
+    const beep = () => {
+      try {
+        ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+        [[880, 0], [1175, 0.18], [1568, 0.36]].forEach(([f, t]) => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = "sine"; o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
+          const t0 = ctx.currentTime + t; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+          o.start(t0); o.stop(t0 + 0.18);
+        });
+      } catch (e) { /* sem áudio */ }
+    };
+    return {
+      start(loop) { n += 1; beep(); if (loop && !timer) timer = setInterval(beep, 2500); },
+      stop() { n = Math.max(0, n - 1); if (!n && timer) { clearInterval(timer); timer = null; } },
+    };
+  })();
+
+  function showReminder(e) {
+    const it = e.item, bar = document.getElementById("approvals");
+    if (!bar) return;
+    ring.start(e.alarm);
+    let done = false;
+    const finish = () => { if (done) return; done = true; ring.stop(); card.remove(); };
+    const act = async (path, body) => { try { await api("POST", `/api/reminders/${it.id}/${path}`, body || {}); } catch (err) { toast(err.message, "error"); } finish(); };
+    const snooze = (m, label) => h("button", { class: "btn sm", type: "button", text: label, onclick: () => act("snooze", { minutes: m }) });
+    const card = h("div", { class: "confirm reminder-card" + (e.alarm ? " alarm" : ""), role: "alertdialog", "aria-label": e.alarm ? "Alarme" : "Lembrete" },
+      h("div", { class: "rc-title", text: (e.alarm ? "⏰ Alarme" : "🔔 Lembrete") + (e.late_s > 120 ? " (atrasado)" : "") }),
+      h("div", { class: "rc-text", text: it.texto }),
+      h("div", { class: "row-btns", style: "margin-top:10px" },
+        h("button", { class: "btn primary sm", type: "button", text: "Dispensar", onclick: () => act("dismiss") }),
+        snooze(5, "+5 min"), snooze(10, "+10 min"), snooze(60, "+1 h")));
+    bar.append(card);
+    if (!e.ringing) setTimeout(finish, 20000);       // lembrete recorrente (só avisa): some sozinho
+    try { if ("Notification" in window && Notification.permission === "granted") new Notification(e.alarm ? "Alarme" : "Lembrete", { body: it.texto }); } catch (err) { /* ignora */ }
+  }
   A.checkRow = (j) => checkRow(j);
   function checkRow(j) {
     const status = j.running ? h("span", { class: "chk-now", text: "Verificando agora…" })
@@ -593,7 +642,7 @@
     content.replaceChildren();
     const v = A.views[S.view];
     if (S.view === "chat") { renderChat(content); return; }
-    const titles = { automation: "Automação", tracking: "Encomendas", tasks: "Tarefas", activity: "Histórico", memory: "Memória", settings: "Ajustes" };
+    const titles = { reminders: "Lembretes", automation: "Automação", tracking: "Encomendas", tasks: "Tarefas", activity: "Histórico", memory: "Memória", settings: "Ajustes" };
     setTitle(titles[S.view] || "");
     if (v) v.render(content); else content.append(h("div", { class: "column" }, h("p", { text: "Seção indisponível." })));
   }

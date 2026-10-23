@@ -122,6 +122,7 @@ notificacoes:
   avisar_pausas: true
   avisar_erros: true
   avisar_encomendas: true
+  avisar_lembretes: true
 
 projetos:
   # Pasta onde ele cria os projetos (uma subpasta por projeto).

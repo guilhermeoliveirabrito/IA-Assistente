@@ -32,6 +32,7 @@ import memory
 import notify
 import permissions
 import providers
+import reminders
 import settings
 import spotify_control
 import storage
@@ -112,6 +113,9 @@ class App:
         self.tracker = tracking.Tracker(cfg, on_update=self._tracking_update, on_change=self._tracking_changed)
         tracking.set_default(self.tracker)
         self.tracker.start()
+        self.reminders = reminders.Reminders(cfg, on_fire=self._reminder_fired, on_change=self._reminders_changed)
+        reminders.set_default(self.reminders)
+        self.reminders.start()
         self._voice_conv = {"id": None, "ts": 0.0}
         self.voice = wake.VoiceService(cfg, self.voice_command, self.bus.publish, self._transcribe_voice)
         self.chat.on_voice_reply = self.voice.speak_reply
@@ -146,7 +150,7 @@ class App:
     def checks(self):
         """Verificações em segundo plano (e-mail, agenda...) com a contagem para a próxima."""
         st = self.automation.status()
-        st["jobs"] = st["jobs"] + [self.tracker.status()]
+        st["jobs"] = st["jobs"] + [self.tracker.status(), self.reminders.status()]
         return st
 
     # ---- encomendas ----------------------------------------------------------------------
@@ -159,6 +163,35 @@ class App:
 
     def _tracking_changed(self):
         self.bus.publish({"type": "tracking", "unread": self.tracker.unread(), "configured": self.tracker.configured})
+        self._checks_changed()
+
+    # ---- lembretes -----------------------------------------------------------------------
+
+    def _reminder_fired(self, item, late):
+        """Hora marcada: banner e som no app, som no PC mesmo com a janela escondida, aviso no celular e, se for o caso, tarefa."""
+        alarm = item["kind"] == "alarme"
+        text = item["text"]
+        activity.log("resultado", f"{'Alarme' if alarm else 'Lembrete'}: {text}")
+        self.bus.publish({"type": "reminder", "item": reminders.public(item), "alarm": alarm, "late_s": round(late),
+                          "ringing": item["status"] == "tocando"})
+        self.notifier.notify("lembrete", "⏰ Alarme" if alarm else "🔔 Lembrete", text, priority=5 if alarm else 4)
+        threading.Thread(target=wake.beep, args=("alarm" if alarm else "wake",), daemon=True).start()
+        if alarm:
+            reveal = self.window_hooks.get("reveal_window")
+            if reveal:
+                try:
+                    reveal()
+                except Exception:
+                    pass
+        if item.get("run"):
+            try:
+                self.tasks.create("Lembrete: " + text[:60], text, "leitura")
+            except Exception as e:
+                activity.log("erro", f"Não consegui iniciar a tarefa do lembrete: {e}")
+
+    def _reminders_changed(self):
+        self.bus.publish({"type": "reminders", "count": len(self.reminders.items()),
+                          "ringing": len([i for i in self.reminders.items() if i["status"] == "tocando"])})
         self._checks_changed()
 
     def _checks_changed(self):
@@ -174,6 +207,8 @@ class App:
         usage.unsubscribe(self._usage_changed)
         self.voice.stop()
         self.tracker.stop()
+        self.reminders.stop()
+        reminders.set_default(None)
         tracking.set_default(None)
         self.automation.stop()
         self.chat.shutdown()
@@ -214,6 +249,8 @@ class App:
                        "running": self.automation.running},
             "voice": self.voice.status(),
             "checks": self.checks(),
+            "reminders": {"count": len(self.reminders.items()),
+                          "ringing": len([i for i in self.reminders.items() if i["status"] == "tocando"])},
             "tracking": {"unread": self.tracker.unread(), "configured": self.tracker.configured,
                          "count": len(self.tracker.items())},
             "autonomous": bool((cfg.get("pc") or {}).get("modo_autonomo", False)),
@@ -838,6 +875,58 @@ def r_automation_run(h, q):
 def _tracking_payload(app):
     return {"items": app.tracker.items(), "configured": app.tracker.configured, "unread": app.tracker.unread(),
             "status": app.tracker.status(), "now": time.time()}
+
+
+def _reminders_payload(app):
+    return {"items": [{**reminders.public(i), "due": i.get("snooze_due") or i["due"], "fired": i["fired"]}
+                      for i in app.reminders.items()], "now": time.time()}
+
+
+@route("GET", "/api/reminders")
+def r_reminders(h, q):
+    h._json(_reminders_payload(h.app))
+
+
+@route("POST", "/api/reminders")
+def r_reminders_add(h, q):
+    b = h._body()
+    try:
+        if b.get("in_minutes") not in (None, ""):
+            when = time.time() + float(b["in_minutes"]) * 60
+        else:
+            when = reminders.parse_when(b.get("when"), time.time())
+        item = h.app.reminders.add(b.get("text"), when, "alarme" if b.get("alarm") else "lembrete",
+                                   b.get("repeat") or "nao", b.get("every_minutes"), bool(b.get("run")))
+    except (reminders.ReminderError, TypeError, ValueError) as e:
+        raise HTTPError(400, str(e))
+    h._json({"item": reminders.public(item)})
+
+
+@route("POST", "/api/reminders/([0-9a-f]{8})/dismiss")
+def r_reminders_dismiss(h, q, rid):
+    try:
+        h.app.reminders.dismiss(rid)
+    except reminders.ReminderError as e:
+        raise HTTPError(404, str(e))
+    h._json({"ok": True})
+
+
+@route("POST", "/api/reminders/([0-9a-f]{8})/snooze")
+def r_reminders_snooze(h, q, rid):
+    try:
+        item = h.app.reminders.snooze(rid, h._body().get("minutes") or 10)
+    except reminders.ReminderError as e:
+        raise HTTPError(400, str(e))
+    h._json({"item": reminders.public(item)})
+
+
+@route("DELETE", "/api/reminders/([0-9a-f]{8})")
+def r_reminders_delete(h, q, rid):
+    try:
+        h.app.reminders.cancel(rid)
+    except reminders.ReminderError as e:
+        raise HTTPError(404, str(e))
+    h._json({"ok": True})
 
 
 @route("GET", "/api/tracking")

@@ -239,6 +239,60 @@
 
   // =================================================================== AUTOMAÇÃO
 
+  // ------------------------------------------------------------------ lembretes e alarmes
+  const REPEAT_LABEL = [["nao", "Uma vez"], ["diario", "Todo dia"], ["dias_uteis", "Dias úteis"], ["semanal", "Toda semana"], ["mensal", "Todo mês"], ["intervalo", "A cada N minutos"]];
+  const reminders = {
+    box: null, data: null,
+    async render(content) { this.box = content; if ("Notification" in window && Notification.permission === "default") { try { Notification.requestPermission(); } catch (e) { /* ignora */ } } await this.refresh(); },
+    resync() { if (S.view === "reminders") this.refresh(); },
+    async refresh() {
+      if (S.view !== "reminders" || !this.box) return;
+      try { this.data = await api("GET", "/api/reminders"); } catch (e) { toast(e.message, "error"); return; }
+      this.paint();
+    },
+    paint() {
+      const d = this.data;
+      const text = h("input", { type: "text", placeholder: "Do que devo lembrar? (ex.: ligar pro João)", maxlength: "400", "aria-label": "Texto do lembrete" });
+      const when = h("input", { type: "datetime-local", "aria-label": "Quando" });
+      const soon = new Date(Date.now() + 3600e3); soon.setSeconds(0, 0); when.value = new Date(soon - soon.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const rep = h("select", { "aria-label": "Repetir" }, REPEAT_LABEL.map(([v, l]) => h("option", { value: v, text: l })));
+      const every = h("input", { type: "number", min: "5", max: "10080", placeholder: "minutos", style: "width:100px;display:none", "aria-label": "A cada quantos minutos" });
+      rep.addEventListener("change", () => { every.style.display = rep.value === "intervalo" ? "" : "none"; });
+      const alarm = h("input", { type: "checkbox" }), run = h("input", { type: "checkbox" });
+      const add = async () => {
+        if (!text.value.trim()) return toast("Escreva do que devo lembrar.", "error");
+        try {
+          await api("POST", "/api/reminders", { text: text.value, when: when.value.replace("T", " "), repeat: rep.value, every_minutes: every.value || null, alarm: alarm.checked, run: run.checked });
+          text.value = ""; toast("Lembrete marcado.", "ok"); await this.refresh();
+        } catch (e) { toast(e.message, "error"); }
+      };
+      text.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+      const form = h("div", { class: "card" }, h("h3", { text: "Novo lembrete" }),
+        h("div", { class: "rem-add" }, text, when, rep, every, h("button", { class: "btn primary", type: "button", text: "Marcar", onclick: add })),
+        h("div", { class: "rem-opts" },
+          h("label", { class: "switch" }, alarm, h("span", { text: "Alarme (toca até eu dispensar)" })),
+          h("label", { class: "switch" }, run, h("span", { text: "Não só avisar: o assistente FAZ isso na hora (tarefa)" }))),
+        h("p", { class: "desc", style: "margin:8px 0 0", text: "Também dá para pedir no chat ou por voz: “me lembra às 18h de ligar pro João”, “todo dia às 8h resume meus e-mails”. Avisa aqui (com som) e no celular, se os avisos do celular estiverem ligados em Ajustes." }));
+      const list = h("div", { class: "list", role: "list" });
+      if (!d.items.length) list.append(h("div", { class: "card" }, h("h3", { text: "Nada marcado" }), h("p", { class: "desc", style: "margin:0", text: "Quando você marcar um lembrete, ele aparece aqui com a contagem regressiva." })));
+      for (const i of d.items) {
+        const ringing = i.status === "tocando";
+        list.append(h("div", { class: "item rem-item" + (ringing ? " ringing" : ""), role: "listitem" },
+          h("div", { class: "t" }, (i.tipo === "alarme" ? "⏰ " : "🔔 ") + i.texto),
+          h("div", { class: "m" }, h("span", { text: new Date(i.quando.replace(" ", "T")).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) }),
+            h("span", { text: i.repete }), i.executa ? h("span", { class: "st-chip waiting_user", text: "o assistente faz" }) : null,
+            ringing ? h("span", { class: "st-chip failed", text: "esperando você" }) : h("b", { "data-next": String(i.due), text: A.countdown(i.due) })),
+          h("div", { class: "row-btns", style: "margin-top:8px" },
+            ringing ? h("button", { class: "btn sm primary", type: "button", text: "Dispensar", onclick: () => this.act(i.id, "dismiss") }) : null,
+            h("button", { class: "btn sm", type: "button", text: "+10 min", onclick: () => this.act(i.id, "snooze", { minutes: 10 }) }),
+            h("button", { class: "btn sm", type: "button", text: "Apagar", onclick: () => this.remove(i.id) }))));
+      }
+      this.box.replaceChildren(page("Lembretes", "Avisos e alarmes no PC e no celular, e tarefas que o assistente faz sozinho na hora marcada.", form, list));
+    },
+    async act(id, path, body) { try { await api("POST", `/api/reminders/${id}/${path}`, body || {}); await this.refresh(); } catch (e) { toast(e.message, "error"); } },
+    async remove(id) { try { await api("DELETE", `/api/reminders/${id}`); await this.refresh(); } catch (e) { toast(e.message, "error"); } },
+  };
+
   const automation = {
     box: null,
     render(content) { this.box = content; this.paint(); },
@@ -623,5 +677,5 @@
     },
   };
 
-  A.views.automation = automation; A.views.tracking = tracking; A.views.tasks = tasks; A.views.activity = activity; A.views.memory = memory; A.views.settings = settings;
+  A.views.reminders = reminders; A.views.automation = automation; A.views.tracking = tracking; A.views.tasks = tasks; A.views.activity = activity; A.views.memory = memory; A.views.settings = settings;
 })();

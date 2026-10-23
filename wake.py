@@ -377,9 +377,13 @@ def beep(kind: str):
     try:
         import winsound
 
-        tones = {"wake": [(880, 110), (1175, 110)], "again": [(988, 80)], "none": [(330, 200)]}
+        tones = {"wake": [(880, 110), (1175, 110)], "again": [(988, 80)], "none": [(330, 200)],
+                 "alarm": [(1047, 160), (1319, 160), (1568, 260), (0, 120), (1047, 160), (1319, 160), (1568, 260)]}
         for freq, ms in tones.get(kind, []):
-            winsound.Beep(freq, ms)
+            if freq:
+                winsound.Beep(freq, ms)
+            else:
+                time.sleep(ms / 1000)
     except Exception:
         pass
 

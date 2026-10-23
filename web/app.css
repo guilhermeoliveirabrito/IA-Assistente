@@ -420,3 +420,17 @@ a.btn:visited { color: inherit; }
 .prov-out { display: block; margin-top: 6px; }
 .prov-out.good { color: #6fdc8c; }
 .prov-out.bad { color: #ff8c8c; }
+
+/* Lembretes */
+.rem-add { display: flex; gap: 8px; flex-wrap: wrap; }
+.rem-add input[type=text] { flex: 1 1 100%; min-width: 0; }
+.rem-add select, .rem-add input[type=datetime-local] { flex: 1 1 180px; min-width: 0; }
+.rem-opts { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; }
+.rem-item.ringing { border-color: #e2b866; box-shadow: 0 0 0 1px rgba(226, 184, 102, .5); }
+.rem-item .m { gap: 10px; flex-wrap: wrap; }
+.reminder-card { border-color: #e2b866 !important; }
+.reminder-card.alarm { animation: rc-pulse 1.2s ease-in-out infinite; }
+.reminder-card .rc-title { font-weight: 600; margin-bottom: 4px; }
+.reminder-card .rc-text { font-size: 15px; overflow-wrap: anywhere; }
+@keyframes rc-pulse { 50% { box-shadow: 0 0 0 4px rgba(226, 184, 102, .35); } }
+@media (prefers-reduced-motion: reduce) { .reminder-card.alarm { animation: none; } }

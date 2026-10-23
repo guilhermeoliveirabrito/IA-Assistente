@@ -50,7 +50,8 @@ class Notifier:
         self.topic = n.get("ntfy_topico") or ""
         self.on = {"pedido": bool(n.get("avisar_pedidos", True)), "pronta": bool(n.get("avisar_conclusao", True)),
                    "pausa": bool(n.get("avisar_pausas", True)), "erro": bool(n.get("avisar_erros", True)),
-                   "encomenda": bool(n.get("avisar_encomendas", True))}
+                   "encomenda": bool(n.get("avisar_encomendas", True)),
+                   "lembrete": bool(n.get("avisar_lembretes", True))}
         self.base_url = base_url
 
     @property

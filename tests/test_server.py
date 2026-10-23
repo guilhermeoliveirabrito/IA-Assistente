@@ -272,6 +272,41 @@ class ServerTest(unittest.TestCase):
         self.srv.app.voice_command("e agora toca rock")
         self.assertEqual(self.srv.app._voice_conv["id"], cid)
 
+    def test_lembretes_rotas_disparo_e_tarefa(self):
+        import reminders
+        from datetime import datetime
+
+        self.assertEqual(self.req("POST", "/api/reminders", {"text": "x", "when": "ontem"})[0], 400)
+        st, r, _ = self.req("POST", "/api/reminders", {"text": "tomar água", "in_minutes": 10, "alarm": True})
+        self.assertEqual(st, 200)
+        rid = r["item"]["id"]
+        self.assertEqual(self.req("GET", "/api/state")[1]["reminders"], {"count": 1, "ringing": 0})
+        self.assertTrue([j for j in self.req("GET", "/api/state")[1]["checks"]["jobs"] if j["id"] == "lembretes"])
+        q = self.srv.app.bus.subscribe()
+        sent = []
+        self.srv.app.notifier.notify = lambda kind, title, msg, priority=3: sent.append((kind, msg, priority)) or True
+        rem = self.srv.app.reminders
+        rem.clock = lambda: time.time() + 700                     # passa o tempo
+        rem.check_due()
+        events = []
+        while not q.empty():
+            events.append(q.get())
+        ev = [e for e in events if e["type"] == "reminder"][0]
+        self.assertTrue(ev["alarm"] and ev["ringing"])
+        self.assertEqual(sent, [("lembrete", "tomar água", 5)])
+        self.assertEqual(self.req("GET", "/api/state")[1]["reminders"]["ringing"], 1)
+        self.assertEqual(self.req("POST", f"/api/reminders/{rid}/snooze", {"minutes": 5})[0], 200)
+        self.assertEqual(self.req("POST", f"/api/reminders/{rid}/dismiss")[0], 200)
+        self.assertEqual(self.req("DELETE", f"/api/reminders/{rid}")[0], 200)
+        self.assertEqual(self.req("DELETE", f"/api/reminders/{rid}")[0], 404)
+        # lembrete que manda o assistente executar vira uma tarefa de leitura
+        rem.clock = time.time
+        self.assertEqual(self.req("POST", "/api/reminders", {"text": "resuma meus e-mails", "in_minutes": 5, "run": True})[0], 200)
+        rem.clock = lambda: time.time() + 700
+        rem.check_due()
+        titles = [t["title"] for t in self.req("GET", "/api/tasks")[1]["tasks"]]
+        self.assertTrue(any("resuma meus e-mails" in t for t in titles))
+
     def test_provedores_rotas_chave_nunca_volta(self):
         import providers
 
