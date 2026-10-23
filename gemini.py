@@ -123,7 +123,7 @@ THINKING_LEVELS = ("minimal", "low", "medium", "high")
 _think_mode = {}          # modelo -> "lower" | "upper" | "none": como a API aceitou (ou recusou) o nível de raciocínio
 
 
-def build_payload(contents, system=None, tools=None, json_mode=False, temperature=0.2, thinking=None):
+def build_payload(contents, system=None, tools=None, json_mode=False, temperature=0.2, thinking=None, grounding=False):
     payload = {"contents": contents, "generationConfig": {"temperature": temperature}}
     if thinking in THINKING_LEVELS:
         payload["generationConfig"]["thinkingConfig"] = {"thinkingLevel": thinking}
@@ -133,6 +133,8 @@ def build_payload(contents, system=None, tools=None, json_mode=False, temperatur
         payload["systemInstruction"] = {"parts": [{"text": system}]}
     if tools:
         payload["tools"] = [{"functionDeclarations": tools}]
+    elif grounding:
+        payload["tools"] = [{"googleSearch": {}}]       # pesquisa do Google embutida no modelo (com fontes)
     return payload
 
 
@@ -228,10 +230,11 @@ def _check_blocked(obj: dict):
         raise GeminiError(f"O Gemini bloqueou o pedido ({block}).", kind="blocked")
 
 
-def generate(contents, models, system=None, tools=None, json_mode=False, temperature=0.2, thinking=None) -> dict:
+def generate(contents, models, system=None, tools=None, json_mode=False, temperature=0.2, thinking=None,
+             grounding=False) -> dict:
     """Chamada sem streaming. Retorna a resposta completa (dict) com a chave extra '_model'."""
     model, resp = _open_with_fallback(
-        models, "generateContent", build_payload(contents, system, tools, json_mode, temperature, thinking), False
+        models, "generateContent", build_payload(contents, system, tools, json_mode, temperature, thinking, grounding), False
     )
     with resp:
         obj = json.loads(resp.read().decode("utf-8"))

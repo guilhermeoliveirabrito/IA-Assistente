@@ -367,6 +367,25 @@ class LembretesToolsTest(ToolsBase):
         self.assertIn("lembretes", perm.PROFILES["leitura"])         # tarefas só de leitura também podem usar
 
 
+class WebToolsTest(ToolsBase):
+    def test_ferramentas_da_web(self):
+        import web_tools
+
+        saved = (web_tools.search, web_tools.fetch_page)
+        web_tools.search = lambda cfg, q: {"resposta": "r " + q, "fontes": []}
+        web_tools.fetch_page = lambda url: (_ for _ in ()).throw(web_tools.WebError("bloqueado")) if "local" in url else {"texto": "t", "url": url}
+        try:
+            reg, _ = self.reg()
+            res, _ = reg.execute("pesquisar_web", {"consulta": "dólar"})
+            self.assertEqual(res["resposta"], "r dólar")
+            self.assertIn("dado", res["nota"])
+            self.assertEqual(reg.execute("ler_pagina", {"url": "https://a.com"})[0]["texto"], "t")
+            self.assertIn("bloqueado", reg.execute("ler_pagina", {"url": "http://local"})[0]["erro"])
+            self.assertEqual(reg.category("pesquisar_web", {}), "web")
+        finally:
+            web_tools.search, web_tools.fetch_page = saved
+
+
 class MiscTest(ToolsBase):
     def test_resultado_grande_e_cortado(self):
         big = {"conteudo": "x" * 20000}
