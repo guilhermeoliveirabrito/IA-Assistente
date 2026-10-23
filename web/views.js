@@ -456,7 +456,7 @@
       sw.addEventListener("change", () => A.pet.configure({ on: sw.checked }));
       const name = h("input", { type: "text", value: pr.name, maxlength: "20", "aria-label": "Nome do gatinho" });
       name.addEventListener("change", () => { A.pet.configure({ name: name.value }); toast("Nome salvo.", "ok"); });
-      card.append(h("label", { class: "switch" }, sw, h("span", { text: "Mostrar o gatinho" })),
+      card.append(h("label", { class: "switch" }, sw, h("span", { text: "Mostrar o gatinho (vem desligado)" })),
         h("label", { class: "f", style: "margin-top:12px" }, h("span", { text: "Nome dele" }), name),
         h("p", { class: "desc", style: "margin:8px 0 0", text: `Carinhos feitos até agora: ${A.pet ? A.pet.count() : 0}. (Guardado só neste navegador.)` }));
       return card;

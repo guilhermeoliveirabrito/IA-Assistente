@@ -85,7 +85,7 @@
     [/^(ler_arquivo|listar_arquivos|lembrar|ver_memoria|esquecer)$/, "docs"]];
   const taskOf = (name) => { const t = TASKS.find(([re]) => re.test(String(name || ""))); return t ? t[1] : "code"; };
 
-  const prefs = () => ({ on: store("pet") !== "0", name: (store("pet_name") || "Mia").slice(0, 20) });
+  const prefs = () => ({ on: store("pet") === "1", name: (store("pet_name") || "Mia").slice(0, 20) });
 
   function base() {
     if (P.voice === "recording" || P.voice === "listening-cmd") return "listening";
