@@ -11,8 +11,8 @@ Custo: **zero** (Gemini na camada gratuita, Gmail e Google Agenda, Spotify com a
 | Recurso | Como funciona |
 |---|---|
 | **App com janela própria** | Interface escura, respostas com tabelas, listas e código formatados, indicador de "pensando", voz opcional (falar em vez de digitar; ler respostas em voz alta) |
-| **Gatinho** | Um gatinho 2D pequeno na lateral que reage ao que o app faz: pensa, digita quando usa ferramentas, escuta, comemora, fica triste com erro, avisa de encomenda e dorme se ficar parado. Dá para fazer carinho (clique) e dar um nome a ele em Ajustes |
-| **Verificações** | O medidor (e a lateral) mostram **quanto falta para a próxima checagem de e-mail**, a agenda e as encomendas, o que a última encontrou, e há o botão "Verificar agora" |
+| **Gatinho** | Um gatinho 2D pequeno, de headset, na lateral que reage ao que o app faz: pensa, senta no computadorzinho e digita quando usa ferramentas (a telinha muda conforme a tarefa: código, e-mail, música, mouse, site, encomenda, documentos), escuta, comemora, fica triste com erro, avisa de encomenda e dorme se ficar parado. Dá para fazer carinho (clique) e dar um nome a ele em Ajustes |
+| **Automação** | Aba com tudo o que ele confere sozinho (e-mails, agenda, resumo e encomendas): quando roda de novo, o que a última achou e botão "Verificar agora". O medidor (e a lateral) mostram **quanto falta para a próxima checagem de e-mail**, a agenda e as encomendas, o que a última encontrou, e há o botão "Verificar agora" |
 | **Medidor por modelo** | Mostra **qual Gemini está em uso**, quanto cada modelo já gastou hoje, quando a cota renova e avisa quando o app troca de modelo e por quê |
 | **Arquivos e imagens** | Arraste ou cole imagens, PDFs, Word e arquivos de texto/código no chat |
 | **E-mails** | Triagem a cada 15 min (importante / normal / newsletter / spam), resumo diário. Spam só vai para a lixeira com a sua aprovação (por padrão) e nunca é apagado para sempre |
