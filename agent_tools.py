@@ -1,10 +1,12 @@
 """Ferramentas que o Gemini pode chamar (declaração, categoria de permissão e execução)."""
 import json
+import time
 from pathlib import Path
 
 import files
 import memory
 import pc_control as pc
+import reminders
 import spotify_control as spmod
 import tracking
 import uia
@@ -187,6 +189,37 @@ def _item_view(i):
             "ultimo_evento": (f"{ev['time']}: {ev['text']}" + (f" ({ev['place']})" if ev.get("place") else "")) if ev else None,
             "transportadora": i.get("carrier") or None, "erro": i.get("error") or None, "aviso": i.get("note") or None,
             "link": i.get("url")}
+
+
+def t_lembrete_criar(ctx, a):
+    r = reminders.default()
+    now = time.time()
+    if a.get("em_minutos") not in (None, ""):
+        try:
+            when = now + float(a["em_minutos"]) * 60
+        except (TypeError, ValueError):
+            raise reminders.ReminderError("em_minutos precisa ser um número.")
+    elif a.get("quando"):
+        when = reminders.parse_when(a["quando"], now)
+    else:
+        raise reminders.ReminderError("Diga quando: use quando (AAAA-MM-DD HH:MM ou HH:MM) ou em_minutos.")
+    item = r.add(a["texto"], when, "alarme" if a.get("alarme") else "lembrete", a.get("repetir") or "nao",
+                 a.get("a_cada_minutos"), bool(a.get("executar")))
+    return _ok(lembrete=reminders.public(item),
+               nota="Vai avisar no PC e no celular (se os avisos do celular estiverem ligados em Ajustes).")
+
+
+def t_lembrete_listar(ctx, a):
+    return {"lembretes": [reminders.public(i) for i in reminders.default().items()]}
+
+
+def t_lembrete_cancelar(ctx, a):
+    reminders.default().cancel(a["id"])
+    return _ok(removido=a["id"])
+
+
+def t_lembrete_adiar(ctx, a):
+    return _ok(lembrete=reminders.public(reminders.default().snooze(a["id"], a.get("minutos") or 10)))
 
 
 def t_rastreio_adicionar(ctx, a):
@@ -462,6 +495,24 @@ def _tools():
           lambda a: f"Consultar encomenda {a.get('codigo') or '(todas)'}"),
         T("rastreio_remover", "Para de acompanhar uma encomenda.", {"codigo": S("Código de rastreio.")}, ["codigo"],
           "rastreio", t_rastreio_remover, lambda a: f"Remover a encomenda {a.get('codigo')}"),
+        T("lembrete_criar", "Cria um lembrete, alarme ou tarefa recorrente. Avisa no PC (banner e som) e no celular na hora "
+          "marcada. Use alarme=true para tocar até o usuário dispensar. repetir: nao, diario, dias_uteis, semanal, mensal ou "
+          "intervalo (com a_cada_minutos). Com executar=true, na hora marcada o assistente FAZ o que está no texto como uma "
+          "tarefa (ex.: texto='resuma meus e-mails importantes', repetir=dias_uteis, quando=08:00) em vez de só avisar. "
+          "Horários no relógio do computador.",
+          {"texto": S("O que lembrar, ou o pedido a executar."), "quando": S("AAAA-MM-DD HH:MM, ou só HH:MM (hoje ou amanhã)."),
+           "em_minutos": N("Alternativa a quando: daqui a quantos minutos."), "alarme": {"type": "BOOLEAN", "description": "Tocar até dispensar."},
+           "repetir": S("Repetição.", list(reminders.REPEATS)), "a_cada_minutos": I("Só com repetir=intervalo (5 a 10080)."),
+           "executar": {"type": "BOOLEAN", "description": "O assistente executa o texto na hora, em vez de só avisar."}},
+          ["texto"], "lembretes", t_lembrete_criar,
+          lambda a: f"Criar lembrete: {_short(a.get('texto', ''), 100)} ({a.get('quando') or str(a.get('em_minutos')) + ' min'})"),
+        T("lembrete_listar", "Lista os lembretes, alarmes e tarefas recorrentes ativos.", {}, [], "lembretes",
+          t_lembrete_listar, lambda a: "Listar lembretes"),
+        T("lembrete_cancelar", "Apaga um lembrete pelo id (veja em lembrete_listar).", {"id": S("Id do lembrete.")}, ["id"],
+          "lembretes", t_lembrete_cancelar, lambda a: f"Cancelar o lembrete {a.get('id')}"),
+        T("lembrete_adiar", "Adia um lembrete (soneca) por alguns minutos.",
+          {"id": S("Id do lembrete."), "minutos": I("Minutos (padrão 10).")}, ["id"], "lembretes", t_lembrete_adiar,
+          lambda a: f"Adiar o lembrete {a.get('id')} em {a.get('minutos') or 10} min"),
         T("abrir_aplicativo", "Abre um aplicativo instalado no computador pelo nome (ex.: Spotify, Visual Studio Code, Chrome).",
           {"nome": S("Nome do aplicativo.")}, ["nome"], "abrir", t_abrir_aplicativo,
           lambda a: f"Abrir o aplicativo {a.get('nome')}"),

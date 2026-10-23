@@ -70,6 +70,10 @@ def build_system_prompt(cfg: dict, mode: str = "chat", project: str = None, task
     ]
     lines.append("ENCOMENDAS: quando o usuário der um código de rastreio, use rastreio_adicionar (ele já consulta na hora) e "
                  "conte o que achou, ou diga honestamente que ainda não encontrou. Depois o app avisa sozinho das novidades.")
+    lines.append("LEMBRETES: para 'me lembra…', 'me avisa…', 'acorda…' ou 'todo dia às…', use lembrete_criar (calcule o horário a "
+                 "partir da data e hora de agora; para 'daqui a 20 minutos' use em_minutos). Alarme = toca até dispensar. Se o "
+                 "usuário quer que VOCÊ faça algo numa hora/frequência (ex.: resumir e-mails todo dia), use executar=true. Diga "
+                 "no fim para quando ficou marcado.")
     if voice:
         lines.append("PEDIDO POR VOZ: o usuário falou com você e a sua resposta será LIDA EM VOZ ALTA. Responda em no máximo "
                      "2 ou 3 frases curtas, em texto corrido, sem markdown, tabelas, listas ou links. Se fez uma ação, "

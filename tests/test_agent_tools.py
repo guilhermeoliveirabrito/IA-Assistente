@@ -325,6 +325,48 @@ class PrecisaoTest(ToolsBase):
         self.assertNotIn("NÃO mudou", res["nota"])
 
 
+class LembretesToolsTest(ToolsBase):
+    def setUp(self):
+        super().setUp()
+        import reminders
+
+        self.rem = reminders
+        self.r = reminders.Reminders()
+        reminders.set_default(self.r)
+
+    def tearDown(self):
+        self.rem.set_default(None)
+        super().tearDown()
+
+    def test_criar_listar_adiar_cancelar(self):
+        reg, _ = self.reg()
+        res, _ = reg.execute("lembrete_criar", {"texto": "ligar pro João", "em_minutos": 20, "alarme": True})
+        self.assertEqual(res["lembrete"]["tipo"], "alarme")
+        rid = res["lembrete"]["id"]
+        res, _ = reg.execute("lembrete_criar", {"texto": "resumir e-mails", "quando": "08:00", "repetir": "dias_uteis",
+                                                "executar": True})
+        self.assertTrue(res["lembrete"]["executa"])
+        self.assertEqual(res["lembrete"]["repete"], "dias úteis")
+        self.assertEqual(len(reg.execute("lembrete_listar", {})[0]["lembretes"]), 2)
+        res, _ = reg.execute("lembrete_adiar", {"id": rid, "minutos": 5})
+        self.assertEqual(res["lembrete"]["id"], rid)
+        reg.execute("lembrete_cancelar", {"id": rid})
+        self.assertEqual(len(reg.execute("lembrete_listar", {})[0]["lembretes"]), 1)
+
+    def test_erros_chegam_ao_modelo(self):
+        reg, _ = self.reg()
+        for args in ({"texto": "x"}, {"texto": "x", "quando": "amanhã"}, {"texto": "x", "em_minutos": "abc"},
+                     {"texto": "x", "em_minutos": 5, "repetir": "intervalo"}):
+            self.assertIn("erro", reg.execute("lembrete_criar", args)[0], args)
+        self.assertIn("erro", reg.execute("lembrete_cancelar", {"id": "00000000"})[0])
+
+    def test_e_ferramenta_de_leitura(self):
+        import permissions as perm
+
+        self.assertEqual(self.reg()[0].category("lembrete_criar", {}), "lembretes")
+        self.assertIn("lembretes", perm.PROFILES["leitura"])         # tarefas só de leitura também podem usar
+
+
 class MiscTest(ToolsBase):
     def test_resultado_grande_e_cortado(self):
         big = {"conteudo": "x" * 20000}
