@@ -47,6 +47,7 @@
     send: '<path d="M12 19V5M5 12l7-7 7 7"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>',
     speaker: '<path d="M4 9v6h4l5 4V5L8 9zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
     copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+    bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',
     box: '<path d="M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
     file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/>',
@@ -194,7 +195,7 @@
       if (S.view === "tracking" && A.views.tracking) A.views.tracking.refresh();
       return;
     }
-    if (e.type === "checks") { if (S.state) { S.state.checks = e.checks; S.skew = e.checks.now - Date.now() / 1000; tickChecks(); if (document.querySelector("#usage .pop")) paintUsage(); } return; }
+    if (e.type === "checks") { if (S.state) { S.state.checks = e.checks; S.skew = e.checks.now - Date.now() / 1000; tickChecks(); if (S.view === "automation" && A.views.automation) A.views.automation.paint(); if (document.querySelector("#usage .pop")) paintUsage(); } return; }
     if (e.type === "voice") { if (S.state) { S.state.voice = e.voice; paintWake(); (A.voiceListeners || []).forEach((f) => f()); } return; }
     if (e.type === "voice_command") {
       S.voiceCid = e.conversation_id;
@@ -249,7 +250,7 @@
 
   // ------------------------------------------------------------------ estrutura (barra lateral e topo)
 
-  const NAV = [["chat", "Conversa", "chat"], ["tasks", "Tarefas", "tasks"], ["tracking", "Encomendas", "box"], ["activity", "Histórico", "clock"], ["memory", "Memória", "brain"], ["settings", "Ajustes", "gear"]];
+  const NAV = [["chat", "Conversa", "chat"], ["tasks", "Tarefas", "tasks"], ["tracking", "Encomendas", "box"], ["automation", "Automação", "bolt"], ["activity", "Histórico", "clock"], ["memory", "Memória", "brain"], ["settings", "Ajustes", "gear"]];
 
   function buildShell() {
     const app = document.getElementById("app");
@@ -406,6 +407,7 @@
     else box.textContent = "";
   }
   A.countdown = countdown;
+  A.checkRow = (j) => checkRow(j);
   function checkRow(j) {
     const status = j.running ? h("span", { class: "chk-now", text: "Verificando agora…" })
       : !j.next_ts && j.note ? h("span", { text: j.note })
@@ -583,7 +585,7 @@
     content.replaceChildren();
     const v = A.views[S.view];
     if (S.view === "chat") { renderChat(content); return; }
-    const titles = { tracking: "Encomendas", tasks: "Tarefas", activity: "Histórico", memory: "Memória", settings: "Ajustes" };
+    const titles = { automation: "Automação", tracking: "Encomendas", tasks: "Tarefas", activity: "Histórico", memory: "Memória", settings: "Ajustes" };
     setTitle(titles[S.view] || "");
     if (v) v.render(content); else content.append(h("div", { class: "column" }, h("p", { text: "Seção indisponível." })));
   }

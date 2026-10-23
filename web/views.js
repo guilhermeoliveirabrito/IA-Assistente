@@ -237,6 +237,37 @@
     },
   };
 
+  // =================================================================== AUTOMAÇÃO
+
+  const automation = {
+    box: null,
+    render(content) { this.box = content; this.paint(); },
+    resync() { if (S.view === "automation") A.refreshState().then(() => this.paint()); },
+    paint() {
+      if (S.view !== "automation" || !this.box) return;
+      const c = (S.state && S.state.checks) || { jobs: [] };
+      const g = (S.state && S.state.google) || {};
+      const kids = [];
+      kids.push(h("div", { class: "card" }, h("h3", { text: "Tudo o que o assistente confere sozinho" }),
+        h("p", { class: "desc", style: "margin:0", text: "Enquanto o app está aberto, ele confere e-mails, agenda e encomendas por conta própria. Aqui você vê quando cada uma roda de novo, o que a última achou e pode forçar uma verificação agora." })));
+      if (!c.running) {
+        kids.push(h("div", { class: "alert err" }, c.connected ? "A rotina de e-mails e agenda está parada. Reabra o app para ligar." : "E-mails e agenda estão desligados porque o Google ainda não está conectado. Conecte em Ajustes › Gmail e Agenda.",
+          h("div", { style: "margin-top:8px" }, h("button", { class: "btn sm", type: "button", text: "Ir para Ajustes", onclick: () => A.go("settings") }))));
+      }
+      const jobs = (c.jobs || []).filter((j) => c.running || j.id === "rastreio");
+      const groups = [["E-mail e agenda (Google)", ["triagem", "agenda", "resumo"]], ["Encomendas", ["rastreio"]]];
+      for (const [title, ids] of groups) {
+        const mine = jobs.filter((j) => ids.includes(j.id));
+        if (!mine.length) continue;
+        const card = h("div", { class: "card" }, h("h3", { text: title }));
+        mine.forEach((j) => card.append(A.checkRow(j)));
+        if (ids.includes("rastreio")) card.append(h("div", { class: "row-btns" }, h("button", { class: "btn sm", type: "button", text: "Abrir a aba Encomendas", onclick: () => A.go("tracking") })));
+        kids.push(card);
+      }
+      this.box.replaceChildren(page("Automação", "Verificações em segundo plano e quando rodam de novo.", ...kids));
+    },
+  };
+
   // =================================================================== HISTÓRICO
 
   function evRow(showTask) {
@@ -531,5 +562,5 @@
     },
   };
 
-  A.views.tracking = tracking; A.views.tasks = tasks; A.views.activity = activity; A.views.memory = memory; A.views.settings = settings;
+  A.views.automation = automation; A.views.tracking = tracking; A.views.tasks = tasks; A.views.activity = activity; A.views.memory = memory; A.views.settings = settings;
 })();
