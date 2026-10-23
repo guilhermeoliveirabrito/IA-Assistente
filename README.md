@@ -16,6 +16,7 @@ Custo: **zero** (Gemini na camada gratuita, Gmail e Google Agenda, Spotify com a
 | **E-mails** | Triagem a cada 15 min (importante / normal / newsletter / spam), resumo diário. Spam só vai para a lixeira com a sua aprovação (por padrão) e nunca é apagado para sempre |
 | **Agenda** | Aponta conflitos, dias lotados e janelas livres (só leitura) |
 | **Ativação por voz** | Diga **"ei assistente"** e ele começa a ouvir o seu comando na hora, como a Siri/"Ok Google", e responde falando (veja abaixo) |
+| **Encomendas** | Informe o código de rastreio (na aba ou pelo chat) e ele acompanha sozinho, mostra o histórico e **avisa quando algo mudar** ou quando achar (ou não) o pacote |
 | **Controle do PC** | Abre apps e sites, controla mídia, vê a tela, digita, clica. **Cada ação de risco pede a sua permissão** |
 | **Spotify** | "Toque tal música" pela API oficial (precisa de Premium) |
 | **Tarefas autônomas** | Você descreve um trabalho; ele faz um plano, cria o projeto numa pasta própria, escreve código, roda comandos e (se você permitir) envia ao GitHub. Orçamento por tarefa, pausa quando a cota acaba e **continua sozinho quando ela renova** |
@@ -60,7 +61,17 @@ Com o login feito, o app liga sozinho a rotina de e-mails e agenda em segundo pl
 3. Coloque o *Client ID* em `SPOTIFY_CLIENT_ID` no `.env` e reabra o app.
 4. Em **Ajustes › Spotify**, clique em *Conectar* e autorize.
 
-### 6. Projetos e GitHub (opcional)
+### 6. Rastreio de encomendas (opcional)
+Os Correios fecharam a consulta pública e a API oficial exige contrato com CNPJ, então o app usa o **17TRACK** (reconhece Correios e centenas de transportadoras):
+1. Crie uma conta grátis em `17track.net`, entre na área da **API** e copie a *chave de acesso* (Security Key).
+2. No arquivo `.env`, acrescente `TRACK17_KEY=sua_chave` e reabra o app.
+3. Na aba **Encomendas**, cole o código (ou peça no chat: "acompanhe a encomenda AA123456789BR").
+
+Ele consulta a cada 60 min (`rastreio.verificar_a_cada_minutos`, mínimo 15) só o que ainda não foi entregue, e a contagem para a próxima consulta aparece no medidor. Você é avisado na aba (com um número na barra lateral), no app e, se ativou os avisos, no celular. Se o código ainda não existir no sistema da transportadora, ele diz que **não encontrou** e continua tentando.
+
+Limites honestos: pelas regras do 17TRACK, contas novas ganham uma cota única de **200 códigos gratuitos** (cada código novo gasta 1; consultar de novo não gasta), e a integração foi escrita pela documentação e testada só com respostas simuladas — se a sua chave se comportar diferente, o app mostra o erro na própria encomenda. Sem a chave, os códigos ficam guardados e há o link para consultar no site.
+
+### 7. Projetos e GitHub (opcional)
 Em **Ajustes › Projetos**, escolha a pasta onde ele cria os projetos e liste os repositórios (`usuario/repo`) em que ele **pode** enviar código. Fora dessa lista ele nunca faz push. O envio usa o `git` e as credenciais que já estão no seu computador.
 
 ## Ativação por voz ("ei assistente")
@@ -150,6 +161,7 @@ workspace.py       pasta de projetos, comandos e git com travas
 pc_control.py      abrir apps, tela, teclado, mouse
 spotify_control.py Spotify (API oficial)
 wake.py            ativação por voz (frase de chamada, gravação, resposta falada)
+tracking.py        rastreio de encomendas (17TRACK)
 automation.py      rotina de e-mails e agenda em segundo plano
 main.py            comandos de terminal (setup, triagem, memória...)
 tests/             testes automáticos (não chamam Gemini nem Google)
