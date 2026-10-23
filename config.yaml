@@ -19,7 +19,15 @@ limites:
   # O limite é DIFERENTE para cada modelo. Os números acima valem para todos, como ESTIMATIVA. Quando o Google recusa
   # uma chamada, o app aprende o limite real daquele modelo sozinho. Se você já sabe os limites (painel em
   # aistudio.google.com/rate-limit), escreva um por linha: "modelo=por_dia,por_minuto,tokens_por_minuto".
-  por_modelo: []
+  # Conferidos no seu painel (AI Studio › Limites de taxa) em 23/10/2026. Formato: modelo=por_dia,por_minuto,tokens_por_minuto
+  por_modelo:
+    - "gemini-3.8-flash=20,5,250000"
+    - "gemini-3.6-flash=20,5,250000"
+    - "gemini-3.5-flash-lite=500,15,250000"
+    - "gemini-3.1-flash-lite=500,15,250000"
+    - "gemini-3-flash=20,5,250000"
+    - "gemini-2.5-flash=20,5,250000"
+    - "gemini-2.5-flash-lite=20,10,250000"
   fuso_renovacao: "America/Los_Angeles"   # a cota diária renova à meia-noite do Pacífico
   hora_renovacao: "00:00"
 
