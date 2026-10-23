@@ -140,6 +140,103 @@
     },
   };
 
+  // =================================================================== ENCOMENDAS
+
+  const TRK_CLASS = { Delivered: "done", OutForDelivery: "running", AvailableForPickup: "running", InTransit: "running", Exception: "failed", DeliveryFailure: "failed", Expired: "failed" };
+  const evTime = (t) => { const d = new Date(t); return isNaN(d) ? String(t || "") : d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); };
+
+  const tracking = {
+    box: null, data: { items: [] }, sel: null,
+
+    async render(content) { this.box = content; await this.refresh(); },
+    resync() { if (S.view === "tracking") this.refresh(); },
+
+    async refresh() {
+      if (S.view !== "tracking" || !this.box) return;
+      try { this.data = await api("GET", "/api/tracking"); } catch (e) { toast(e.message, "error"); return; }
+      if (!this.data.items.some((i) => i.id === this.sel)) this.sel = this.data.items.length ? this.data.items[0].id : null;
+      this.paint();
+    },
+
+    current() { return this.data.items.find((i) => i.id === this.sel) || null; },
+
+    paint() {
+      const d = this.data;
+      const kids = [];
+      if (!d.configured) {
+        kids.push(h("div", { class: "card" }, h("h3", { text: "Falta a chave do serviço de rastreio" }),
+          h("p", { class: "desc" }, "O assistente consulta as encomendas pelo 17TRACK (grátis, reconhece Correios e transportadoras do mundo todo). Crie uma conta em ", h("code", { text: "17track.net" }), ", gere a chave de acesso da API e coloque no arquivo ", h("code", { text: ".env" }), " como ", h("code", { text: "TRACK17_KEY=sua_chave" }), ". Reabra o app. Passo a passo no README."),
+          h("p", { class: "desc", style: "margin:0", text: "Enquanto isso, você já pode guardar os códigos aqui e abrir o rastreio de cada um no site." })));
+      }
+      const code = h("input", { type: "text", placeholder: "Código de rastreio (ex.: AA123456789BR)", maxlength: "40", "aria-label": "Código de rastreio" });
+      code.addEventListener("input", () => { code.value = code.value.toUpperCase(); });
+      const name = h("input", { type: "text", placeholder: "Nome (ex.: Fone novo)", maxlength: "60", "aria-label": "Nome da encomenda" });
+      const add = async () => {
+        if (!code.value.trim()) return;
+        try { const r = await api("POST", "/api/tracking", { code: code.value, name: name.value }); code.value = ""; name.value = ""; this.sel = r.item.id; toast(d.configured ? "Consultando agora…" : "Código guardado.", "ok"); await this.refresh(); } catch (e) { toast(e.message, "error"); }
+      };
+      code.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+      name.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+      const st = d.status || {};
+      kids.push(h("div", { class: "card" }, h("h3", { text: "Acompanhar uma encomenda" }),
+        h("div", { class: "trk-add" }, code, name, h("button", { class: "btn primary", type: "button", text: "Acompanhar", onclick: add })),
+        h("p", { class: "desc", style: "margin:10px 0 0" }, "Você também pode pedir no chat: “acompanhe a encomenda AA123456789BR”. ",
+          st.next_ts ? h("span", {}, "Próxima consulta automática em ", h("b", { "data-next": String(st.next_ts), text: A.countdown(st.next_ts) }), ". ") : null,
+          d.items.length && d.configured ? h("button", { class: "btn sm", type: "button", text: "Consultar todas agora", onclick: async () => { try { await api("POST", "/api/tracking/check"); toast("Consultando…"); } catch (e) { toast(e.message, "error"); } } }) : null)));
+      const left = h("div", { class: "list", role: "list" });
+      if (!d.items.length) left.append(h("div", { class: "card" }, h("h3", { text: "Nenhuma encomenda ainda" }), h("p", { class: "desc", style: "margin:0", text: "Cole o código de rastreio acima. O assistente consulta sozinho e te avisa (aqui, no medidor e no celular) quando a situação mudar." })));
+      for (const i of d.items) {
+        const ev = (i.events || [])[0];
+        left.append(h("div", { class: "item" + (i.id === this.sel ? " sel" : ""), role: "listitem", tabindex: "0", onclick: () => this.select(i.id), onkeydown: (e) => { if (e.key === "Enter") this.select(i.id); } },
+          h("div", { class: "t" }, i.unread ? h("span", { class: "dot", title: "Novidade" }) : null, i.name),
+          h("div", { class: "m" }, h("span", { class: "st-chip " + (TRK_CLASS[i.status] || "waiting_user"), text: i.status_label }), ev ? h("span", { text: evTime(ev.time) }) : null),
+          h("div", { class: "m", style: "margin-top:4px" }, h("code", { text: i.code }))));
+      }
+      kids.push(h("div", { class: "split" }, left, this.detail()));
+      this.box.replaceChildren(page("Encomendas", "Informe o código e o assistente avisa de cada novidade.", ...kids));
+    },
+
+    async select(id) {
+      this.sel = id;
+      const i = this.current();
+      if (i && i.unread) { try { await api("POST", `/api/tracking/${id}/read`); } catch (e) { /* ignora */ } await this.refresh(); } else this.paint();
+    },
+
+    detail() {
+      const i = this.current();
+      if (!i) return h("div", {});
+      const card = h("div", { class: "card" });
+      const title = h("h3", { text: i.name });
+      card.append(h("div", { style: "display:flex;align-items:center;gap:10px;justify-content:space-between" }, title,
+        h("span", { class: "st-chip " + (TRK_CLASS[i.status] || "waiting_user"), text: i.status_label })),
+        h("div", { class: "kv", style: "margin:6px 0 12px" }, h("code", { text: i.code }), i.carrier ? h("span", { style: "color:var(--muted)", text: "· " + i.carrier }) : null));
+      if (i.error) card.append(h("div", { class: "alert err", text: i.error }));
+      else if (i.found === false) card.append(h("p", { class: "desc", text: i.note || "Ainda não encontrei esse código. Logo depois da postagem pode levar algumas horas. Sigo tentando e aviso quando aparecer." }));
+      else if (i.found === null) card.append(h("p", { class: "desc", text: "Aguardando a primeira consulta…" }));
+      if ((i.events || []).length) {
+        card.append(h("ol", { class: "trk-line" }, i.events.map((e, n) => h("li", { class: n === 0 ? "now" : "" }, h("time", { text: evTime(e.time) }), h("div", { class: "tx", text: e.text || "Atualização" }), e.place ? h("div", { class: "pl", text: e.place }) : null))));
+      }
+      if (i.last_check) card.append(h("p", { class: "desc", style: "margin:12px 0 0;font-size:12.5px", text: "Última consulta " + F.ago(i.last_check - ((S.skew) || 0)) + "." }));
+      const row = h("div", { class: "row-btns", style: "margin-top:14px" },
+        this.data.configured ? h("button", { class: "btn", type: "button", text: "Consultar agora", onclick: async () => { try { await api("POST", `/api/tracking/${i.id}/check`); toast("Consultando…"); } catch (e) { toast(e.message, "error"); } } }) : null,
+        h("a", { class: "btn", href: i.url, target: "_blank", rel: "noopener noreferrer", text: "Abrir no site de rastreio" }),
+        h("button", { class: "btn", type: "button", text: "Renomear", onclick: () => this.rename(i) }),
+        h("button", { class: "btn danger", type: "button", text: "Remover", onclick: async () => {
+          if (!(await A.confirm("Remover encomenda?", "O assistente para de acompanhar este código.", "Remover", true))) return;
+          try { await api("DELETE", `/api/tracking/${i.id}`); await this.refresh(); } catch (e) { toast(e.message, "error"); }
+        } }));
+      card.append(row);
+      return card;
+    },
+
+    rename(i) {
+      const input = h("input", { type: "text", maxlength: "60", value: i.name, "aria-label": "Novo nome" });
+      A.modal({ title: "Renomear", body: h("label", { class: "f" }, h("span", { text: "Nome da encomenda" }), input), actions: [{ label: "Cancelar" }, { label: "Salvar", kind: "primary", run: async () => {
+        try { await api("POST", `/api/tracking/${i.id}/rename`, { name: input.value }); await this.refresh(); } catch (e) { toast(e.message, "error"); return false; }
+      } }] });
+    },
+  };
+
   // =================================================================== HISTÓRICO
 
   function evRow(showTask) {
@@ -420,5 +517,5 @@
     },
   };
 
-  A.views.tasks = tasks; A.views.activity = activity; A.views.memory = memory; A.views.settings = settings;
+  A.views.tracking = tracking; A.views.tasks = tasks; A.views.activity = activity; A.views.memory = memory; A.views.settings = settings;
 })();

@@ -47,6 +47,7 @@
     send: '<path d="M12 19V5M5 12l7-7 7 7"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>',
     speaker: '<path d="M4 9v6h4l5 4V5L8 9zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
     copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+    box: '<path d="M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
     file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/>',
     refresh: '<path d="M20 11a8 8 0 0 0-14.5-3.5L4 9M4 4v5h5M4 13a8 8 0 0 0 14.5 3.5L20 15M20 20v-5h-5"/>',
@@ -187,6 +188,11 @@
 
   function onEvent(e) {
     if (e.type === "toast") return toast(e.text, e.kind);
+    if (e.type === "tracking") {
+      if (S.state) { S.state.tracking = { ...(S.state.tracking || {}), unread: e.unread, configured: e.configured }; paintNav(); }
+      if (S.view === "tracking" && A.views.tracking) A.views.tracking.refresh();
+      return;
+    }
     if (e.type === "checks") { if (S.state) { S.state.checks = e.checks; S.skew = e.checks.now - Date.now() / 1000; tickChecks(); if (document.querySelector("#usage .pop")) paintUsage(); } return; }
     if (e.type === "voice") { if (S.state) { S.state.voice = e.voice; paintWake(); (A.voiceListeners || []).forEach((f) => f()); } return; }
     if (e.type === "voice_command") {
@@ -242,7 +248,7 @@
 
   // ------------------------------------------------------------------ estrutura (barra lateral e topo)
 
-  const NAV = [["chat", "Conversa", "chat"], ["tasks", "Tarefas", "tasks"], ["activity", "Histórico", "clock"], ["memory", "Memória", "brain"], ["settings", "Ajustes", "gear"]];
+  const NAV = [["chat", "Conversa", "chat"], ["tasks", "Tarefas", "tasks"], ["tracking", "Encomendas", "box"], ["activity", "Histórico", "clock"], ["memory", "Memória", "brain"], ["settings", "Ajustes", "gear"]];
 
   function buildShell() {
     const app = document.getElementById("app");
@@ -280,6 +286,8 @@
     const c = (S.state && S.state.task_counts) || {};
     const active = (c.running || 0) + (c.queued || 0);
     const waiting = (c.waiting_approval || 0) + (c.waiting_user || 0);
+    const tb = document.querySelector('[data-badge="tracking"]');
+    if (tb) { const n = (S.state && S.state.tracking && S.state.tracking.unread) || 0; tb.textContent = n || ""; tb.classList.toggle("hidden", !n); }
     const badge = document.querySelector('[data-badge="tasks"]');
     if (badge) {
       const n = waiting || active;
@@ -393,8 +401,10 @@
     else if (mail.next_ts) box.textContent = `Próxima checagem de e-mail em ${countdown(mail.next_ts)}`;
     else box.textContent = "";
   }
+  A.countdown = countdown;
   function checkRow(j) {
     const status = j.running ? h("span", { class: "chk-now", text: "Verificando agora…" })
+      : !j.next_ts && j.note ? h("span", { text: j.note })
       : j.next_ts ? h("span", {}, "Próxima ", j.every === "todo dia" ? "" : "em ", h("b", { "data-next": String(j.next_ts), text: countdown(j.next_ts) }), ` (${F.dayTime(j.next_ts)})`)
       : h("span", { text: "Parada" });
     const last = j.last_ts ? h("div", { class: "chk-last" }, `Última ${F.ago(j.last_ts - (S.skew || 0))}: `, h("span", { class: j.last_ok === false ? "bad" : "", text: j.last_text || (j.last_ok ? "ok" : "") }))
@@ -569,7 +579,7 @@
     content.replaceChildren();
     const v = A.views[S.view];
     if (S.view === "chat") { renderChat(content); return; }
-    const titles = { tasks: "Tarefas", activity: "Histórico", memory: "Memória", settings: "Ajustes" };
+    const titles = { tracking: "Encomendas", tasks: "Tarefas", activity: "Histórico", memory: "Memória", settings: "Ajustes" };
     setTitle(titles[S.view] || "");
     if (v) v.render(content); else content.append(h("div", { class: "column" }, h("p", { text: "Seção indisponível." })));
   }
