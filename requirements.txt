@@ -11,3 +11,4 @@ pillow
 vosk
 sounddevice
 pystray
+uiautomation; sys_platform == "win32"

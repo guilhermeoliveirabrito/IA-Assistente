@@ -305,11 +305,12 @@ class TelaTest(EngineBase):
         super().setUp()
         import pc_control as pc
         self.pc = pc
-        self.saved = {n: getattr(pc, n) for n in ("screenshot", "click", "wait", "type_text", "hotkey")}
+        self.saved = {n: getattr(pc, n) for n in ("screenshot", "click", "wait", "type_text", "hotkey", "settle")}
         self.shots, self.clicks = [], []
         pc.screenshot = lambda **kw: self.shots.append(kw) or (b"\xff\xd8img", {})
         pc.click = lambda x, y, b="left", c=1: self.clicks.append((x, y)) or {"ok": True}
         pc.wait = lambda s: {"ok": True}
+        pc.settle = lambda **kw: 0.0
         pc.type_text = lambda t: {"ok": True}
         pc.hotkey = lambda c: {"ok": True}
         self.cfg["pc"] = {"modo_autonomo": True}
@@ -461,6 +462,16 @@ class VelocidadeTest(TelaTest):
         self.engine().run(self.user(), "sys")
         self.assertEqual(self.kws[0], {})                                   # 1º passo: padrão ("auto")
         self.assertEqual(self.kws[1], {"thinking": "minimal", "timeout": agent.PC_TIMEOUT})
+
+    def test_modelos_rapidos_entram_na_frente_so_depois_de_usar_o_pc(self):
+        self.cfg["ia"]["modelos_pc"] = ["gemini-lite-x"]
+        eng = self.engine()
+        antes = eng._models()
+        self.assertNotIn("gemini-lite-x", antes)
+        eng._pc_used = True
+        depois = eng._models()
+        self.assertEqual(depois[0], "gemini-lite-x")
+        self.assertEqual(sorted(depois[1:]), sorted(antes))
 
     def test_nivel_configuravel(self):
         self.cfg["ia"].update(raciocinio="low", raciocinio_pc="low")

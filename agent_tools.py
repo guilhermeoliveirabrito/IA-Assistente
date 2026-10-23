@@ -7,6 +7,7 @@ import memory
 import pc_control as pc
 import spotify_control as spmod
 import tracking
+import uia
 import workspace as wsmod
 
 MAX_RESULT_CHARS = 6000
@@ -96,10 +97,11 @@ PROJETO = S("Nome do projeto (opcional; usa o projeto atual).")
 
 
 class Tool:
-    def __init__(self, name, description, properties, required, category, run, summary, task_only=False):
+    def __init__(self, name, description, properties, required, category, run, summary, task_only=False, needs=None):
         self.name, self.description = name, description
         self.properties, self.required = properties, required
         self.category, self.run, self.summary, self.task_only = category, run, summary, task_only
+        self.needs = needs                    # função: a ferramenta só existe quando ela devolve True
 
     def declaration(self):
         decl = {"name": self.name, "description": self.description}
@@ -262,34 +264,82 @@ def t_abrir_vscode(ctx, a):
     return _ok(aberto="Visual Studio Code (abra a pasta manualmente: " + str(path) + ")")
 
 
+def _mk():
+    """Caixas numeradas dos elementos da última listagem, quando houver (senão a captura sai só com a grade)."""
+    m = uia.marks() if uia.available() else None
+    return {"marks": m} if m else {}
+
+
 def t_ver_tela(ctx, a):
     ctx.hide_window()
-    data, info = pc.screenshot()
-    return {"_image": (data, "image/jpeg"), "ok": True, **info,
-            "nota": "A captura da tela está anexada logo abaixo, com uma grade de números amarelos (0 a 1000). "
-                    "Para clicar, leia nela o x e o y do alvo."}
+    data, info = pc.screenshot(**_mk())
+    nota = ("A captura da tela está anexada logo abaixo, com uma grade de números amarelos (0 a 1000). "
+            "Para clicar, leia nela o x e o y do alvo.")
+    if uia.available():
+        nota += " Prefira listar_elementos + clicar_elemento: é exato, sem adivinhar coordenadas."
+    return {"_image": (data, "image/jpeg"), "ok": True, **info, "nota": nota}
 
 
 def t_ver_regiao(ctx, a):
     ctx.hide_window()
-    data, info = pc.screenshot(region=(a["x1"], a["y1"], a["x2"], a["y2"]))
+    data, info = pc.screenshot(region=(a["x1"], a["y1"], a["x2"], a["y2"]), **_mk())
     return {"_image": (data, "image/jpeg"), "ok": True, **info,
             "nota": "Zoom da região anexado. Os números amarelos continuam sendo as coordenadas da TELA INTEIRA (0 a 1000)."}
 
 
+def t_listar_janelas(ctx, a):
+    return {"ok": True, "janelas": [{k: v for k, v in w.items() if k != "_handle"} for w in uia.list_windows()]}
+
+
+def t_focar_janela(ctx, a):
+    ctx.hide_window()
+    r = uia.focus_window(a["titulo"], float(a.get("esperar_s") or 5))
+    uia.forget()
+    return _com_captura(ctx, r, espera=0.3)
+
+
+def t_listar_elementos(ctx, a):
+    ctx.hide_window()
+    els = uia.list_elements(int(a.get("maximo") or 60))
+    data, info = pc.screenshot(marks=uia.marks())
+    if not els:
+        return {"_image": (data, "image/jpeg"), "ok": True, "elementos": [], **info,
+                "nota": "Esta janela não expõe elementos (jogo, navegador em tela cheia, app customizado). "
+                        "Use a grade de coordenadas na captura anexada."}
+    return {"_image": (data, "image/jpeg"), "ok": True,
+            "elementos": [{"n": e["numero"], "tipo": e["tipo"], "nome": e["nome"]} for e in els], **info,
+            "nota": "Cada elemento tem um número, desenhado em caixa rosa na captura. Use clicar_elemento(numero)."}
+
+
+def t_clicar_elemento(ctx, a):
+    ctx.hide_window()
+    e = uia.get_element(a["numero"])
+    r = pc.click(e["x"], e["y"], a.get("botao") or "left", a.get("cliques") or 1)
+    r["elemento"] = f"{e['numero']} ({e['tipo']}: {e['nome']})" if e["nome"] else f"{e['numero']} ({e['tipo']})"
+    uia.forget()
+    return _com_captura(ctx, r)
+
+
 def _com_captura(ctx, result: dict, espera: float = 0.45) -> dict:
     """Depois de uma ação na tela, devolve junto uma captura nova: o modelo vê o resultado sem gastar outra chamada.
-    Se o modelo pediu várias ações no mesmo passo, só a última tira a foto (as outras só esperam um instante)."""
+    Se o modelo pediu várias ações no mesmo passo, só a última tira a foto (as outras só esperam um instante).
+    Antes da foto espera a tela parar de mudar (em vez de um atraso fixo) e avisa se ela não mudou nada."""
     if not getattr(ctx, "capture", True):
         pc.wait(0.2)
         return result
-    pc.wait(espera)
+    result["esperou_tela_s"] = pc.settle(min_wait=min(espera, 0.3))
     try:
-        data, _ = pc.screenshot()
+        data, info = pc.screenshot()
     except pc.PCError:
         return result
     result["_image"] = (data, "image/jpeg")
     result["nota"] = "Captura da tela DEPOIS da ação anexada abaixo (o círculo vermelho é onde você clicou). Confira se deu certo."
+    mudou = info.get("mudou")
+    if mudou is not None:
+        result["a_tela_mudou"] = mudou
+        if not mudou:
+            result["nota"] += (" ATENÇÃO: a tela NÃO mudou nada depois da ação. Ela não teve efeito: não repita igual; "
+                               "tente outro alvo (listar_elementos), outra tecla ou foque a janela certa (focar_janela).")
     return result
 
 
@@ -451,6 +501,21 @@ def _tools():
           {"x1": N("Esquerda (0-1000)."), "y1": N("Topo (0-1000)."), "x2": N("Direita (0-1000)."),
            "y2": N("Base (0-1000).")}, ["x1", "y1", "x2", "y2"], "tela", t_ver_regiao,
           lambda a: f"Ampliar a região ({a.get('x1')}, {a.get('y1')}) a ({a.get('x2')}, {a.get('y2')})"),
+        T("listar_janelas", "Lista as janelas abertas (título, qual está na frente, se está minimizada).", {}, [],
+          "tela", t_listar_janelas, lambda a: "Listar as janelas abertas", needs=uia.available),
+        T("focar_janela", "Traz uma janela para a frente pelo título (parte do nome, sem acento/maiúscula). Espera ela "
+          "aparecer se acabou de ser aberta. Bem mais seguro que alt+tab.",
+          {"titulo": S("Parte do título da janela."), "esperar_s": N("Segundos para esperar (padrão 5).")}, ["titulo"],
+          "entrada", t_focar_janela, lambda a: f"Focar a janela “{_short(a.get('titulo', ''), 60)}”", needs=uia.available),
+        T("listar_elementos", "Lista os botões, campos e links da janela ativa, cada um com um NÚMERO, e devolve a "
+          "captura com esses números em caixas rosa. É o jeito mais preciso de agir: depois use clicar_elemento.",
+          {"maximo": I("Quantos elementos (padrão 60, máx. 80).")}, [], "tela", t_listar_elementos,
+          lambda a: "Listar os elementos da janela", needs=uia.available),
+        T("clicar_elemento", "Clica no elemento de número N da última listar_elementos (exato, no centro dele). Prefira "
+          "isto a clicar por coordenada.",
+          {"numero": I("Número do elemento."), "botao": S("Botão.", ["left", "right", "middle"]),
+           "cliques": I("1 a 3 (2 = duplo clique).")}, ["numero"], "entrada", t_clicar_elemento,
+          lambda a: f"Clicar no elemento {a.get('numero')}", needs=uia.available),
         T("clicar", "Clica na tela. x e y vão de 0 a 1000 (0,0 = canto superior esquerdo; 1000,1000 = canto inferior "
           "direito): leia nos números amarelos da grade da captura, mirando no CENTRO do alvo. Depois do clique você "
           "recebe uma captura nova mostrando onde clicou (círculo vermelho).",
@@ -508,7 +573,7 @@ class Registry:
         self.ctx = ctx
         autonomous = bool((ctx.cfg.get("pc") or {}).get("modo_autonomo", False))
         self.tools = {t.name: t for t in _tools()
-                      if (ctx.mode == "task" or not t.task_only) and (autonomous or t.name != "pedir_permissao")}
+                      if (ctx.mode == "task" or not t.task_only) and (t.needs is None or t.needs()) and (autonomous or t.name != "pedir_permissao")}
 
     def declarations(self):
         return [t.declaration() for t in self.tools.values()]

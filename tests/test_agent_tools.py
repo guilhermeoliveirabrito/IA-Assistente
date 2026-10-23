@@ -254,6 +254,77 @@ class ScreenAndPlanTest(ToolsBase):
         self.assertIn("erro", reg.execute("definir_plano", {"passos": ["a"]})[0])
 
 
+class PrecisaoTest(ToolsBase):
+    """Elementos numerados, foco de janela e aviso de ação sem efeito."""
+
+    def setUp(self):
+        super().setUp()
+        import uia
+        from tests.test_uia import FakeBackend
+
+        self.uia = uia
+        self._uia_saved = (uia._backend, uia._elements, uia._sleep, pc.settle)
+        uia._backend, uia._elements, uia._sleep = FakeBackend(), [], (lambda s: None)
+        pc.settle = lambda **kw: 0.0
+        self.shots, self.clicks = [], []
+        self.mudou = True
+        pc.screenshot = lambda **kw: self.shots.append(kw) or (b"\xff\xd8img", {"mudou": self.mudou})
+        pc.click = lambda x, y, b="left", c=1: self.clicks.append((x, y)) or {"ok": True}
+        pc.wait = lambda s: {"ok": True}
+
+    def tearDown(self):
+        self.uia._backend, self.uia._elements, self.uia._sleep, pc.settle = self._uia_saved
+        super().tearDown()
+
+    def test_ferramentas_so_existem_com_uia_disponivel(self):
+        self.assertTrue(self.reg()[0].has("listar_elementos"))
+        self.uia._backend = None
+        if sys.platform != "win32":
+            reg = self.reg()[0]
+            for n in ("listar_elementos", "clicar_elemento", "listar_janelas", "focar_janela"):
+                self.assertFalse(reg.has(n), n)
+            self.assertTrue(reg.has("clicar"))
+
+    def test_listar_e_clicar_elemento(self):
+        reg, _ = self.reg()
+        res, image = reg.execute("listar_elementos", {})
+        self.assertEqual([e["nome"] for e in res["elementos"]], ["Buscar aqui", "Salvar"])
+        self.assertEqual(len(self.shots[-1]["marks"]), 2)
+        self.assertIsNotNone(image)
+        res, _ = reg.execute("clicar_elemento", {"numero": 2})
+        self.assertEqual(self.clicks, [(525, 525)])
+        self.assertIn("Salvar", res["elemento"])
+        res, _ = reg.execute("clicar_elemento", {"numero": 2})          # os números valem só até a ação
+        self.assertIn("erro", res)
+
+    def test_sem_elementos_manda_usar_a_grade(self):
+        self.uia._backend.els = []
+        res, _ = self.reg()[0].execute("listar_elementos", {})
+        self.assertEqual(res["elementos"], [])
+        self.assertIn("grade", res["nota"])
+
+    def test_focar_janela_devolve_captura(self):
+        res, image = self.reg()[0].execute("focar_janela", {"titulo": "chrome", "esperar_s": 0})
+        self.assertEqual(res["janela"], "Google Chrome")
+        self.assertIsNotNone(image)
+        self.assertEqual(self.uia._backend.focused, [3])
+
+    def test_janela_nao_encontrada_vira_erro_para_o_modelo(self):
+        res, _ = self.reg()[0].execute("focar_janela", {"titulo": "inexistente", "esperar_s": 0})
+        self.assertIn("Janelas abertas", res["erro"])
+
+    def test_clique_sem_efeito_avisa_para_nao_repetir(self):
+        reg, _ = self.reg()
+        self.mudou = False
+        res, _ = reg.execute("clicar", {"x": 10, "y": 10})
+        self.assertIs(res["a_tela_mudou"], False)
+        self.assertIn("NÃO mudou", res["nota"])
+        self.mudou = True
+        res, _ = reg.execute("clicar", {"x": 10, "y": 10})
+        self.assertIs(res["a_tela_mudou"], True)
+        self.assertNotIn("NÃO mudou", res["nota"])
+
+
 class MiscTest(ToolsBase):
     def test_resultado_grande_e_cortado(self):
         big = {"conteudo": "x" * 20000}

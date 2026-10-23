@@ -62,6 +62,10 @@ def build_system_prompt(cfg: dict, mode: str = "chat", project: str = None, task
         "endereço, enter), peça TODAS essas ações de uma vez no mesmo passo (várias chamadas juntas): só a última "
         "devolve a captura. Não chame ver_tela se a ação anterior já devolveu a captura. Seja breve: não explique o "
         "que vai fazer a cada passo, só faça e conte no final.",
+        "PRECISÃO: se existirem as ferramentas listar_elementos/clicar_elemento, use-as em vez de adivinhar coordenadas: "
+        "listar_elementos numera os botões e campos da janela e clicar_elemento clica no centro exato. Use focar_janela "
+        "para trazer um programa para a frente (em vez de alt+tab). Se o resultado disser que a tela NÃO mudou, a ação "
+        "não teve efeito: mude de alvo ou de método, nunca repita igual. Coordenadas da grade só quando não houver elementos.",
     ]
     lines.append("ENCOMENDAS: quando o usuário der um código de rastreio, use rastreio_adicionar (ele já consulta na hora) e "
                  "conte o que achou, ou diga honestamente que ainda não encontrou. Depois o app avisa sozinho das novidades.")
@@ -191,6 +195,14 @@ class Engine:
         finally:
             self.registry.ctx.release()
 
+    def _models(self):
+        """Ordem dos modelos. Depois que o assistente começa a mexer no PC, os modelos rápidos de `ia.modelos_pc`
+        (ex.: versões Lite) vão na frente: cada passo é curto e o que importa é a velocidade entre eles."""
+        ia = self.cfg.get("ia") or {}
+        models = gemini.models_for(ia.get("modelo", "gemini-3.8-flash"))
+        fast = [m for m in (ia.get("modelos_pc") or []) if isinstance(m, str) and m.strip()] if self._pc_used else []
+        return fast + [m for m in models if m not in fast]
+
     def _speed(self):
         """(nível de raciocínio, tempo limite) do próximo passo. No controle do PC cada passo é curto (olhar a tela e
         escolher o próximo clique), então pensar menos e desistir mais cedo de uma resposta que travou compensa."""
@@ -240,10 +252,12 @@ class Engine:
             halt.set()
 
     def _loop(self, contents, system):
-        models = gemini.models_for((self.cfg.get("ia") or {}).get("modelo", "gemini-3.8-flash"))
+        models = self._models()
         decls = self.registry.declarations()
         for _ in range(self.max_steps):
             self._check_stop()
+            if self._pc_used:
+                models = self._models()
             if self.on_request:
                 self.on_request()
             context.drop_old_images(contents)
