@@ -373,7 +373,7 @@
           await A.refreshState(); this.paint();
         } catch (e) { toast(e.message, "error"); ev.currentTarget.disabled = false; }
       } });
-      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.phoneCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
+      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.phoneCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
     },
 
     field(inputs, key, label, type, help, options) {
@@ -414,6 +414,20 @@
         a.urls.forEach((u) => card.append(h("div", { class: "kv", style: "margin-top:6px" }, h("code", { style: "overflow-wrap:anywhere", text: u }))));
         card.append(h("p", { class: "desc", style: "margin-top:12px", text: "No iPhone, abra um desses endereços no Safari (a mesma rede Wi-Fi) e use Compartilhar › Adicionar à Tela de Início. Para usar fora de casa com segurança (e o microfone), instale o Tailscale no PC e no iPhone e abra o endereço do Tailscale com o mesmo código. Nunca exponha a porta direto na internet." }));
       } else card.append(h("p", { class: "desc", style: "margin:0", text: "Desligado: só este computador acessa." }));
+      return card;
+    },
+
+    petCard() {
+      const pr = A.pet ? A.pet.prefs() : { on: true, name: "Mia" };
+      const card = h("div", { class: "card" }, h("h3", { text: "Gatinho" }),
+        h("p", { class: "desc", text: "Um gatinho pequeno que acompanha o que o assistente faz: pensa, digita quando usa ferramentas, escuta quando você fala, comemora quando termina, fica triste se dá erro e dorme se ficar parado. Clique nele para fazer carinho." }));
+      const sw = h("input", { type: "checkbox", checked: pr.on });
+      sw.addEventListener("change", () => A.pet.configure({ on: sw.checked }));
+      const name = h("input", { type: "text", value: pr.name, maxlength: "20", "aria-label": "Nome do gatinho" });
+      name.addEventListener("change", () => { A.pet.configure({ name: name.value }); toast("Nome salvo.", "ok"); });
+      card.append(h("label", { class: "switch" }, sw, h("span", { text: "Mostrar o gatinho" })),
+        h("label", { class: "f", style: "margin-top:12px" }, h("span", { text: "Nome dele" }), name),
+        h("p", { class: "desc", style: "margin:8px 0 0", text: `Carinhos feitos até agora: ${A.pet ? A.pet.count() : 0}. (Guardado só neste navegador.)` }));
       return card;
     },
 

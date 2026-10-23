@@ -1,0 +1,139 @@
+/* ---------- gatinho (mascote) ---------- */
+.pet { --cat: #dba064; --cat-dark: #b97d46; --cat-light: #f2d4aa; --ink: #2a2018; --pink: #eba3a0;
+  position: relative; display: block; width: 112px; margin: 0 auto; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; outline-offset: 4px; }
+.pet:focus-visible { outline: 2px solid var(--accent); border-radius: 12px; }
+.pet-art { width: 100%; }
+.pet-bubble { position: absolute; left: 50%; top: -6px; transform: translate(-50%, -100%) scale(.9); background: var(--raised-2); color: var(--text); border: 1px solid var(--line); border-radius: 12px;
+  padding: 4px 10px; font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 5; }
+.pet-bubble.show { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+.pet-bubble::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 8px; height: 8px; background: inherit; border: inherit; border-width: 0 1px 1px 0; transform: translateX(-50%) rotate(45deg); }
+.pet[data-state="thinking"] .pet-bubble.show, .pet[data-state="working"] .pet-bubble.show { animation: shimmer 2.2s ease-in-out infinite; }
+
+.cat-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.cat-svg .fur { fill: var(--cat); }
+.cat-svg .belly { fill: var(--cat-light); }
+.cat-svg .foot { fill: var(--cat); stroke: var(--cat-dark); stroke-width: 1; }
+.cat-svg .paw { fill: var(--cat-light); stroke: var(--cat-dark); stroke-width: 1; }
+.cat-svg .stripe { stroke: var(--cat-dark); stroke-width: 2.6; stroke-linecap: round; fill: none; }
+.cat-svg .tail { fill: none; stroke: var(--cat); stroke-width: 10; stroke-linecap: round; }
+.cat-svg .inner-ear { fill: var(--pink); }
+.cat-svg .blush { fill: var(--pink); opacity: 0; transition: opacity .3s; }
+.cat-svg .pupil { fill: var(--ink); }
+.cat-svg .shine { fill: #fff; }
+.cat-svg .eyes-closed, .cat-svg .eyes-happy { fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; opacity: 0; }
+.cat-svg .nose { fill: #e58e8e; }
+.cat-svg .mouth { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; opacity: 0; }
+.cat-svg .mouth-calm { opacity: 1; }
+.cat-svg .mouth-happy { fill: #9d3d3d; stroke: var(--ink); stroke-linejoin: round; }
+.cat-svg .whisker { stroke: #f4e6d0; stroke-width: 1.2; stroke-linecap: round; opacity: .85; }
+.cat-svg .waves path { fill: none; stroke: var(--info); stroke-width: 2.4; stroke-linecap: round; }
+.cat-svg .waves, .cat-svg .zzz, .cat-svg .heart, .cat-svg .sweat, .cat-svg .laptop, .cat-svg .parcel { opacity: 0; }
+.cat-svg .heart { fill: #e86a7a; transform-origin: 60px 20px; }
+.cat-svg .sweat { fill: #8fc4ee; }
+.cat-svg .z { fill: var(--muted); font: 700 12px var(--sans); }
+.cat-svg .lap-base { fill: #66727b; }
+.cat-svg .lap-screen { fill: #2f3a41; stroke: #66727b; stroke-width: 1.5; }
+.cat-svg .lap-lines { stroke: #86bb8c; stroke-width: 1.8; stroke-linecap: round; fill: none; }
+.cat-svg .lap-cursor { fill: #ece9e3; }
+.cat-svg .box { fill: #c9965a; stroke: #8a6236; stroke-width: 1.4; }
+.cat-svg .tape { stroke: #f2d9a8; stroke-width: 3; fill: none; }
+
+/* parado: respira, balança a ponta do rabo, pisca */
+.cat-svg .body-wrap { transform-origin: 60px 118px; animation: cat-breathe 3.6s ease-in-out infinite; }
+.cat-svg .tail-wrap { transform-origin: 84px 108px; animation: cat-tail 3.2s ease-in-out infinite; }
+.cat-svg .head { transform-origin: 60px 70px; transition: transform .35s ease; }
+.cat-svg .eyes-open { transform-origin: 60px 48px; animation: cat-blink 5s infinite; }
+.cat-svg .ear { transition: transform .25s; }
+.cat-svg .ear-l { transform-origin: 44px 30px; }
+.cat-svg .ear-r { transform-origin: 76px 30px; }
+.cat-svg .ear-l, .cat-svg .ear-r { animation: cat-ear 7s ease-in-out infinite; }
+.cat-svg .ear-r { animation-delay: 1.2s; }
+
+/* pensando: cabeça inclinada, olha para cima, rabo mais rápido */
+.cat-svg[data-state="thinking"] .head { transform: rotate(-7deg) translateY(-1px); }
+.cat-svg[data-state="thinking"] .eye { transform: translate(1.8px, -2px); }
+.cat-svg[data-state="thinking"] .tail-wrap { animation-duration: 1.2s; }
+
+/* trabalhando: notebook e patinhas digitando */
+.cat-svg[data-state="working"] .laptop { opacity: 1; }
+.cat-svg[data-state="working"] .paw-l { animation: cat-type 0.38s ease-in-out infinite; }
+.cat-svg[data-state="working"] .paw-r { animation: cat-type 0.38s ease-in-out .19s infinite; }
+.cat-svg[data-state="working"] .paw { transform: translateY(-4px); }
+.cat-svg[data-state="working"] .lap-cursor { animation: cat-cursor 1s steps(2) infinite; }
+.cat-svg[data-state="working"] .eye { transform: translate(0, 1.5px); }
+.cat-svg[data-state="working"] .head { transform: rotate(3deg); }
+.cat-svg[data-state="working"] .tail-wrap { animation-duration: 1.6s; }
+
+/* ouvindo: orelhas em pé, olhos grandes, ondas sonoras */
+.cat-svg[data-state="listening"] .ear-l { animation: cat-perk-l .5s ease-in-out infinite alternate; }
+.cat-svg[data-state="listening"] .ear-r { animation: cat-perk-r .5s ease-in-out infinite alternate; }
+.cat-svg[data-state="listening"] .eyes-open { transform: scale(1.18); animation: none; }
+.cat-svg[data-state="listening"] .waves { opacity: 1; animation: cat-waves 1.1s ease-in-out infinite; }
+.cat-svg[data-state="listening"] .head { transform: rotate(5deg); }
+
+/* feliz: olhos sorrindo, boca aberta, pulinho, rabo para cima */
+.cat-svg[data-state="happy"] .eyes-open, .cat-svg[data-state="petted"] .eyes-open { opacity: 0; animation: none; }
+.cat-svg[data-state="happy"] .eyes-happy, .cat-svg[data-state="petted"] .eyes-happy { opacity: 1; }
+.cat-svg[data-state="happy"] .mouth-calm, .cat-svg[data-state="petted"] .mouth-calm { opacity: 0; }
+.cat-svg[data-state="happy"] .mouth-happy { opacity: 1; }
+.cat-svg[data-state="petted"] .mouth-calm { opacity: 1; }
+.cat-svg[data-state="happy"] .blush, .cat-svg[data-state="petted"] .blush { opacity: .75; }
+.cat-svg[data-state="happy"] .body-wrap, .cat-svg[data-state="happy"] .head { animation: cat-hop .5s ease-out 2; }
+.cat-svg[data-state="happy"] .tail-wrap { animation-duration: .7s; }
+.cat-svg[data-state="petted"] .heart { animation: cat-heart 1.6s ease-out forwards; }
+.cat-svg[data-state="petted"] .head { transform: rotate(-4deg) translateY(2px); }
+.cat-svg[data-state="petted"] .tail-wrap { animation-duration: .8s; }
+
+/* triste: orelhas caídas, olhos baixos, gota de suor */
+.cat-svg[data-state="sad"] .ear-l { animation: none; transform: rotate(-28deg); }
+.cat-svg[data-state="sad"] .ear-r { animation: none; transform: rotate(28deg); }
+.cat-svg[data-state="sad"] .eye { transform: translate(0, 2px) scaleY(.85); }
+.cat-svg[data-state="sad"] .mouth-calm { opacity: 0; }
+.cat-svg[data-state="sad"] .mouth-sad { opacity: 1; }
+.cat-svg[data-state="sad"] .sweat { opacity: 1; animation: cat-sweat 1.6s ease-in infinite; }
+.cat-svg[data-state="sad"] .head { transform: translateY(3px); }
+.cat-svg[data-state="sad"] .tail-wrap { animation: none; transform: rotate(14deg); }
+
+/* encomenda: caixinha pulando, olhos felizes */
+.cat-svg[data-state="parcel"] .parcel { opacity: 1; animation: cat-parcel .7s ease-in-out infinite alternate; }
+.cat-svg[data-state="parcel"] .eyes-open { opacity: 0; animation: none; }
+.cat-svg[data-state="parcel"] .eyes-happy { opacity: 1; }
+.cat-svg[data-state="parcel"] .blush { opacity: .6; }
+.cat-svg[data-state="parcel"] .head { transform: rotate(6deg); }
+
+/* dormindo: olhos fechados, cabeça baixa, respiração lenta, zzz */
+.cat-svg[data-state="sleeping"] .eyes-open { opacity: 0; animation: none; }
+.cat-svg[data-state="sleeping"] .eyes-closed { opacity: 1; }
+.cat-svg[data-state="sleeping"] .head { transform: rotate(9deg) translate(3px, 8px); }
+.cat-svg[data-state="sleeping"] .ear-l, .cat-svg[data-state="sleeping"] .ear-r { animation: none; }
+.cat-svg[data-state="sleeping"] .body-wrap { animation-duration: 5.5s; }
+.cat-svg[data-state="sleeping"] .tail-wrap { animation: none; transform: rotate(6deg); }
+.cat-svg[data-state="sleeping"] .zzz { opacity: 1; }
+.cat-svg[data-state="sleeping"] .z { animation: cat-z 3s ease-in-out infinite; }
+.cat-svg[data-state="sleeping"] .z2 { animation-delay: 1s; }
+.cat-svg[data-state="sleeping"] .z3 { animation-delay: 2s; }
+
+@keyframes cat-breathe { 50% { transform: scaleY(1.025); } }
+@keyframes cat-tail { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(9deg); } }
+@keyframes cat-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
+@keyframes cat-ear { 0%, 90%, 100% { transform: rotate(0); } 94% { transform: rotate(-8deg); } }
+@keyframes cat-type { 50% { transform: translateY(1px); } }
+@keyframes cat-cursor { 50% { opacity: 0; } }
+@keyframes cat-perk-l { to { transform: rotate(-10deg) scale(1.08); } }
+@keyframes cat-perk-r { to { transform: rotate(10deg) scale(1.08); } }
+@keyframes cat-waves { 50% { opacity: .25; } }
+@keyframes cat-hop { 40% { transform: translateY(-9px); } }
+@keyframes cat-heart { 0% { opacity: 0; transform: translateY(14px) scale(.4); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(-16px) scale(1); } }
+@keyframes cat-sweat { 0% { opacity: 0; transform: translateY(-3px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(10px); } }
+@keyframes cat-parcel { to { transform: translateY(-8px) rotate(-5deg); } }
+@keyframes cat-z { 0% { opacity: 0; transform: translate(0, 6px); } 40% { opacity: 1; } 100% { opacity: 0; transform: translate(4px, -8px); } }
+
+/* na lateral (desktop) o gatinho fica sobre os avisos; no topo (celular) vira uma versão pequena */
+#pet-slot { padding: 6px 0 0; }
+#pet-slot-mini { display: none; }
+.pet-mini { width: 42px; margin: 0; }
+.pet-mini .pet-bubble { display: none; }
+@media (max-width: 760px) { #pet-slot-mini { display: block; margin-left: auto; margin-right: 4px; } }
+@media (prefers-reduced-motion: reduce) {
+  .cat-svg * { animation: none !important; transition: none !important; }
+}

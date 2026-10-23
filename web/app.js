@@ -187,6 +187,7 @@
   }
 
   function onEvent(e) {
+    if (A.pet) A.pet.onEvent(e);
     if (e.type === "toast") return toast(e.text, e.kind);
     if (e.type === "tracking") {
       if (S.state) { S.state.tracking = { ...(S.state.tracking || {}), unread: e.unread, configured: e.configured }; paintNav(); }
@@ -261,11 +262,13 @@
       nav,
       h("div", { class: "side-title", text: "Conversas" }),
       h("div", { class: "conv-list", id: "conv-list" }),
+      h("div", { id: "pet-slot" }),
       h("div", { class: "side-checks", id: "side-checks", title: "Verificações automáticas (clique para ver os detalhes)", onclick: () => { const b = document.querySelector(".usage-pill"); if (b) b.click(); } }),
       h("div", { class: "side-foot" }, h("span", { class: "status-dot off" }), h("span", { id: "conn-text", text: "Conectando…", style: "font-size:13px;color:var(--muted)" })));
     const top = h("header", { class: "topbar" },
       h("button", { class: "icon-btn menu-btn", type: "button", "aria-label": "Abrir menu", onclick: () => toggleSidebar(true) }, icon("menu")),
       h("h1", { id: "page-title", text: "Nova conversa" }),
+      h("div", { id: "pet-slot-mini" }),
       h("button", { class: "icon-btn mic-btn hidden", id: "wake-btn", type: "button", onclick: toggleWake }, icon("mic")),
       h("button", { class: "icon-btn", id: "speak-btn", type: "button", title: "Ler respostas em voz alta", "aria-label": "Ler respostas em voz alta", "aria-pressed": "false", onclick: toggleSpeak }, icon("speaker")),
       h("div", { class: "usage", id: "usage" }));
@@ -274,6 +277,7 @@
     app.append(shell, h("div", { class: "approvals-bar", id: "approvals", "aria-live": "assertive" }));
     paintSpeak();
     paintWake();
+    if (A.pet) A.pet.mount();
   }
 
   function toggleSidebar(open) {
