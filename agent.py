@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 import activity
 import context
 import gemini
+import llm
 import memory
 import permissions
 import usage
@@ -225,7 +226,7 @@ class Engine:
                     extra["thinking"] = level
                 if timeout:
                     extra["timeout"] = timeout
-                for chunk in gemini.stream(contents, models, system=system, tools=decls, **extra):
+                for chunk in llm.stream(contents, models, system=system, tools=decls, **extra):
                     if halt.is_set():
                         return
                     q.put(("chunk", chunk))

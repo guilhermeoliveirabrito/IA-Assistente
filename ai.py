@@ -4,6 +4,7 @@ import json
 import re
 
 import gemini
+import llm
 
 GeminiError = gemini.GeminiError
 
@@ -11,6 +12,7 @@ GeminiError = gemini.GeminiError
 def configure(cfg: dict):
     """Aplica as configurações do config.yaml (modelos reserva)."""
     gemini.set_fallbacks((cfg.get("ia") or {}).get("modelos_reserva", []))
+    llm.configure(cfg)
 
 
 def _user(parts):
@@ -18,7 +20,7 @@ def _user(parts):
 
 
 def ask_text(prompt: str, model: str) -> str:
-    obj = gemini.generate(_user([{"text": prompt}]), gemini.models_for(model))
+    obj = llm.generate(_user([{"text": prompt}]), gemini.models_for(model))
     return gemini.text_of(obj)
 
 
@@ -32,7 +34,7 @@ def _loads(text: str):
 
 
 def ask_json(prompt: str, model: str):
-    obj = gemini.generate(_user([{"text": prompt}]), gemini.models_for(model), json_mode=True)
+    obj = llm.generate(_user([{"text": prompt}]), gemini.models_for(model), json_mode=True)
     return _loads(gemini.text_of(obj))
 
 

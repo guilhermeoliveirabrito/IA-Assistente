@@ -139,7 +139,8 @@ def note_model(model: str, skipped=(), now: float = None):
         m["minute_until"] = None
         previous = state.get("current")
         if previous != model:
-            reasons = {"quota": "a cota acabou", "server": "estava sobrecarregado", "model": "não está disponível"}
+            reasons = {"quota": "a cota acabou", "server": "estava sobrecarregado", "model": "não está disponível",
+                       "auth": "a chave está ausente ou foi recusada", "network": "sem conexão", "sem visão": "não enxerga imagens"}
             if skipped:
                 why = "; ".join(f"{m_}: {reasons.get(k, k)}" for m_, k in skipped)
             else:
