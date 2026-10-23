@@ -56,6 +56,8 @@ def build_system_prompt(cfg: dict, mode: str = "chat", project: str = None, task
         "onde você clicou) e corrija. NUNCA repita as mesmas coordenadas que não funcionaram: amplie com ver_regiao ou "
         "mude de abordagem (teclado). Nunca invente coordenadas fora de 0 a 1000.",
     ]
+    lines.append("ENCOMENDAS: quando o usuário der um código de rastreio, use rastreio_adicionar (ele já consulta na hora) e "
+                 "conte o que achou, ou diga honestamente que ainda não encontrou. Depois o app avisa sozinho das novidades.")
     if voice:
         lines.append("PEDIDO POR VOZ: o usuário falou com você e a sua resposta será LIDA EM VOZ ALTA. Responda em no máximo "
                      "2 ou 3 frases curtas, em texto corrido, sem markdown, tabelas, listas ou links. Se fez uma ação, "

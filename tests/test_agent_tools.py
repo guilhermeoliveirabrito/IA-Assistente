@@ -271,3 +271,49 @@ class MiscTest(ToolsBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RastreioToolsTest(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        import tracking
+        self.tmp = tempfile.TemporaryDirectory()
+        self.old = os.getcwd()
+        os.chdir(self.tmp.name)
+
+        class P:
+            configured = True
+
+            def fetch(self, code):
+                return tracking.parse_info({"track_info": {"latest_status": {"status": "InTransit"}, "tracking": {
+                    "providers": [{"provider": {"name": "Correios"}, "events": [
+                        {"time_iso": "2026-10-21T08:00:00Z", "description": "Objeto postado", "location": "SP"}]}]}}})
+
+        self.tracking = tracking
+        self.tr = tracking.Tracker({}, P())
+        tracking.set_default(self.tr)
+        self.reg = at.Registry(at.ToolContext({}))
+
+    def tearDown(self):
+        self.tracking.set_default(None)
+        os.chdir(self.old)
+        self.tmp.cleanup()
+
+    def test_adicionar_listar_verificar_remover(self):
+        r, _ = self.reg.execute("rastreio_adicionar", {"codigo": "aa123456789br", "nome": "Fone"})
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["encomenda"]["situacao"], "Em trânsito")
+        self.assertIn("Objeto postado", r["encomenda"]["ultimo_evento"])
+        self.assertEqual(self.reg.execute("rastreio_listar", {})[0]["encomendas"][0]["nome"], "Fone")
+        self.assertEqual(len(self.reg.execute("rastreio_verificar", {})[0]["encomendas"]), 1)
+        self.assertIn("erro", self.reg.execute("rastreio_adicionar", {"codigo": "AA123456789BR"})[0])
+        self.assertIn("erro", self.reg.execute("rastreio_adicionar", {"codigo": "x"})[0])
+        self.assertTrue(self.reg.execute("rastreio_remover", {"codigo": "AA123456789BR"})[0]["ok"])
+        self.assertIn("erro", self.reg.execute("rastreio_remover", {"codigo": "AA123456789BR"})[0])
+
+    def test_sem_servico_devolve_erro(self):
+        self.tracking.set_default(None)
+        self.assertIn("erro", self.reg.execute("rastreio_listar", {})[0])
+
+    def test_categoria_de_leitura(self):
+        self.assertEqual(self.reg.category("rastreio_adicionar", {}), "rastreio")

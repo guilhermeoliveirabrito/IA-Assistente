@@ -35,6 +35,7 @@ import settings
 import spotify_control
 import storage
 import tasks
+import tracking
 import usage
 import wake
 
@@ -107,6 +108,9 @@ class App:
         self.tasks = tasks.TaskManager(cfg, bus=self.bus, notifier=self.notifier, window_hooks=self.window_hooks)
         self.chat = chatsvc.ChatService(cfg, self.bus, self.window_hooks, self.notifier)
         self.automation = automation.Automation(cfg, on_change=self._checks_changed)
+        self.tracker = tracking.Tracker(cfg, on_update=self._tracking_update, on_change=self._tracking_changed)
+        tracking.set_default(self.tracker)
+        self.tracker.start()
         self._voice_conv = {"id": None, "ts": 0.0}
         self.voice = wake.VoiceService(cfg, self.voice_command, self.bus.publish, self._transcribe_voice)
         self.chat.on_voice_reply = self.voice.speak_reply
@@ -140,7 +144,21 @@ class App:
 
     def checks(self):
         """Verificações em segundo plano (e-mail, agenda...) com a contagem para a próxima."""
-        return self.automation.status()
+        st = self.automation.status()
+        st["jobs"] = st["jobs"] + [self.tracker.status()]
+        return st
+
+    # ---- encomendas ----------------------------------------------------------------------
+
+    def _tracking_update(self, item, text, kind="info"):
+        title = item.get("name") or item.get("code")
+        activity.log("erro" if kind == "erro" else "resultado", f"Encomenda {title}: {text}")
+        self.bus.publish({"type": "toast", "kind": "error" if kind == "erro" else "ok", "text": f"📦 {title}: {text}"})
+        self.notifier.notify("erro" if kind == "erro" else "encomenda", f"Encomenda: {title}", text)
+
+    def _tracking_changed(self):
+        self.bus.publish({"type": "tracking", "unread": self.tracker.unread(), "configured": self.tracker.configured})
+        self._checks_changed()
 
     def _checks_changed(self):
         self.bus.publish({"type": "checks", "checks": self.checks()})
@@ -154,6 +172,8 @@ class App:
     def shutdown(self):
         usage.unsubscribe(self._usage_changed)
         self.voice.stop()
+        self.tracker.stop()
+        tracking.set_default(None)
         self.automation.stop()
         self.chat.shutdown()
         self.tasks.shutdown()
@@ -192,6 +212,8 @@ class App:
                        "running": self.automation.running},
             "voice": self.voice.status(),
             "checks": self.checks(),
+            "tracking": {"unread": self.tracker.unread(), "configured": self.tracker.configured,
+                         "count": len(self.tracker.items())},
             "autonomous": bool((cfg.get("pc") or {}).get("modo_autonomo", False)),
             "permission_window_minutes": (cfg.get("pc") or {}).get("janela_de_permissao_minutos", 10),
         }
@@ -784,6 +806,77 @@ def r_automation_run(h, q):
         h.app.automation.run_job_async(job)
     except RuntimeError as e:
         raise HTTPError(400, str(e))
+    h._json({"ok": True})
+
+
+def _tracking_payload(app):
+    return {"items": app.tracker.items(), "configured": app.tracker.configured, "unread": app.tracker.unread(),
+            "status": app.tracker.status(), "now": time.time()}
+
+
+@route("GET", "/api/tracking")
+def r_tracking(h, q):
+    h._json(_tracking_payload(h.app))
+
+
+@route("POST", "/api/tracking")
+def r_tracking_add(h, q):
+    b = h._body()
+    try:
+        item = h.app.tracker.add(b.get("code"), b.get("name"))
+    except ValueError as e:
+        raise HTTPError(400, str(e))
+    h._json({"item": item})
+
+
+@route("POST", "/api/tracking/check")
+def r_tracking_check_all(h, q):
+    if not h.app.tracker.configured:
+        raise HTTPError(400, "Falta a chave do 17TRACK (veja o README).")
+    h.app.tracker.run_async()
+    h._json({"ok": True})
+
+
+@route("POST", "/api/tracking/read")
+def r_tracking_read_all(h, q):
+    h.app.tracker.mark_read()
+    h._json({"ok": True})
+
+
+@route("POST", "/api/tracking/([0-9a-f]{12})/check")
+def r_tracking_check(h, q, tid):
+    if not h.app.tracker.configured:
+        raise HTTPError(400, "Falta a chave do 17TRACK (veja o README).")
+    try:
+        h.app.tracker.get(tid)
+    except KeyError as e:
+        raise HTTPError(404, str(e.args[0]))
+    threading.Thread(target=h.app.tracker.check, args=(tid,), daemon=True).start()
+    h._json({"ok": True})
+
+
+@route("POST", "/api/tracking/([0-9a-f]{12})/read")
+def r_tracking_read(h, q, tid):
+    h.app.tracker.mark_read(tid)
+    h._json({"ok": True})
+
+
+@route("POST", "/api/tracking/([0-9a-f]{12})/rename")
+def r_tracking_rename(h, q, tid):
+    try:
+        h._json({"item": h.app.tracker.rename(tid, h._body().get("name"))})
+    except ValueError as e:
+        raise HTTPError(400, str(e))
+    except KeyError as e:
+        raise HTTPError(404, str(e.args[0]))
+
+
+@route("DELETE", "/api/tracking/([0-9a-f]{12})")
+def r_tracking_delete(h, q, tid):
+    try:
+        h.app.tracker.remove(tid)
+    except KeyError as e:
+        raise HTTPError(404, str(e.args[0]))
     h._json({"ok": True})
 
 

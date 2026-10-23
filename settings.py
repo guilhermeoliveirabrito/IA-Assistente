@@ -99,6 +99,8 @@ FIELDS = {
     "notificacoes.avisar_conclusao": (_bool, True),
     "notificacoes.avisar_pausas": (_bool, True),
     "notificacoes.avisar_erros": (_bool, True),
+    "notificacoes.avisar_encomendas": (_bool, True),
+    "rastreio.verificar_a_cada_minutos": (_num(15, 1440), True),
     "projetos.repos_permitidos": (_list(30, _repo), True),
     "projetos.pasta": (_folder, True),
     "arquivos.pastas_permitidas": (_list(20, _folder), False),

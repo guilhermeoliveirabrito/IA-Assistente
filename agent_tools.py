@@ -6,10 +6,11 @@ import files
 import memory
 import pc_control as pc
 import spotify_control as spmod
+import tracking
 import workspace as wsmod
 
 MAX_RESULT_CHARS = 6000
-EXPECTED_ERRORS = (pc.PCError, spmod.SpotifyError, wsmod.WorkspaceError, files.FileAccessError, ValueError,
+EXPECTED_ERRORS = (tracking.TrackingError, pc.PCError, spmod.SpotifyError, wsmod.WorkspaceError, files.FileAccessError, ValueError,
                    TypeError, OSError)
 
 
@@ -175,6 +176,39 @@ def t_spotify_controle(ctx, a):
 
 def t_spotify_status(ctx, a):
     return ctx.spotify.now_playing()
+
+
+def _item_view(i):
+    ev = (i.get("events") or [None])[0]
+    return {"codigo": i["code"], "nome": i["name"], "situacao": i["status_label"], "encontrado": i.get("found"),
+            "ultimo_evento": (f"{ev['time']}: {ev['text']}" + (f" ({ev['place']})" if ev.get("place") else "")) if ev else None,
+            "transportadora": i.get("carrier") or None, "erro": i.get("error") or None, "aviso": i.get("note") or None,
+            "link": i.get("url")}
+
+
+def t_rastreio_adicionar(ctx, a):
+    tr = tracking.default()
+    item = tr.add(a["codigo"], a.get("nome", ""), check=False)
+    item = tr.check(item["id"], first=True)
+    return _ok(encomenda=_item_view(item), chave_configurada=tr.configured)
+
+
+def t_rastreio_listar(ctx, a):
+    tr = tracking.default()
+    return {"encomendas": [_item_view(i) for i in tr.items()], "chave_configurada": tr.configured}
+
+
+def t_rastreio_verificar(ctx, a):
+    tr = tracking.default()
+    codes = [a["codigo"]] if a.get("codigo") else None
+    items = [tr.find_code(c) for c in codes] if codes else tr.active()
+    return {"encomendas": [_item_view(tr.check(i["id"])) for i in items]}
+
+
+def t_rastreio_remover(ctx, a):
+    tr = tracking.default()
+    tr.remove(tr.find_code(a["codigo"])["id"])
+    return _ok()
 
 
 def t_abrir_aplicativo(ctx, a):
@@ -362,6 +396,17 @@ def _tools():
           lambda a: f"Spotify: {a.get('acao')}"),
         T("spotify_status", "Diz o que está tocando agora no Spotify.", {}, [], "midia", t_spotify_status,
           lambda a: "Ver o que está tocando"),
+        T("rastreio_adicionar", "Passa a acompanhar uma encomenda pelo código de rastreio e já faz a primeira consulta. "
+          "O assistente avisa o usuário sozinho quando houver novidades.",
+          {"codigo": S("Código de rastreio (ex.: AA123456789BR)."), "nome": S("Nome curto da encomenda (opcional).")},
+          ["codigo"], "rastreio", t_rastreio_adicionar, lambda a: f"Acompanhar a encomenda {a.get('codigo')}"),
+        T("rastreio_listar", "Lista as encomendas acompanhadas e a última situação de cada uma.", {}, [], "rastreio",
+          t_rastreio_listar, lambda a: "Listar encomendas"),
+        T("rastreio_verificar", "Consulta agora a situação de uma encomenda (ou de todas as ativas, sem código).",
+          {"codigo": S("Código de rastreio (opcional).")}, [], "rastreio", t_rastreio_verificar,
+          lambda a: f"Consultar encomenda {a.get('codigo') or '(todas)'}"),
+        T("rastreio_remover", "Para de acompanhar uma encomenda.", {"codigo": S("Código de rastreio.")}, ["codigo"],
+          "rastreio", t_rastreio_remover, lambda a: f"Remover a encomenda {a.get('codigo')}"),
         T("abrir_aplicativo", "Abre um aplicativo instalado no computador pelo nome (ex.: Spotify, Visual Studio Code, Chrome).",
           {"nome": S("Nome do aplicativo.")}, ["nome"], "abrir", t_abrir_aplicativo,
           lambda a: f"Abrir o aplicativo {a.get('nome')}"),

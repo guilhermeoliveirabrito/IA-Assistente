@@ -272,6 +272,55 @@ class ServerTest(unittest.TestCase):
         self.srv.app.voice_command("e agora toca rock")
         self.assertEqual(self.srv.app._voice_conv["id"], cid)
 
+    def test_rastreio_rotas_e_estado(self):
+        import tracking
+
+        class P:
+            configured = True
+            n = 0
+
+            def fetch(self, code):
+                P.n += 1
+                ev = [{"time_iso": "2026-10-21T08:00:00Z", "description": "Postado", "location": "SP"}]
+                if P.n > 1:
+                    ev.append({"time_iso": "2026-10-22T08:00:00Z", "description": "Saiu para entrega", "location": "SP"})
+                return tracking.parse_info({"track_info": {"latest_status": {"status": "InTransit"}, "tracking": {
+                    "providers": [{"provider": {"name": "Correios"}, "events": ev}]}}})
+
+        app = self.srv.app
+        app.tracker.provider = P()
+        self.assertEqual(self.req("POST", "/api/tracking", {"code": "x"})[0], 400)
+        status, r, _ = self.req("POST", "/api/tracking", {"code": "aa123456789br", "name": "Fone"})
+        self.assertEqual(status, 200)
+        tid = r["item"]["id"]
+        for _ in range(100):                       # a primeira consulta roda em segundo plano
+            it = self.req("GET", "/api/tracking")[1]["items"][0]
+            if it["found"]:
+                break
+            time.sleep(0.05)
+        self.assertTrue(it["found"])
+        self.assertEqual(self.req("GET", "/api/state")[1]["tracking"], {"unread": 1, "configured": True, "count": 1})
+        self.assertEqual(self.req("POST", "/api/tracking", {"code": "AA123456789BR"})[0], 400)   # duplicado
+        self.assertEqual(self.req("POST", f"/api/tracking/{tid}/check")[0], 200)
+        for _ in range(100):
+            if len(self.req("GET", "/api/tracking")[1]["items"][0]["events"]) == 2:
+                break
+            time.sleep(0.05)
+        self.assertEqual(self.req("GET", "/api/tracking")[1]["items"][0]["events"][0]["text"], "Saiu para entrega")
+        checks = self.req("GET", "/api/state")[1]["checks"]
+        self.assertIn("rastreio", [j["id"] for j in checks["jobs"]])
+        self.assertEqual(self.req("POST", f"/api/tracking/{tid}/read")[0], 200)
+        self.assertEqual(self.req("GET", "/api/state")[1]["tracking"]["unread"], 0)
+        self.assertEqual(self.req("POST", f"/api/tracking/{tid}/rename", {"name": "Tênis"})[1]["item"]["name"], "Tênis")
+        self.assertEqual(self.req("POST", "/api/tracking/ffffffffffff/check")[0], 404)
+        self.assertEqual(self.req("DELETE", f"/api/tracking/{tid}")[0], 200)
+        self.assertEqual(self.req("DELETE", f"/api/tracking/{tid}")[0], 404)
+
+    def test_rastreio_sem_chave(self):
+        os.environ.pop("TRACK17_KEY", None)
+        self.assertFalse(self.req("GET", "/api/tracking")[1]["configured"])
+        self.assertEqual(self.req("POST", "/api/tracking/check")[0], 400)
+
     def test_consumo_por_modelo_e_ajuste(self):
         u = self.req("GET", "/api/usage")[1]
         self.assertEqual([m["model"] for m in u["models"]][:1], ["gemini-3.8-flash"])

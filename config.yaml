@@ -46,6 +46,11 @@ email:
     modo: "pedir_aprovacao"
     confianca_minima_automatico: 0.95
 
+rastreio:
+  # Acompanhamento de encomendas (aba Encomendas). Precisa de uma chave GRÁTIS do 17TRACK em TRACK17_KEY no .env
+  # (veja o README). De quanto em quanto tempo consultar as encomendas que ainda não foram entregues (mínimo 15).
+  verificar_a_cada_minutos: 60
+
 voz:
   # ATIVAÇÃO POR VOZ (como "Ok Google"): o app fica ouvindo a frase de chamada e, ao ouvi-la, grava o seu comando.
   # Precisa de: pip install -r requirements.txt, e baixar o modelo de voz em Ajustes › Ativação por voz.
@@ -96,6 +101,7 @@ notificacoes:
   avisar_conclusao: true
   avisar_pausas: true
   avisar_erros: true
+  avisar_encomendas: true
 
 projetos:
   # Pasta onde ele cria os projetos (uma subpasta por projeto).
