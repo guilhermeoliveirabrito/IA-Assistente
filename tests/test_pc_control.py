@@ -191,6 +191,52 @@ class PCTest(unittest.TestCase):
             with self.assertRaises(pc.PCError, msg=str(bad)):
                 pc.screenshot(region=bad)
 
+    def test_diz_se_a_tela_mudou_entre_capturas(self):
+        from PIL import Image
+
+        pc._last_sig = None
+        pc._grab_override = lambda: Image.new("RGB", (800, 600), "black")
+        self.assertIsNone(pc.screenshot()[1]["mudou"])                 # primeira captura: não há com o que comparar
+        self.assertIs(pc.screenshot()[1]["mudou"], False)
+        pc._grab_override = lambda: Image.new("RGB", (800, 600), "white")
+        self.assertIs(pc.screenshot()[1]["mudou"], True)
+        self.assertNotIn("mudou", pc.screenshot(region=(0, 0, 500, 500))[1])   # zoom não conta
+
+    def test_settle_espera_a_tela_parar(self):
+        from PIL import Image
+
+        frames = iter([Image.new("RGB", (100, 100), c) for c in ("black", "gray", "white", "white", "white", "white")])
+        pc._grab_override = lambda: next(frames)
+        slept = []
+        pc._sleep = lambda s: slept.append(s)
+        pc.settle(min_wait=0.2, timeout=5)
+        self.assertEqual(len(slept), 1 + 3)                             # mínimo + 3 comparações até estabilizar
+
+    def test_settle_tem_teto_mesmo_com_tela_sempre_mudando(self):
+        from PIL import Image
+
+        n = [0]
+
+        def grab():
+            n[0] += 1
+            return Image.new("RGB", (100, 100), (n[0] * 40 % 256,) * 3)
+
+        pc._grab_override = grab
+        pc.settle(min_wait=0, timeout=1.0, every=0.25)
+        self.assertLessEqual(n[0], 6)
+
+    def test_caixas_numeradas_aparecem_na_captura(self):
+        from PIL import Image
+        import io
+
+        pc._grab_override = lambda: Image.new("RGB", (1000, 1000), (0, 0, 0))
+        data, _ = pc.screenshot(grid=False, marks=[(7, 100, 100, 300, 200)])
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+        r, g, b = img.getpixel((200, 100))                              # borda de cima da caixa rosa
+        self.assertGreater(r, 150)
+        self.assertGreater(b, 100)
+        self.assertLess(g, 80)
+
     def test_botao_invalido(self):
         with self.assertRaises(pc.PCError):
             pc.click(1, 1, button="foo")

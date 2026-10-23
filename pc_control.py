@@ -213,6 +213,46 @@ def _font(size):
         return ImageFont.load_default()
 
 
+_last_sig = None             # miniatura da última captura da tela inteira (para saber se a tela mudou)
+CHANGE_EPS = 1.5             # diferença média (0-255) abaixo da qual a tela é considerada igual
+
+
+def _signature(img):
+    return img.convert("L").resize((48, 27)).tobytes()
+
+
+def _diff(a, b) -> float:
+    return sum(abs(x - y) for x, y in zip(a, b)) / max(1, len(a))
+
+
+def _grab():
+    if _grab_override:
+        return _grab_override()
+    from PIL import ImageGrab
+
+    return ImageGrab.grab()
+
+
+def settle(min_wait: float = 0.2, timeout: float = 1.6, every: float = 0.15) -> float:
+    """Espera a tela parar de mudar (animação de janela, página carregando) em vez de um atraso fixo.
+    Devolve quanto esperou. Nunca passa de `timeout`."""
+    start = time.time()
+    _sleep(min_wait)
+    try:
+        prev = _signature(_grab())
+        for _ in range(max(1, round(timeout / every))):
+            if time.time() - start >= timeout:
+                break
+            _sleep(every)
+            cur = _signature(_grab())
+            if _diff(prev, cur) <= CHANGE_EPS:
+                break
+            prev = cur
+    except Exception:
+        pass
+    return round(time.time() - start, 2)
+
+
 def _nice_step(span: float) -> int:
     for step in (10, 20, 25, 50, 100):
         if span / step <= 10:
@@ -220,7 +260,7 @@ def _nice_step(span: float) -> int:
     return 100
 
 
-def _annotate(img, x1, y1, x2, y2, marker=None, grid=True):
+def _annotate(img, x1, y1, x2, y2, marker=None, grid=True, marks=None):
     """Desenha a grade (com os números 0-1000 da TELA INTEIRA) e o último clique sobre a captura."""
     from PIL import Image, ImageDraw
 
@@ -249,6 +289,13 @@ def _annotate(img, x1, y1, x2, y2, marker=None, grid=True):
         label((2, py), str(v), "lm")
         label((w - 2, py), str(v), "rm")
         v += step
+    for n, bx1, by1, bx2, by2 in (marks or []):
+        if bx2 < x1 or bx1 > x2 or by2 < y1 or by1 > y2:
+            continue
+        px1, px2 = ((v - x1) / (x2 - x1) * (w - 1) for v in (bx1, bx2))
+        py1, py2 = ((v - y1) / (y2 - y1) * (h - 1) for v in (by1, by2))
+        d.rectangle((px1, py1, px2, py2), outline=(255, 0, 200, 230), width=2)
+        label((round(max(0, px1)) + 1, round(max(0, py1)) + 1), str(n), "la")
     if marker and x1 <= marker[0] <= x2 and y1 <= marker[1] <= y2:
         mx = round((marker[0] - x1) / (x2 - x1) * (w - 1))
         my = round((marker[1] - y1) / (y2 - y1) * (h - 1))
@@ -260,7 +307,7 @@ def _annotate(img, x1, y1, x2, y2, marker=None, grid=True):
     return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
 
-def screenshot(region=None, max_width: int = 1400, grid: bool = True):
+def screenshot(region=None, max_width: int = 1400, grid: bool = True, marks=None):
     """Captura a tela (ou só uma região, ampliada) com uma grade numerada de 0 a 1000.
 
     region: (x1, y1, x2, y2) nas mesmas coordenadas 0-1000 da tela inteira. Retorna (bytes JPEG, info).
@@ -277,6 +324,7 @@ def screenshot(region=None, max_width: int = 1400, grid: bool = True):
         raise PCError(f"Não consegui capturar a tela: {e}") from e
     img = img.convert("RGB")
     real_w, real_h = img.size
+    sig = _signature(img) if region is None else None
     x1, y1, x2, y2 = 0.0, 0.0, float(SCALE), float(SCALE)
     if region is not None:
         try:
@@ -291,12 +339,16 @@ def screenshot(region=None, max_width: int = 1400, grid: bool = True):
     if w > max_width or region is not None:
         factor = max_width / w if region is None else min(max_width / w, 3.0)
         img = img.resize((max(1, round(w * factor)), max(1, round(h * factor))))
-    if grid or _marker:
-        img = _annotate(img, x1, y1, x2, y2, _marker, grid)
+    if grid or _marker or marks:
+        img = _annotate(img, x1, y1, x2, y2, _marker, grid, marks)
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=82)
     info = {"tela_real": f"{real_w}x{real_h}", "regiao": [round(x1), round(y1), round(x2), round(y2)],
             "coordenadas": "0 a 1000 nos dois eixos, lidas nos números amarelos da grade; (0,0) = canto superior esquerdo"}
+    if sig is not None:
+        global _last_sig
+        info["mudou"] = None if _last_sig is None else _diff(_last_sig, sig) > CHANGE_EPS
+        _last_sig = sig
     return buf.getvalue(), info
 
 
