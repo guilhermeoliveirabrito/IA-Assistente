@@ -105,7 +105,7 @@ class EmailTest(unittest.TestCase):
         s = FakeService(**{"users.messages.list": {"messages": [{"id": "m1"}]},
                            "users.messages.get": {"id": "m1", "snippet": "oi", "labelIds": ["UNREAD"],
                                                   "payload": {"headers": [{"name": "Subject", "value": "S"}], "mimeType": "text/plain",
-                                                              "body": {"data": base64.urlsafe_b64encode("corpo longo".encode()).decode()}}}})
+                                                              "body": {"data": base64.urlsafe_b64encode(b"corpo longo").decode()}}}})
         r = ga.search_emails(s, "is:unread", 5)
         self.assertTrue(r[0]["nao_lido"])
         self.assertEqual(s.last("users.messages.list")["maxResults"], 5)
@@ -125,7 +125,7 @@ class EmailTest(unittest.TestCase):
         self.assertFalse(any(p == "users.messages.send" for p, _ in s.calls))     # rascunho nunca envia
 
     def test_nao_deixa_injetar_cabecalho(self):
-        s = FakeService()
+        FakeService()
         for to, subject in (("a@x.com\nBcc: v@x.com", "oi"), ("a@x.com", "oi\nBcc: v@x.com")):
             try:
                 raw = ga.build_message(to, subject, "corpo")

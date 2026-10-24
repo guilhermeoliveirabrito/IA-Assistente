@@ -1,15 +1,11 @@
 import array
 import os
-import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.pc import wake  # noqa: E402
+from assistente.pc import wake
 
 
 def chunk(amp):

@@ -1,15 +1,9 @@
 import os
-import sys
 import tempfile
-import time
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.nucleo import activity  # noqa: E402
-from assistente.servicos import tracking  # noqa: E402
+from assistente.nucleo import activity
+from assistente.servicos import tracking
 
 
 def ev(t, text, place=""):
@@ -162,7 +156,7 @@ class TrackerTest(Base):
             self.tr.remove(i["id"])
 
     def test_check_all_e_proxima(self):
-        a, b = self.add("AA111111111BR"), self.add("BB222222222BR")
+        _a, _b = self.add("AA111111111BR"), self.add("BB222222222BR")
         self.p.results = [res("InTransit", ev("2026-10-21T08:00:00Z", "x"))]
         self.assertEqual(self.tr.check_all(), 2)
         self.tr._next = None

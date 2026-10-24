@@ -1,13 +1,10 @@
 import base64
-import sys
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.ia import ai  # noqa: E402
-from assistente.ia import gemini  # noqa: E402
+from assistente.ia import (
+    ai,
+    gemini,
+)
 
 
 class AiTest(unittest.TestCase):

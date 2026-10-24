@@ -1,7 +1,6 @@
 import base64
 import os
 import shutil
-import sys
 import tempfile
 import threading
 import unittest
@@ -9,14 +8,15 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from assistente.ia import (
+    agent,
+    gemini,
+)
+from assistente.ia import agent_tools as at
+from assistente.nucleo import activity
+from assistente.nucleo import permissions as perm
 
-from assistente.nucleo import activity  # noqa: E402
-from assistente.ia import agent  # noqa: E402
-from assistente.ia import agent_tools as at  # noqa: E402
-from assistente.ia import gemini  # noqa: E402
-from assistente.nucleo import permissions as perm  # noqa: E402
+ROOT = Path(__file__).resolve().parent.parent
 
 
 def text_chunks(*texts):
@@ -46,8 +46,7 @@ class EngineBase(unittest.TestCase):
         def fake_stream(contents, models, system=None, tools=None, temperature=0.2, **kw):
             self.sent.append({"contents": [dict(c) for c in contents], "tools": tools, "system": system})
             yield {"_model": models[0]}
-            for ch in self.script.pop(0):
-                yield ch
+            yield from self.script.pop(0)
 
         gemini.stream = fake_stream
         self.events = []

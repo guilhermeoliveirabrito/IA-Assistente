@@ -7,7 +7,7 @@ e você aperta enviar. Ligue em Ajustes › Gmail e Agenda se quiser que ele env
 """
 import base64
 import re
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 
 from assistente.integracoes import gmail_tools

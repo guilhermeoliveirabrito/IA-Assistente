@@ -1,11 +1,6 @@
-import sys
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.nucleo import context as ctx  # noqa: E402
+from assistente.nucleo import context as ctx
 
 
 def u(text):

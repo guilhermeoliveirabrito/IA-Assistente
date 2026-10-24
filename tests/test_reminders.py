@@ -154,7 +154,7 @@ class ServicoTest(Base):
 
     def test_status_para_o_painel(self):
         self.assertEqual(self.r.status()["next_ts"], None)
-        a = self.add(when_ts=self.now + 900)
+        self.add(when_ts=self.now + 900)
         self.add(when_ts=self.now + 300)
         st = self.r.status()
         self.assertEqual(st["next_ts"], self.now + 300)

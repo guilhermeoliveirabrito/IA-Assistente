@@ -1,14 +1,10 @@
 import base64
 import os
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.nucleo import storage  # noqa: E402
+from assistente.nucleo import storage
 
 
 class StorageTest(unittest.TestCase):
@@ -30,7 +26,7 @@ class StorageTest(unittest.TestCase):
 
     def test_lista_mais_recente_primeiro(self):
         a = storage.new_conversation("A")
-        b = storage.new_conversation("B")
+        storage.new_conversation("B")
         a["messages"].append({"role": "user", "text": "x"})
         storage.save(a)  # A fica mais recente
         self.assertEqual([i["title"] for i in storage.list_all()], ["A", "B"])

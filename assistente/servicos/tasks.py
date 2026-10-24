@@ -14,14 +14,8 @@ import time
 import uuid
 from pathlib import Path
 
-from assistente.nucleo import activity
-from assistente.ia import agent
-from assistente.ia import agent_tools
-from assistente.nucleo import context
-from assistente.ia import gemini
-from assistente.nucleo import permissions
-from assistente.nucleo import usage
-from assistente.nucleo import workspace
+from assistente.ia import agent, agent_tools, gemini
+from assistente.nucleo import activity, context, permissions, usage, workspace
 
 DATA = Path("data")
 TASK_DIR = DATA / "tasks"
@@ -204,7 +198,7 @@ class TaskManager:
             ev = self._stops.get(tid)
             if task["status"] in ACTIVE and ev is not None:
                 ev.set()                                   # o executor finaliza e marca como parada
-                for req_id, a in list(self._approvals.items()):
+                for _req_id, a in list(self._approvals.items()):
                     if a["task"] == tid:
                         a["answer"] = "deny"
                         a["event"].set()

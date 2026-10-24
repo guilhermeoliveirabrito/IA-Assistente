@@ -1,22 +1,21 @@
 import os
 import shutil
-import sys
 import tempfile
 import threading
 import time
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from assistente.ia import gemini
+from assistente.nucleo import (
+    activity,
+    context,
+)
+from assistente.nucleo import bus as busmod
+from assistente.pc import pc_control as pc
+from assistente.servicos import tasks
 
-from assistente.nucleo import activity  # noqa: E402
-from assistente.nucleo import bus as busmod  # noqa: E402
-from assistente.nucleo import context  # noqa: E402
-from assistente.ia import gemini  # noqa: E402
-from assistente.pc import pc_control as pc  # noqa: E402
-from assistente.nucleo import permissions as perm  # noqa: E402
-from assistente.servicos import tasks  # noqa: E402
+ROOT = Path(__file__).resolve().parent.parent
 
 
 def text(*t):
@@ -59,8 +58,7 @@ class Base(unittest.TestCase):
             if isinstance(item, Exception):
                 raise item
             yield {"_model": models[0]}
-            for ch in item:
-                yield ch
+            yield from item
 
         gemini.stream = fake_stream
         self.now = [time.time()]

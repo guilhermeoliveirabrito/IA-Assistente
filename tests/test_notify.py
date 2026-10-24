@@ -1,13 +1,7 @@
-import io
-import sys
 import unittest
 import urllib.error
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.integracoes import notify  # noqa: E402
+from assistente.integracoes import notify
 
 
 class FakeResp:

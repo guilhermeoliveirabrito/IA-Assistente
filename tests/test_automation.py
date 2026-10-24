@@ -1,14 +1,10 @@
 import os
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.nucleo import activity  # noqa: E402
-from assistente.servicos import automation  # noqa: E402
+from assistente.nucleo import activity
+from assistente.servicos import automation
 
 
 class AutomationTest(unittest.TestCase):

@@ -3,14 +3,12 @@
   python app.py          # janela do app (usa pywebview; sem ele abre no navegador)
   python app.py --no-window   # só o servidor (útil para deixar rodando e usar pelo celular)
 """
-import os
 import sys
-import threading
 import time
 import webbrowser
 
-from assistente.ia import gemini
 from assistente import server
+from assistente.ia import gemini
 from assistente.nucleo import settings
 
 

@@ -27,13 +27,10 @@ from pathlib import Path
 import schedule
 import yaml
 
-from assistente.integracoes import agenda
-from assistente.ia import ai
-from assistente.ia import chat
-from assistente.pc import files
-from assistente.integracoes import google_auth
+from assistente.ia import ai, chat
+from assistente.integracoes import agenda, google_auth, triage
 from assistente.nucleo import memory
-from assistente.integracoes import triage
+from assistente.pc import files
 
 LOG = Path("data")
 LOG.mkdir(exist_ok=True)

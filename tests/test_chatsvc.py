@@ -1,23 +1,25 @@
 import base64
 import os
 import shutil
-import sys
 import tempfile
 import threading
 import time
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from assistente.ia import (
+    chatsvc,
+    gemini,
+)
+from assistente.nucleo import (
+    activity,
+    context,
+    storage,
+)
+from assistente.nucleo import bus as busmod
+from assistente.pc import pc_control as pc
 
-from assistente.nucleo import activity  # noqa: E402
-from assistente.nucleo import bus as busmod  # noqa: E402
-from assistente.ia import chatsvc  # noqa: E402
-from assistente.nucleo import context  # noqa: E402
-from assistente.ia import gemini  # noqa: E402
-from assistente.pc import pc_control as pc  # noqa: E402
-from assistente.nucleo import storage  # noqa: E402
+ROOT = Path(__file__).resolve().parent.parent
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 30
 
@@ -48,8 +50,7 @@ class Base(unittest.TestCase):
             if isinstance(item, Exception):
                 raise item
             yield {"_model": models[0]}
-            for ch in item:
-                yield ch
+            yield from item
 
         gemini.stream = fake
         self.bus = busmod.Bus()
@@ -129,8 +130,7 @@ class SendTest(Base):
         def slow(contents, models, system=None, tools=None, temperature=0.2, **kw):
             gate.wait(5)
             yield {"_model": "m"}
-            for ch in text("ok"):
-                yield ch
+            yield from text("ok")
 
         gemini.stream = slow
         cid = self.svc.send(None, "primeira")
@@ -147,7 +147,7 @@ class SendTest(Base):
 class AttachmentTest(Base):
     def test_imagem_vai_como_arquivo_e_texto_como_texto(self):
         self.script = [text("Vejo um quadrado.")]
-        cid = self.ask("o que é isto?", [("foto.png", PNG), ("notas.txt", "lembrete: ligar".encode())])
+        cid = self.ask("o que é isto?", [("foto.png", PNG), ("notas.txt", b"lembrete: ligar")])
         sent_parts = self.sent[0]["contents"][0]["parts"]
         inline = [p for p in sent_parts if "inlineData" in p][0]["inlineData"]
         self.assertEqual(inline["mimeType"], "image/png")
@@ -266,7 +266,7 @@ class ApprovalTest(Base):
     def test_sem_resposta_no_prazo_nega(self):
         self.svc.approval_timeout = 0.2
         self.script = [call("abrir_site", {"url": "https://x.com"}), text("segui")]
-        cid = self.ask("abra")
+        self.ask("abra")
         self.assertEqual(self.opened, [])
 
     def test_parar_enquanto_espera_aprovacao(self):

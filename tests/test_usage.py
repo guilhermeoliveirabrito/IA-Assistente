@@ -1,14 +1,10 @@
 import os
-import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.nucleo import usage  # noqa: E402
+from assistente.nucleo import usage
 
 
 def utc(y, mo, d, h=0, mi=0):

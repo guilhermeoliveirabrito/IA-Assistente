@@ -1,17 +1,13 @@
 import io
 import json
 import os
-import sys
 import tempfile
 import unittest
 import urllib.error
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.ia import gemini  # noqa: E402
-from assistente.nucleo import usage  # noqa: E402
+from assistente.ia import gemini
+from assistente.nucleo import usage
 
 
 class FakeResp:

@@ -6,9 +6,6 @@ import types
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
 # IA falsa: guarda o último prompt e devolve uma resposta fixa.
 calls = []
 fake_ai = types.SimpleNamespace(
@@ -18,6 +15,8 @@ sys.modules.setdefault("assistente.ia.ai", fake_ai)
 
 from assistente.ia import chat  # noqa: E402
 from assistente.nucleo import memory  # noqa: E402
+
+ROOT = Path(__file__).resolve().parent.parent
 
 
 class ChatTest(unittest.TestCase):

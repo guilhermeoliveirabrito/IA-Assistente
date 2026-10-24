@@ -1,14 +1,9 @@
 import os
-import sys
 import tempfile
 import time
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.nucleo import activity  # noqa: E402
+from assistente.nucleo import activity
 
 DAY = 86400
 

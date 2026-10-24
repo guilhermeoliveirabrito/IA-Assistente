@@ -1,14 +1,10 @@
 import os
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.nucleo import workspace as ws  # noqa: E402
+from assistente.nucleo import workspace as ws
 
 GIT_ENV = {"GIT_AUTHOR_NAME": "Teste", "GIT_AUTHOR_EMAIL": "t@example.com",
            "GIT_COMMITTER_NAME": "Teste", "GIT_COMMITTER_EMAIL": "t@example.com",

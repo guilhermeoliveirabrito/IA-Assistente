@@ -196,7 +196,7 @@ def resolve_contents(cid: str, contents: list, max_bytes: int = MAX_INLINE_BYTES
         if size < 0 or total > max_bytes:
             drop.add((ci, pi))
             total -= max(size, 0)
-    for ci, pi, size in refs:
+    for ci, pi, _size in refs:
         part = out[ci]["parts"][pi]
         label = part.get("x_name") or part["x_file"]
         if (ci, pi) in drop:

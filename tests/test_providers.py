@@ -5,9 +5,7 @@ import unittest
 import urllib.error
 from pathlib import Path
 
-from assistente.ia import gemini
-from assistente.ia import llm
-from assistente.ia import providers
+from assistente.ia import gemini, llm, providers
 from assistente.nucleo import usage
 
 

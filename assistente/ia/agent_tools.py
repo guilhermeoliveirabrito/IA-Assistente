@@ -1,19 +1,15 @@
 """Ferramentas que o Gemini pode chamar (declaração, categoria de permissão e execução)."""
 import json
 import time
-from pathlib import Path
 
-from assistente.servicos import briefing
-from assistente.pc import files
 from assistente.integracoes import google_actions as ga
-from assistente.nucleo import memory
-from assistente.pc import pc_control as pc
-from assistente.servicos import reminders
 from assistente.integracoes import spotify_control as spmod
-from assistente.servicos import tracking
-from assistente.pc import uia
 from assistente.integracoes import web_tools
+from assistente.nucleo import memory
 from assistente.nucleo import workspace as wsmod
+from assistente.pc import files, uia
+from assistente.pc import pc_control as pc
+from assistente.servicos import briefing, reminders, tracking
 
 MAX_RESULT_CHARS = 6000
 EXPECTED_ERRORS = (ga.GoogleActionError, web_tools.WebError, tracking.TrackingError, pc.PCError, spmod.SpotifyError, wsmod.WorkspaceError, files.FileAccessError, ValueError,
@@ -157,15 +153,16 @@ def t_clipboard_escrever(ctx, a):
 
 
 def t_resumo_emails(ctx, a):
-    from assistente.integracoes import google_auth  # importado só aqui: depende das bibliotecas do Google
-    from assistente.integracoes import triage
+    from assistente.integracoes import (
+        google_auth,  # importado só aqui: depende das bibliotecas do Google
+        triage,
+    )
     triage.run_triage(google_auth.gmail_service(), ctx.cfg)
     return {"resumo": triage.digest(ctx.cfg, float(a.get("horas") or 24))}
 
 
 def t_analisar_agenda(ctx, a):
-    from assistente.integracoes import agenda
-    from assistente.integracoes import google_auth
+    from assistente.integracoes import agenda, google_auth
     return {"analise": agenda.analyze(google_auth.calendar_service(), ctx.cfg)}
 
 

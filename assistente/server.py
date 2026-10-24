@@ -7,7 +7,6 @@ SEGURANÇA — este servidor controla o seu PC, então:
 - tentativas erradas de código são limitadas por endereço.
 """
 import base64
-from datetime import datetime
 import hmac
 import json
 import mimetypes
@@ -18,30 +17,18 @@ import secrets
 import socket
 import threading
 import time
+from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from assistente.nucleo import activity
-from assistente.servicos import automation
-from assistente.servicos import briefing
-from assistente.ia import ai
+from assistente.ia import ai, chatsvc, gemini, providers
+from assistente.integracoes import notify, spotify_control
+from assistente.nucleo import activity, memory, permissions, settings, storage, usage
 from assistente.nucleo import bus as busmod
-from assistente.ia import chatsvc
-from assistente.ia import gemini
-from assistente.nucleo import memory
-from assistente.integracoes import notify
-from assistente.nucleo import permissions
-from assistente.ia import providers
-from assistente.servicos import reminders
-from assistente.nucleo import settings
-from assistente.integracoes import spotify_control
-from assistente.nucleo import storage
-from assistente.servicos import tasks
-from assistente.servicos import tracking
-from assistente.nucleo import usage
 from assistente.pc import wake
+from assistente.servicos import automation, briefing, reminders, tasks, tracking
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 TOKEN_FILE = Path("data") / "access_token.txt"
@@ -178,8 +165,7 @@ class App:
         data = {"agenda": None, "emails": None}
         if automation.google_ready():
             try:
-                from assistente.integracoes import google_actions
-                from assistente.integracoes import google_auth
+                from assistente.integracoes import google_actions, google_auth
 
                 data["agenda"] = google_actions.list_events(google_auth.calendar_service(), today, 1)
             except Exception:
@@ -588,7 +574,7 @@ form{{width:min(360px,88vw)}}h1{{font-size:20px;margin:0 0 6px}}p{{color:#a19d94
 input,button{{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1px solid #3a3836;background:#2a2927;color:inherit;font:inherit}}
 button{{margin-top:10px;background:#d08a62;color:#1b1410;border:0;font-weight:600;cursor:pointer}}.e{{color:#e58b8b}}</style>
 <form method="post" action="/login"><h1>Assistente</h1><p>Digite o código de acesso. Ele aparece nos Ajustes do app, no computador.</p>{msg}
-<input name="code" type="password" autocomplete="off" autofocus placeholder="Código de acesso"><button>Entrar</button></form>""".encode("utf-8")
+<input name="code" type="password" autocomplete="off" autofocus placeholder="Código de acesso"><button>Entrar</button></form>""".encode()
 
 
 # =============================== rotas ===============================

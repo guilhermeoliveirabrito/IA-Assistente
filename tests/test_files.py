@@ -5,13 +5,11 @@ import types
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
 # Os testes não chamam a IA de verdade: usamos uma versão falsa que devolve o prompt.
 sys.modules.setdefault("assistente.ia.ai", types.SimpleNamespace(ask_text=lambda prompt, model: prompt))
 
 from assistente.pc import files  # noqa: E402
+
 
 def make_pdf(text: str) -> bytes:
     """Gera um PDF mínimo e válido de uma página com o texto dado."""

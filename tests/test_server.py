@@ -3,18 +3,16 @@ import http.client
 import json
 import os
 import shutil
-import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from assistente import server
+from assistente.ia import gemini
+from assistente.nucleo import settings
 
-from assistente.ia import gemini  # noqa: E402
-from assistente import server  # noqa: E402
-from assistente.nucleo import settings  # noqa: E402
+ROOT = Path(__file__).resolve().parent.parent
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 30
 
@@ -37,8 +35,7 @@ class ServerTest(unittest.TestCase):
 
         def fake(contents, models, system=None, tools=None, temperature=0.2, **kw):
             yield {"_model": models[0]}
-            for ch in self.script.pop(0):
-                yield ch
+            yield from self.script.pop(0)
 
         gemini.stream = fake
         server.Handler.fails = {}
@@ -274,8 +271,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.srv.app._voice_conv["id"], cid)
 
     def test_lembretes_rotas_disparo_e_tarefa(self):
-        from assistente.servicos import reminders
-        from datetime import datetime
+
 
         self.assertEqual(self.req("POST", "/api/reminders", {"text": "x", "when": "ontem"})[0], 400)
         st, r, _ = self.req("POST", "/api/reminders", {"text": "tomar água", "in_minutes": 10, "alarm": True})
@@ -330,7 +326,7 @@ class ServerTest(unittest.TestCase):
         try:
             self.assertEqual(self.req("GET", "/api/briefing")[1]["latest"], {})
             self.req("POST", "/api/reminders", {"text": "tomar água", "in_minutes": 5})
-            q = self.srv.app.bus.subscribe()
+            self.srv.app.bus.subscribe()
             sent = []
             self.srv.app.notifier.notify = lambda kind, title, msg, priority=3: sent.append((kind, msg)) or True
             rec = self.srv.app.briefing.run()
@@ -347,7 +343,6 @@ class ServerTest(unittest.TestCase):
             ai.ask_text = saved
 
     def test_provedores_rotas_chave_nunca_volta(self):
-        from assistente.ia import providers
 
         st, r, _ = self.req("GET", "/api/providers")
         self.assertEqual(st, 200)

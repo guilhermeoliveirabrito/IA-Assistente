@@ -3,14 +3,8 @@ import threading
 import time
 import uuid
 
-from assistente.nucleo import activity
-from assistente.ia import agent
-from assistente.ia import agent_tools
-from assistente.nucleo import attachments
-from assistente.nucleo import context
-from assistente.ia import gemini
-from assistente.nucleo import permissions
-from assistente.nucleo import storage
+from assistente.ia import agent, agent_tools, gemini
+from assistente.nucleo import activity, attachments, context, permissions, storage
 
 APPROVAL_TIMEOUT = 600  # segundos esperando você aprovar uma ação no chat
 

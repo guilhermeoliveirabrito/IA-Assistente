@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from assistente.pc import files
 from assistente.nucleo import permissions as perm
+from assistente.pc import files
 from assistente.pc import pc_control as pc
 
 
@@ -36,7 +36,7 @@ class WriteTest(unittest.TestCase):
 
     def test_acentos_e_quebras_de_linha_intactos(self):
         files.write_text(self.cfg, "b.txt", "coração\nlinha2\n")
-        self.assertEqual((self.out / "b.txt").read_bytes(), "coração\nlinha2\n".encode("utf-8"))
+        self.assertEqual((self.out / "b.txt").read_bytes(), "coração\nlinha2\n".encode())
 
     def test_nunca_sai_das_pastas_autorizadas(self):
         for bad in ("../fora.txt", str(self.root / "fora.txt"), "/etc/passwd.txt", "a/../../x.txt"):
@@ -95,7 +95,7 @@ class ClipboardTest(unittest.TestCase):
         pc._platform = "win32"
 
         class R:
-            returncode, stdout = 0, "olá mundo\r\n".encode("utf-8")
+            returncode, stdout = 0, "olá mundo\r\n".encode()
         self.R = R
         pc._run = lambda args, **kw: (self.calls.append((args, kw)), self.R)[1]
 
@@ -108,7 +108,7 @@ class ClipboardTest(unittest.TestCase):
 
     def test_escrever_manda_utf8_pela_entrada_padrao(self):
         r = pc.clipboard_set("coração")
-        self.assertEqual(self.calls[0][1]["input"], "coração".encode("utf-8"))
+        self.assertEqual(self.calls[0][1]["input"], "coração".encode())
         self.assertEqual(r["caracteres"], 7)
         self.assertNotIn("coração", " ".join(self.calls[0][0]))                     # o texto nunca vai na linha de comando
 

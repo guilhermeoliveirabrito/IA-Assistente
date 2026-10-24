@@ -1,12 +1,8 @@
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.pc import pc_control as pc  # noqa: E402
+from assistente.pc import pc_control as pc
 
 
 class FakePG:
@@ -179,8 +175,9 @@ class PCTest(unittest.TestCase):
         self.assertLess(max(img.getpixel((x, y))[0] for x in range(0, 1000, 5) for y in range(0, 1000, 5)), 40)
 
     def test_zoom_de_regiao(self):
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         pc._grab_override = lambda: Image.new("RGB", (1920, 1080), "blue")
         data, info = pc.screenshot(region=(400, 400, 600, 600))
@@ -226,8 +223,9 @@ class PCTest(unittest.TestCase):
         self.assertLessEqual(n[0], 6)
 
     def test_caixas_numeradas_aparecem_na_captura(self):
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         pc._grab_override = lambda: Image.new("RGB", (1000, 1000), (0, 0, 0))
         data, _ = pc.screenshot(grid=False, marks=[(7, 100, 100, 300, 200)])

@@ -65,7 +65,7 @@ def next_due(item: dict, after: float) -> float:
     rep = (item.get("repeat") or {}).get("tipo", "nao")
     base = datetime.fromtimestamp(item["due"])
     if rep == "intervalo":
-        step = max(1, int((item["repeat"].get("minutos") or 60))) * 60
+        step = max(1, int(item["repeat"].get("minutos") or 60)) * 60
         n = int((after - item["due"]) // step) + 1
         return item["due"] + max(1, n) * step
     cur, i = base, 0

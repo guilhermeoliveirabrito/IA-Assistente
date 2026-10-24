@@ -1,12 +1,7 @@
 import io
-import sys
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.nucleo import attachments as att  # noqa: E402
+from assistente.nucleo import attachments as att
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 20
 JPG = b"\xff\xd8\xff\xe0" + b"0" * 20
@@ -26,7 +21,7 @@ class AttachmentsTest(unittest.TestCase):
         self.assertEqual(att.prepare("contrato.pdf", b"%PDF-1.7\n..."), ("file", "application/pdf"))
 
     def test_texto_e_codigo(self):
-        kind, text = att.prepare("notas.md", "# Título\nação".encode("utf-8"))
+        kind, text = att.prepare("notas.md", "# Título\nação".encode())
         self.assertEqual((kind, text), ("text", "# Título\nação"))
         self.assertEqual(att.prepare("a.py", b"print(1)")[0], "text")
         self.assertEqual(att.prepare("A.CSV", b"a,b\n1,2")[0], "text")

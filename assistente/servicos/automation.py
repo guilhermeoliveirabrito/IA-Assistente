@@ -36,8 +36,7 @@ def _save(name: str, text: str):
 
 def job_triage(cfg):
     """Retorna (ok, texto curto do que aconteceu)."""
-    from assistente.integracoes import google_auth
-    from assistente.integracoes import triage
+    from assistente.integracoes import google_auth, triage
 
     try:
         r = triage.run_triage(google_auth.gmail_service(), cfg) or {}
@@ -66,8 +65,7 @@ def job_digest(cfg):
 
 
 def job_agenda(cfg):
-    from assistente.integracoes import agenda
-    from assistente.integracoes import google_auth
+    from assistente.integracoes import agenda, google_auth
 
     try:
         text = agenda.analyze(google_auth.calendar_service(), cfg)

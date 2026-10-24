@@ -1,15 +1,13 @@
 import json
 import os
 import shutil
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from assistente.nucleo import settings
 
-from assistente.nucleo import settings  # noqa: E402
+ROOT = Path(__file__).resolve().parent.parent
 
 
 class SettingsTest(unittest.TestCase):

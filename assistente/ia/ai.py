@@ -3,8 +3,7 @@ import base64
 import json
 import re
 
-from assistente.ia import gemini
-from assistente.ia import llm
+from assistente.ia import gemini, llm
 
 GeminiError = gemini.GeminiError
 

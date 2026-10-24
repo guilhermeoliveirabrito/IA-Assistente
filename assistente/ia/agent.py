@@ -4,20 +4,15 @@ O mesmo motor serve ao chat (você está na frente do PC) e às tarefas autônom
 estar longe). A diferença está só nas permissões: no chat, ações de risco pedem confirmação;
 numa tarefa, roda o que o perfil da tarefa concedeu e pede aprovação para o resto.
 """
-import time
 import queue
 import threading
+import time
 import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from assistente.nucleo import activity
-from assistente.nucleo import context
-from assistente.ia import gemini
-from assistente.ia import llm
-from assistente.nucleo import memory
-from assistente.nucleo import permissions
-from assistente.nucleo import usage
+from assistente.ia import gemini, llm
+from assistente.nucleo import activity, context, memory, permissions, usage
 
 PC_TIMEOUT = 45                 # s: no controle do PC, resposta que trava por tanto tempo é abandonada (tenta o próximo modelo)
 SLOW_MODEL_S = 12

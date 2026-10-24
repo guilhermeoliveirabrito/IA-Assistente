@@ -1,17 +1,16 @@
 import json
 import os
+import shutil
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from assistente.ia import agent_tools as at
+from assistente.nucleo import permissions as perm
+from assistente.pc import pc_control as pc
 
-from assistente.ia import agent_tools as at  # noqa: E402
-from assistente.pc import pc_control as pc  # noqa: E402
-from assistente.nucleo import permissions as perm  # noqa: E402
-import shutil  # noqa: E402
+ROOT = Path(__file__).resolve().parent.parent
 
 _GA = "assistente.integracoes.google_auth"
 
@@ -86,7 +85,7 @@ class DeclarationsTest(ToolsBase):
 
     def test_toda_ferramenta_tem_categoria_conhecida(self):
         reg, _ = self.reg("task")
-        for name, tool in reg.tools.items():
+        for name, _tool in reg.tools.items():
             cat = reg.category(name, {"comando": "npm test"})
             self.assertIn(cat, perm.CATEGORIES, name)
 
@@ -507,6 +506,7 @@ if __name__ == "__main__":
 class RastreioToolsTest(unittest.TestCase):
     def setUp(self):
         import tempfile
+
         from assistente.servicos import tracking
         self.tmp = tempfile.TemporaryDirectory()
         self.old = os.getcwd()

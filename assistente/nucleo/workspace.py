@@ -242,7 +242,7 @@ class Workspace:
         return res
 
     def git_push(self, project: str, branch: str = "") -> dict:
-        cwd = self.resolve(project)
+        self.resolve(project)
         branch = branch.strip() or self.run(project, "git rev-parse --abbrev-ref HEAD")["saida"].strip()
         if not re.match(r"^[\w./-]+$", branch):
             raise WorkspaceError("Nome de branch inválido.")

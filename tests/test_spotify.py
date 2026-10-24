@@ -3,7 +3,6 @@ import hashlib
 import json
 import os
 import socket
-import sys
 import tempfile
 import threading
 import unittest
@@ -11,10 +10,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from assistente.integracoes import spotify_control as sp  # noqa: E402
+from assistente.integracoes import spotify_control as sp
 
 
 def free_port():
