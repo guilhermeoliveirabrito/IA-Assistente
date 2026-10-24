@@ -216,6 +216,8 @@ ruff check .            # estilo e código morto (configurado em pyproject.toml)
 ```
 
 ## Contribuindo
+O GitHub roda os testes e o `ruff` a cada envio (`.github/workflows/ci.yml`).
+
 Os commits seguem o padrão *Conventional Commits*: `feat:` (funcionalidade nova), `fix:` (correção), `docs:`, `refactor:`, `perf:`, `test:`, `style:` e `chore:`, com uma frase curta no imperativo.
 
 ## Roadmap
