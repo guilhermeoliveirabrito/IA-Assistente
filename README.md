@@ -106,6 +106,12 @@ Em **Criar o meu agente** você escreve o nome, um ícone e as instruções; ele
 
 **Mesa de debate.** Você descreve uma ideia ou decisão ("devo trocar de emprego?", "vale migrar o projeto para Rust?"). Um **defensor** e um **opositor** montam seus argumentos sem ver um ao outro, respondem um ao outro (réplica) e um **juiz** imparcial decide. Você recebe **só o parecer do juiz**: veredito, razões, ressalvas e próximo passo. O agente Geral também pode abrir um debate sozinho (ferramenta `debater`) quando você pedir "prós e contras". Cada debate usa 5 requisições da cota do dia (3 + 2 por rodada de réplica); ajuste `debate.rodadas` no `config.yaml` (0 a 2). Os argumentos dos dois lados não são mostrados nem guardados na conversa.
 
+**Comandos com `/` no chat.** Digite `/` e escolha: `/debate tema` (abre a mesa de debate só para aquela mensagem, em qualquer agente), `/agente` ou `/agente programador` (troca o especialista), `/pesquisar`, `/lembrete`, `/lembrar` (guarda na memória), `/resumo` (resumo do dia) e `/novo`. Tab ou Enter completa o primeiro da lista.
+
+**Tentar de novo.** O botão de seta na última resposta descarta aquela resposta e gera outra para o mesmo pedido.
+
+**Nas tarefas autônomas** você também escolhe o agente (menos a mesa de debate): ele define o jeito de trabalhar e as ferramentas que a tarefa recebe.
+
 ## Lembretes, resumo do dia e arquivos
 
 - **Lembretes** (aba Lembretes, chat ou voz): único ou recorrente (todo dia, dias úteis, toda semana, todo mês, a cada N minutos); alarme toca até dispensar; botões de soneca (+5, +10, +60 min). O aviso do celular usa o ntfy (Ajustes › Avisos no celular). Se o app ficou fechado, lembretes únicos atrasados disparam ao abrir; recorrentes muito atrasados só são reagendados. Os horários são os do relógio do computador.
@@ -243,4 +249,4 @@ Os commits seguem o padrão *Conventional Commits*: `feat:` (funcionalidade nova
 
 ## Roadmap
 1. WhatsApp com aprovação (via API oficial)
-2. Agentes que trabalham em equipe nas tarefas autônomas (hoje a mesa de debate já combina vários agentes no chat)
+2. Agentes que trabalham em equipe nas tarefas autônomas (hoje a mesa de debate já combina vários agentes no chat, e cada tarefa pode ter um especialista)

@@ -1,4 +1,5 @@
 """Serviço de chat: guarda a conversa, roda o agente em segundo plano e transmite os eventos."""
+import re
 import threading
 import time
 import uuid
@@ -25,6 +26,7 @@ class ChatService:
         self.notifier = notifier
         self.policy = permissions.Policy(cfg)
         self._runs = {}                # conv_id -> {"thread", "stop"}
+        self._debate_once = set()      # conversas cuja próxima resposta vem da mesa de debate (/debate ...)
         self._windows = {}             # conv_id -> {"until": epoch}
         self._approvals = {}           # req_id -> {"event", "answer", "conv"}
         self._pending = {}             # req_id -> request (para a interface reconectar)
@@ -88,6 +90,12 @@ class ChatService:
         with self._lock:
             if self.is_running(conv_id):
                 raise ChatBusy("O assistente ainda está respondendo nesta conversa.")
+            if re.match(r"^/debat(?:e|er)\b", text, re.I):
+                if not re.sub(r"^/debat(?:e|er)\b\s*", "", text, flags=re.I):
+                    raise ChatError("Diga o que debater: /debate devo aprender Rust?")
+                self._debate_once.add(conv_id)           # só esta mensagem vai para a mesa de debate
+            else:
+                self._debate_once.discard(conv_id)
             parts, shown = self.prepare_parts(conv_id, text, files or [])
             conv["contents"].append({"role": "user", "parts": parts})
             conv["messages"].append({"id": uuid.uuid4().hex[:8], "role": "user", "text": text, "ts": time.time(),
@@ -113,6 +121,8 @@ class ChatService:
                          and not any("functionResponse" in p for p in contents[i].get("parts", []))), None)
             if turn is None:
                 raise ChatError("Não consigo repetir: o começo desta conversa foi resumido. Envie o pedido de novo.")
+            if re.match(r"^/debat(?:e|er)\b", msgs[last_user].get("text") or "", re.I):
+                self._debate_once.add(conv_id)
             del msgs[last_user + 1:]
             del contents[turn + 1:]
             storage.save(conv)
@@ -215,7 +225,7 @@ class ChatService:
                                   "text": "O começo desta conversa foi resumido para manter o assistente rápido."})
             spec = agentes.get(conv.get("agent"))
             assistant["agent"] = spec["id"]
-            if spec["especial"] == "debate":
+            if spec["especial"] == "debate" or conv_id in self._debate_once:
                 self._run_debate(conv, contents, assistant, emit, stop)
                 return
             ctx = agent_tools.ToolContext(self.cfg, mode="chat", hooks=dict(self.window_hooks))
@@ -250,6 +260,7 @@ class ChatService:
             except KeyError:
                 pass  # a conversa foi apagada durante a resposta
             with self._lock:
+                self._debate_once.discard(conv_id)
                 self._runs.pop(conv_id, None)      # antes do aviso: quem recarregar a conversa já a vê como parada
             self._publish(conv_id, {"type": "done", "message_id": assistant["id"], "stopped": stop.is_set()})
             if voice and self.on_voice_reply and not stop.is_set():
@@ -261,7 +272,9 @@ class ChatService:
     def _run_debate(self, conv, contents, assistant, emit, stop):
         """Mesa de debate: defensor, opositor e juiz; a conversa só recebe o parecer do juiz."""
         question = next((m["text"] for m in reversed(conv["messages"]) if m.get("role") == "user" and m.get("text")), "")
+        question = re.sub(r"^/debat(?:e|er)\b\s*", "", question, flags=re.I)
         history = [m for m in conv["messages"][:-1] if m.get("text") and m.get("role") in ("user", "assistant")][-4:]
+        assistant["agent"] = "debate"
         context_text = "\n".join(f"{'Usuário' if m['role'] == 'user' else 'Assistente'}: {m['text'][:600]}" for m in history)
         try:
             out = debate.run(self.cfg, question, context_text, progress=lambda t: emit({"type": "info", "text": t}), stop=stop)

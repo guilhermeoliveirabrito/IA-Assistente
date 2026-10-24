@@ -126,16 +126,18 @@
       const prompt = h("textarea", { class: "field", style: "min-height:130px", placeholder: "Ex.: Crie um site de portfólio em HTML e CSS, salve em uma pasta nova e suba para o meu GitHub." });
       const budget = h("input", { type: "number", min: "1", max: "1000", value: String(S.state.default_budget || 60) });
       const auto = !!S.state.autonomous;
+      const agentSel = h("select", {}, (S.agents || []).filter((a) => a.id !== "debate").map((a) => h("option", { value: a.id, text: `${a.icone} ${a.nome}` })));
       let profile = auto ? "total" : Object.keys(profiles).includes("projeto") ? "projeto" : Object.keys(profiles)[0];
       const opts = Object.entries(profiles).map(([id, label]) => {
         const [name, desc] = splitLabel(label);
         return h("label", { class: "profile-opt" }, h("input", { type: "radio", name: "profile", value: id, checked: id === profile, onchange: () => { profile = id; } }), h("div", {}, h("b", { text: name }), h("span", { text: desc })));
       });
       const body = h("div", {}, h("label", { class: "f" }, h("span", { text: "O que fazer" }), prompt), h("label", { class: "f" }, h("span", { text: "Título" }), title),
+        h("label", { class: "f" }, h("span", { text: "Agente" }), agentSel, h("small", { text: "O especialista que vai fazer a tarefa. Geral faz de tudo." })),
         auto ? h("p", { class: "desc", text: "Modo autônomo ligado: ele faz tudo sozinho, sem pedir permissão, e só para se algo for contra uma regra sua." }) : h("div", { style: "margin-bottom:12px" }, h("div", { style: "font-size:13px;color:var(--muted);margin-bottom:6px", text: "O que ele pode fazer sozinho" }), h("div", { style: "display:flex;flex-direction:column;gap:8px" }, opts)),
         h("label", { class: "f" }, h("span", { text: "Orçamento de requisições" }), budget, h("small", { text: "Limite de chamadas à IA para esta tarefa, para ela não gastar a cota do dia inteira." })));
       A.modal({ title: "Nova tarefa", body, wide: true, actions: [{ label: "Cancelar" }, { label: "Começar", kind: "primary", run: async () => {
-        try { const t = await api("POST", "/api/tasks", { title: title.value, prompt: prompt.value, profile, budget: Number(budget.value) }); this.sel = t.id; toast("Tarefa na fila.", "ok"); } catch (e) { toast(e.message, "error"); return false; }
+        try { const t = await api("POST", "/api/tasks", { title: title.value, prompt: prompt.value, profile, budget: Number(budget.value), agent: agentSel.value }); this.sel = t.id; toast("Tarefa na fila.", "ok"); } catch (e) { toast(e.message, "error"); return false; }
       } }] });
     },
   };

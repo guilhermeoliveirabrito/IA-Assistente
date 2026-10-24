@@ -791,7 +791,8 @@ def r_tasks(h, q):
 @route("POST", "/api/tasks")
 def r_task_new(h, q):
     b = h._body()
-    h._json(h.app.tasks.create(b.get("title", ""), b.get("prompt", ""), b.get("profile", "leitura"), b.get("budget")))
+    h._json(h.app.tasks.create(b.get("title", ""), b.get("prompt", ""), b.get("profile", "leitura"), b.get("budget"),
+                                   b.get("agent") or None))
 
 
 @route("GET", "/api/tasks/([0-9a-f]{10})")

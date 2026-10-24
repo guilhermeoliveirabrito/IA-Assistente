@@ -390,3 +390,33 @@ class RegenerarTest(Base):
         cid = storage.new_conversation()["id"]
         with self.assertRaises(chatsvc.ChatError):
             self.svc.regenerate(cid)
+
+
+class DebateAvulsoTest(Base):
+    def setUp(self):
+        super().setUp()
+        self._ask = debate._ask
+        debate._ask = lambda cfg, system, prompt, t: "**Veredito:** ok" if "JUIZ" in system else "arg"
+
+    def tearDown(self):
+        debate._ask = self._ask
+        super().tearDown()
+
+    def test_barra_debate_vale_so_para_aquela_mensagem(self):
+        cid = self.ask("/debate vale a pena estudar Rust?")
+        conv = storage.load(cid)
+        self.assertEqual(conv["messages"][-1]["text"], "**Veredito:** ok")
+        self.assertEqual(conv["messages"][-1]["agent"], "debate")
+        self.script = [text("resposta normal")]
+        self.ask("e hoje, que dia é?", conv=cid)
+        self.assertEqual(storage.load(cid)["messages"][-1]["text"], "resposta normal")
+
+    def test_sem_tema_e_recusado(self):
+        with self.assertRaises(chatsvc.ChatError):
+            self.svc.send(None, "/debate")
+
+    def test_tentar_de_novo_refaz_o_debate(self):
+        cid = self.ask("/debate devo mudar de cidade?")
+        self.svc.regenerate(cid)
+        self.wait_done(cid)
+        self.assertEqual(storage.load(cid)["messages"][-1]["text"], "**Veredito:** ok")

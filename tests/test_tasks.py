@@ -106,6 +106,14 @@ class CreateTest(Base):
         self.assertNotIn("entrada", t["granted"])
         self.assertRegex(t["project"], r"^crie-um-site.*-[0-9a-f]{4}$")
 
+    def test_agente_da_tarefa(self):
+        m = self.mgr()
+        self.assertEqual(m.create("", "faça algo", "leitura")["agent"], "geral")
+        self.assertEqual(m.create("", "faça algo", "leitura", None, "pesquisador")["agent"], "pesquisador")
+        for bad in ("debate", "inexistente"):
+            with self.assertRaises(tasks.TaskError, msg=bad):
+                m.create("", "faça algo", "leitura", None, bad)
+
     def test_id_invalido(self):
         m = self.mgr()
         for bad in ("../x", "abc", None, "ZZZZZZZZZZ"):

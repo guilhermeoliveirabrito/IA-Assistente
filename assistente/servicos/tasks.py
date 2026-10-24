@@ -14,7 +14,7 @@ import time
 import uuid
 from pathlib import Path
 
-from assistente.ia import agent, agent_tools, context, gemini
+from assistente.ia import agent, agent_tools, agentes, context, gemini
 from assistente.nucleo import activity, permissions, usage, workspace
 
 DATA = Path("data")
@@ -163,7 +163,7 @@ class TaskManager:
 
     # ---- ações do usuário -----------------------------------------------------------
 
-    def create(self, title: str, prompt: str, profile: str = "leitura", budget: int = None) -> dict:
+    def create(self, title: str, prompt: str, profile: str = "leitura", budget: int = None, agent_id: str = None) -> dict:
         title = " ".join((title or "").split())[:80]
         prompt = (prompt or "").strip()
         if not prompt:
@@ -172,11 +172,14 @@ class TaskManager:
             raise TaskError(f"Descrição longa demais (máximo {MAX_PROMPT} caracteres).")
         if profile not in permissions.PROFILES:
             raise TaskError("Perfil de permissões inválido.")
+        agent_id = agent_id or agentes.DEFAULT
+        if not agentes.exists(agent_id) or agentes.get(agent_id)["especial"]:
+            raise TaskError("Esse agente não pode ser usado em tarefas.")
         title = title or (prompt[:60] + ("…" if len(prompt) > 60 else ""))
         budget = self.default_budget if budget is None else max(1, min(int(budget), 1000))
         tid = uuid.uuid4().hex[:10]
         task = {"id": tid, "title": title, "prompt": prompt, "profile": profile,
-                "granted": sorted(permissions.grants_for(profile)), "status": "queued", "created": self._clock(),
+                "agent": agent_id, "granted": sorted(permissions.grants_for(profile)), "status": "queued", "created": self._clock(),
                 "updated": self._clock(), "budget": budget, "requests": 0, "plan": [], "summary": "", "error": "",
                 "question": "", "pending": None, "resume_at": None, "quota_strikes": 0, "notes": [],
                 "project": f"{workspace.slugify(title)}-{tid[:4]}", "contents": []}
@@ -412,7 +415,8 @@ class TaskManager:
         activity.log("tarefa", f"Começou: {task['title']}", task=tid)
 
         ctx = agent_tools.ToolContext(self.cfg, mode="task", project=task["project"], hooks=self._make_hooks(task))
-        registry = agent_tools.Registry(ctx)
+        spec = agentes.get(task.get("agent"))
+        registry = agent_tools.Registry(ctx, spec["fora"])
         granted = set(task["granted"])
 
         def on_grant(category):
@@ -433,7 +437,7 @@ class TaskManager:
                               task_id=tid, on_request=on_request, on_grant=on_grant)
         model = (self.cfg.get("ia") or {}).get("modelo", "gemini-3.8-flash")
         empties = network = 0
-        system = agent.build_system_prompt(self.cfg, "task", task["project"], task)
+        system = agent.build_system_prompt(self.cfg, "task", task["project"], task, agent=spec["id"])
 
         while True:
             if stop.is_set() or self._shutdown.is_set():

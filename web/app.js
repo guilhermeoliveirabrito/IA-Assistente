@@ -912,8 +912,10 @@
 
   function composer() {
     textarea = h("textarea", { rows: "1", placeholder: "Pergunte ou peça algo…", "aria-label": "Mensagem", maxlength: "30000" });
-    textarea.addEventListener("input", () => { autosize(); updateSendState(); });
+    textarea.addEventListener("input", () => { autosize(); updateSendState(); paintSlash(); });
     textarea.addEventListener("keydown", (ev) => {
+      if (slashBox && !slashBox.hidden && (ev.key === "Tab" || (ev.key === "Enter" && !ev.shiftKey))) { ev.preventDefault(); useSlash(slashMatches()[0]); return; }
+      if (ev.key === "Escape" && slashBox && !slashBox.hidden) { slashBox.hidden = true; return; }
       if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing && !matchMedia("(pointer:coarse)").matches) { ev.preventDefault(); send(); }
     });
     textarea.addEventListener("paste", (ev) => {
@@ -924,7 +926,7 @@
     sendBtn = h("button", { class: "send", type: "button", "aria-label": "Enviar", onclick: () => (liveFor() ? stopChat() : send()) });
     const mic = canRecord() ? h("button", { class: "icon-btn mic", type: "button", title: "Falar em vez de digitar", "aria-label": "Gravar mensagem de voz", id: "mic-btn", onclick: toggleRecord }, icon("mic")) : null;
     const box = h("div", { class: "composer", id: "composer" },
-      h("div", { class: "att-row", id: "att-row" }), textarea,
+      slashBox = h("div", { class: "slash-box", role: "listbox", "aria-label": "Comandos", hidden: true }), h("div", { class: "att-row", id: "att-row" }), textarea,
       h("div", { class: "tools-row" }, h("button", { class: "icon-btn", type: "button", title: "Anexar arquivos (imagem, PDF, texto, Word)", "aria-label": "Anexar arquivos", onclick: () => fileInput.click() }, icon("clip")), fileInput, agentChip(), h("span", { class: "grow" }), mic, sendBtn));
     ["dragenter", "dragover"].forEach((n) => box.addEventListener(n, (ev) => { ev.preventDefault(); box.classList.add("drag"); }));
     ["dragleave", "drop"].forEach((n) => box.addEventListener(n, (ev) => { ev.preventDefault(); box.classList.remove("drag"); }));
@@ -932,6 +934,52 @@
     const wrap = h("div", { class: "composer-wrap" }, h("div", { class: "column", style: "padding:0" }, box, h("div", { class: "hint", text: "O assistente pode errar. Confira informações importantes e ações antes de aprovar." })));
     paintAttachments(); updateSendState();
     return wrap;
+  }
+
+  // ------------------------------------------------------------------ comandos com /
+
+  let slashBox = null;
+  const COMMANDS = [
+    { c: "/debate", d: "Mesa de debate: defensor, opositor e juiz (/debate seu tema)", arg: true },
+    { c: "/agente", d: "Trocar o agente especialista", arg: true },
+    { c: "/pesquisar", d: "Pesquisar na internet com fontes", arg: true, expand: (t) => "Pesquise na internet e responda com as fontes: " + t },
+    { c: "/lembrete", d: "Criar um lembrete ou alarme", arg: true, expand: (t) => "Crie um lembrete: " + t },
+    { c: "/lembrar", d: "Guardar algo na minha memória", arg: true, expand: (t) => "Guarde na minha memória: " + t },
+    { c: "/resumo", d: "Resumo do dia", expand: () => "Monte o resumo do meu dia." },
+    { c: "/novo", d: "Começar uma conversa nova" },
+  ];
+  function slashMatches() {
+    const v = textarea ? textarea.value : "";
+    if (!/^\/[a-zà-ú]*$/i.test(v)) return [];
+    return COMMANDS.filter((x) => x.c.startsWith(v.toLowerCase()));
+  }
+  function paintSlash() {
+    if (!slashBox) return;
+    const list = slashMatches();
+    slashBox.hidden = !list.length;
+    slashBox.replaceChildren(...list.map((x, i) => h("button", { type: "button", class: "slash-opt" + (i === 0 ? " first" : ""), role: "option", onclick: () => useSlash(x) }, h("b", { text: x.c }), h("span", { text: x.d }))));
+  }
+  function useSlash(x) {
+    if (!x) return;
+    if (x.arg) { textarea.value = x.c + " "; autosize(); paintSlash(); textarea.focus(); if (x.c === "/agente") { textarea.value = ""; paintSlash(); pickAgent(); } return; }
+    textarea.value = x.c; autosize(); paintSlash(); send();
+  }
+  // Interpreta o que o usuário digitou. Devolve o texto a enviar, ou null se o comando já foi resolvido aqui.
+  function applySlash(text) {
+    const m = /^(\/[a-zà-ú]+)\b\s*([\s\S]*)$/i.exec(text);
+    const cmd = m && COMMANDS.find((x) => x.c === m[1].toLowerCase());
+    if (!cmd) return text;
+    const arg = m[2].trim();
+    if (cmd.c === "/novo") { newChat(); return null; }
+    if (cmd.c === "/agente") {
+      if (!arg) { pickAgent(); return null; }
+      const a = (S.agents || []).find((x) => x.nome.toLowerCase() === arg.toLowerCase() || x.id === arg.toLowerCase());
+      if (!a) { toast("Não achei esse agente. Digite /agente para ver a lista.", "error"); return null; }
+      setAgent(a.id); return null;
+    }
+    if (cmd.c === "/debate") return arg ? text : (toast("Diga o que debater: /debate devo aprender Rust?", "error"), null);
+    if (cmd.arg && !arg) { toast(`Complete o comando: ${cmd.c} …`, "error"); return null; }
+    return cmd.expand ? cmd.expand(arg) : text;
   }
 
   // ------------------------------------------------------------------ agentes especializados
@@ -1036,8 +1084,13 @@
 
   async function send() {
     if (liveFor()) return;
-    const text = textarea.value.trim();
+    let text = textarea.value.trim();
     if (!text && !S.attachments.length) return;
+    if (text.startsWith("/")) {
+      const out = applySlash(text);
+      if (out === null) { textarea.value = ""; autosize(); paintSlash(); updateSendState(); return; }
+      text = out;
+    }
     const files = S.attachments.slice();
     sendBtn.disabled = true;
     try {

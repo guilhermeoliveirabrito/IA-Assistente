@@ -507,3 +507,10 @@ a { color: var(--info); }
 .agent-pick small { color: var(--muted); font-size: 13px; line-height: 1.35; }
 .agent-tag { font-size: 12px; color: var(--muted); margin-bottom: 4px; letter-spacing: .2px; }
 @media (max-width: 520px) { .agent-chip .ag-name { display: none; } }
+
+/* comandos com / */
+.slash-box { display: grid; gap: 2px; margin: 0 0 8px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--raised); }
+.slash-box[hidden] { display: none; }
+.slash-opt { display: flex; gap: 10px; align-items: baseline; text-align: left; background: none; border: 0; color: var(--text); padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.slash-opt span { color: var(--muted); font-size: 13px; }
+.slash-opt:hover, .slash-opt.first { background: var(--panel); }
