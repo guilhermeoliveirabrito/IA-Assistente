@@ -402,6 +402,59 @@ def _paste(text: str, pg):
         root.destroy()
 
 
+_run = subprocess.run                  # os testes trocam por uma versão falsa
+_PS = ["powershell", "-NoProfile", "-NonInteractive", "-Command"]
+
+
+def clipboard_get() -> str:
+    """Texto da área de transferência."""
+    try:
+        if _platform == "win32":
+            r = _run(_PS + ["[Console]::OutputEncoding=[Text.UTF8Encoding]::new(); Get-Clipboard -Raw"],
+                     capture_output=True, timeout=10, check=False)
+            return r.stdout.decode("utf-8", errors="replace").rstrip("\r\n")[:20000]
+        import tkinter
+
+        root = tkinter.Tk()
+        root.withdraw()
+        try:
+            return root.clipboard_get()[:20000]
+        except tkinter.TclError:
+            return ""
+        finally:
+            root.destroy()
+    except Exception as e:
+        raise PCError(f"Não consegui ler a área de transferência: {e}") from e
+
+
+def clipboard_set(text: str) -> dict:
+    text = str(text if text is not None else "")
+    if len(text) > 100000:
+        raise PCError("Texto grande demais para a área de transferência (máximo 100000 caracteres).")
+    try:
+        if _platform == "win32":
+            r = _run(_PS + ["[Console]::InputEncoding=[Text.UTF8Encoding]::new(); $t=[Console]::In.ReadToEnd(); Set-Clipboard -Value $t"],
+                     input=text.encode("utf-8"), capture_output=True, timeout=10, check=False)
+            if r.returncode != 0:
+                raise PCError("O Windows recusou gravar na área de transferência.")
+        else:
+            import tkinter
+
+            root = tkinter.Tk()
+            root.withdraw()
+            try:
+                root.clipboard_clear()
+                root.clipboard_append(text)
+                root.update()
+            finally:
+                root.destroy()
+    except PCError:
+        raise
+    except Exception as e:
+        raise PCError(f"Não consegui gravar na área de transferência: {e}") from e
+    return {"ok": True, "caracteres": len(text)}
+
+
 def type_text(text: str) -> dict:
     text = str(text or "")
     if not text or len(text) > 3000:

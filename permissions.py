@@ -26,6 +26,7 @@ CATEGORIES = {
     "email_agenda": ("Ler emails e agenda", "low"),
     "midia": ("Controlar música e volume", "low"),
     "rastreio": ("Acompanhar encomendas", "low"),
+    "arquivos_escrever": ("Criar e editar arquivos na pasta de saída", "medium"),
     "agenda_escrever": ("Criar, alterar e apagar eventos da agenda", "medium"),
     "email_escrever": ("Criar rascunhos e organizar e-mails", "medium"),
     "email_enviar": ("Enviar e-mails", "high"),
@@ -45,8 +46,8 @@ CATEGORIES = {
 _LEITURA = ["tarefa", "memoria", "ler_arquivos", "email_agenda", "midia", "rastreio", "lembretes", "web", "projeto_ler"]
 PROFILES = {
     "leitura": _LEITURA,
-    "projeto": _LEITURA + ["abrir", "agenda_escrever", "email_escrever", "projeto_escrever", "comandos", "git_push"],
-    "total": _LEITURA + ["abrir", "agenda_escrever", "email_escrever", "email_enviar", "projeto_escrever", "comandos", "git_push", "tela", "entrada"],
+    "projeto": _LEITURA + ["abrir", "agenda_escrever", "email_escrever", "arquivos_escrever", "projeto_escrever", "comandos", "git_push"],
+    "total": _LEITURA + ["abrir", "agenda_escrever", "email_escrever", "email_enviar", "arquivos_escrever", "projeto_escrever", "comandos", "git_push", "tela", "entrada"],
 }
 PROFILE_LABELS = {
     "leitura": "Só leitura: lê arquivos, emails e agenda, mexe na memória e na música",
@@ -104,6 +105,8 @@ class Policy:
             return "allow"
         if self.autonomous:
             return "allow"
+        if category == "arquivos_escrever" and (self._cfg.get("arquivos") or {}).get("gravar_sem_perguntar"):
+            return "allow"          # a chave de Ajustes › Arquivos: gravar na pasta de saída sem pedir
         if mode == "task":
             return "allow" if category in (granted or ()) else "ask"
         if risk_of(category) == "low":

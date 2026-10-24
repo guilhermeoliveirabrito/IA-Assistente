@@ -83,6 +83,59 @@ def read_text(path: Path) -> str:
     return text
 
 
+WRITE_EXTENSIONS = {".txt", ".md", ".csv", ".tsv", ".json", ".yaml", ".yml", ".html", ".xml", ".log", ".ini", ".py", ".js",
+                    ".css", ".tex", ".srt", ".ics"}
+MAX_WRITE_BYTES = 1_000_000
+DEFAULT_OUTPUT = "~/Documents/Assistente"
+
+
+def output_dir(cfg) -> Path:
+    """Pasta onde o assistente grava os arquivos que cria (relativos caem aqui)."""
+    return Path(((cfg or {}).get("arquivos") or {}).get("pasta_de_saida") or DEFAULT_OUTPUT).expanduser().resolve()
+
+
+def readable_dirs(cfg) -> list:
+    """Pastas autorizadas para leitura: as suas, mais a de saída (para ele reler o que escreveu)."""
+    dirs = list(((cfg or {}).get("arquivos") or {}).get("pastas_permitidas") or [])
+    out = str(output_dir(cfg))
+    return dirs + ([out] if out not in dirs else [])
+
+
+def write_text(cfg, path: str, content: str, mode: str = "criar") -> dict:
+    """Grava um arquivo de texto dentro da pasta de saída ou de uma pasta autorizada. Nunca sai delas."""
+    if mode not in ("criar", "substituir", "acrescentar"):
+        raise FileAccessError("O modo precisa ser criar, substituir ou acrescentar.")
+    content = str(content if content is not None else "")
+    if len(content.encode("utf-8")) > MAX_WRITE_BYTES:
+        raise FileAccessError("Conteúdo grande demais (máximo 1 MB).")
+    path = str(path or "").strip()
+    if not path or "\0" in path:
+        raise FileAccessError("Informe o nome do arquivo.")
+    roots = [Path(d).expanduser().resolve() for d in readable_dirs(cfg)]
+    out = output_dir(cfg)
+    target = Path(path).expanduser()
+    target = (target if target.is_absolute() else out / target).resolve()
+    if not any(target == r or r in target.parents for r in roots):
+        raise FileAccessError(f"Acesso negado: {target} está fora das pastas autorizadas (a pasta de saída é {out}).")
+    if target.suffix.lower() not in WRITE_EXTENSIONS:
+        raise FileAccessError(f"Por segurança só gravo arquivos de texto/dados ({', '.join(sorted(WRITE_EXTENSIONS))}); "
+                              f"programas e scripts executáveis ficam de fora.")
+    if target.is_dir():
+        raise FileAccessError("Esse caminho é uma pasta.")
+    existed = target.exists()
+    if existed and mode == "criar":
+        raise FileAccessError(f"{target.name} já existe. Escolha outro nome ou use o modo substituir/acrescentar.")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    backup = None
+    if existed and mode == "substituir":
+        backup = target.with_name(target.name + ".bak")
+        backup.write_bytes(target.read_bytes())               # uma cópia de segurança do que foi substituído
+    with open(target, "a" if mode == "acrescentar" else "w", encoding="utf-8", newline="") as f:
+        f.write(content)
+    return {"arquivo": str(target), "bytes": target.stat().st_size, "modo": mode if existed else "criar",
+            "backup": str(backup) if backup else None}
+
+
 def list_files(allowed_dirs):
     """Lista os arquivos suportados nas pastas autorizadas (até 200)."""
     supported = TEXT_EXTENSIONS | {".pdf", ".docx", ".csv"}
