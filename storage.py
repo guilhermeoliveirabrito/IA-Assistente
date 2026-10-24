@@ -76,6 +76,60 @@ def list_all():
     return sorted(items, key=lambda i: i["updated"], reverse=True)
 
 
+def search(query: str, limit: int = 30) -> list:
+    """Conversas cujo título ou mensagens contêm o texto (sem ligar para acentos/maiúsculas). Devolve um trecho de cada."""
+    import unicodedata
+
+    def norm(t):
+        t = unicodedata.normalize("NFKD", str(t or "").lower())
+        return "".join(c for c in t if not unicodedata.combining(c))
+
+    q = norm(" ".join(str(query or "").split()))
+    if len(q) < 2:
+        return []
+    found = []
+    for p in _conv_dir().glob("*.json"):
+        try:
+            c = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        hit = None
+        if q in norm(c.get("title")):
+            hit = ""
+        else:
+            for m in c.get("messages", []):
+                text = str(m.get("text") or "")
+                i = norm(text).find(q)
+                if i >= 0:
+                    a = max(0, i - 40)
+                    hit = ("…" if a else "") + text[a:i + len(q) + 60].replace("\n", " ") + "…"
+                    break
+        if hit is not None:
+            found.append({"id": c["id"], "title": c.get("title", ""), "updated": c.get("updated", 0), "trecho": hit})
+    return sorted(found, key=lambda i: i["updated"], reverse=True)[:limit]
+
+
+def to_markdown(conv: dict) -> str:
+    """A conversa inteira em Markdown (para exportar)."""
+    from datetime import datetime
+
+    out = [f"# {conv.get('title') or 'Conversa'}", ""]
+    if conv.get("created"):
+        out += [f"_Iniciada em {datetime.fromtimestamp(conv['created']).strftime('%d/%m/%Y %H:%M')}_", ""]
+    for m in conv.get("messages", []):
+        who = {"user": "Você", "assistant": "Assistente", "note": "Nota"}.get(m.get("role"), m.get("role", ""))
+        out.append(f"## {who}")
+        for a in m.get("attachments", []) or []:
+            out.append(f"📎 {a.get('name', 'anexo')}")
+        for t in m.get("tools", []) or []:
+            out.append(f"- ⚙️ {t.get('summary', '')}")
+        if m.get("text"):
+            out.append("")
+            out.append(m["text"])
+        out.append("")
+    return "\n".join(out).rstrip() + "\n"
+
+
 def rename(cid: str, title: str) -> dict:
     with _lock:
         conv = load(cid)

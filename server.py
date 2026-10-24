@@ -652,6 +652,19 @@ def r_conv_list(h, q):
     h._json({"conversations": storage.list_all(), "running": h.app.chat.running()})
 
 
+@route("GET", "/api/conversations/search")
+def r_conv_search(h, q):
+    h._json({"results": storage.search((q.get("q") or [""])[0])})
+
+
+@route("GET", "/api/conversations/([0-9a-f]{12})/export")
+def r_conv_export(h, q, cid):
+    conv = storage.load(cid)
+    name = storage.safe_filename((conv.get("title") or "conversa")[:40]) or "conversa"
+    h._send(200, storage.to_markdown(conv).encode("utf-8"), "text/markdown; charset=utf-8",
+            {"Content-Disposition": f'attachment; filename="{name}.md"'})
+
+
 @route("POST", "/api/conversations")
 def r_conv_new(h, q):
     h._json(_public_conv(storage.new_conversation()))

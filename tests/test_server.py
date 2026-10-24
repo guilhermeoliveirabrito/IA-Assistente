@@ -308,6 +308,19 @@ class ServerTest(unittest.TestCase):
         titles = [t["title"] for t in self.req("GET", "/api/tasks")[1]["tasks"]]
         self.assertTrue(any("resuma meus e-mails" in t for t in titles))
 
+    def test_busca_e_exporta_conversa(self):
+        self.script = [text("Claro, em São Paulo faz sol.")]
+        cid = self.req("POST", "/api/chat", {"text": "tempo em sao paulo?"})[1]["conversation_id"]
+        time.sleep(0.8)
+        r = self.req("GET", "/api/conversations/search?q=S%C3%A3o%20Paulo")[1]["results"]
+        self.assertEqual([x["id"] for x in r], [cid])
+        self.assertEqual(self.req("GET", "/api/conversations/search?q=a")[1]["results"], [])
+        st, body, resp = self.req("GET", f"/api/conversations/{cid}/export")
+        self.assertEqual(st, 200)
+        self.assertIn("attachment", resp.getheader("Content-Disposition"))
+        self.assertIn(b"sao paulo", body.lower())
+        self.assertEqual(self.req("GET", "/api/conversations/search?q=x", auth=False)[0], 401)
+
     def test_resumo_do_dia(self):
         import ai
         import briefing

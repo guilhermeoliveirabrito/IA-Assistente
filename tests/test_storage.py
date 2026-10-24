@@ -103,3 +103,42 @@ class StorageTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BuscaEExportacaoTest(unittest.TestCase):
+    def setUp(self):
+        import os
+        import tempfile
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.old = os.getcwd()
+        os.chdir(self.tmp.name)
+
+    def tearDown(self):
+        import os
+
+        os.chdir(self.old)
+        self.tmp.cleanup()
+
+    def conv(self, title, *msgs):
+        c = storage.new_conversation(title)
+        c["messages"] = [{"role": r, "text": t} for r, t in msgs]
+        storage.save(c)
+        return c
+
+    def test_busca_ignora_acento_e_maiuscula_e_mostra_trecho(self):
+        a = self.conv("Viagem", ("user", "Quero ir para São Paulo em dezembro"), ("assistant", "Boa ideia"))
+        self.conv("Outra", ("user", "nada a ver"))
+        r = storage.search("SAO PAULO")
+        self.assertEqual([x["id"] for x in r], [a["id"]])
+        self.assertIn("São Paulo", r[0]["trecho"])
+        self.assertEqual(storage.search("viagem")[0]["trecho"], "")           # achou pelo título
+        self.assertEqual(storage.search("x"), [])                            # curto demais
+        self.assertEqual(storage.search("inexistente"), [])
+
+    def test_exportar_markdown(self):
+        c = self.conv("Plano", ("user", "oi"), ("assistant", "olá **mundo**"))
+        c["messages"][1]["tools"] = [{"summary": "Abrir o Spotify"}]
+        md = storage.to_markdown(c)
+        for trecho in ("# Plano", "## Você", "oi", "## Assistente", "olá **mundo**", "Abrir o Spotify"):
+            self.assertIn(trecho, md)

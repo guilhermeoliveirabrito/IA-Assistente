@@ -271,6 +271,7 @@
       h("button", { class: "btn-new", type: "button", onclick: newChat }, icon("plus", 16), "Nova conversa"),
       nav,
       h("div", { class: "side-title", text: "Conversas" }),
+      h("input", { class: "conv-search", id: "conv-search", type: "search", placeholder: "Buscar nas conversas (Ctrl+K)", "aria-label": "Buscar nas conversas", autocomplete: "off", oninput: onSearchInput }),
       h("div", { class: "conv-list", id: "conv-list" }),
       h("div", { id: "pet-slot" }),
       h("div", { class: "side-checks", id: "side-checks", title: "Verificações automáticas (clique para ver os detalhes)", onclick: () => { const b = document.querySelector(".usage-pill"); if (b) b.click(); } }),
@@ -327,8 +328,39 @@
     }
   }
 
+  let searchTimer = null, searchSeq = 0;
+  function onSearchInput(ev) {
+    clearTimeout(searchTimer);
+    const q = ev.target.value.trim();
+    if (q.length < 2) { paintConvList(); return; }
+    searchTimer = setTimeout(async () => {
+      const seq = ++searchSeq;
+      try {
+        const r = await api("GET", "/api/conversations/search?q=" + encodeURIComponent(q));
+        if (seq !== searchSeq) return;
+        const box = document.getElementById("conv-list");
+        if (!box) return;
+        box.replaceChildren();
+        if (!r.results.length) { box.append(h("div", { class: "side-title", style: "text-transform:none", text: "Nada encontrado." })); return; }
+        for (const c of r.results) box.append(h("div", { class: "conv", tabindex: "0", role: "button", onclick: () => openConv(c.id), onkeydown: (e) => { if (e.key === "Enter") openConv(c.id); } },
+          h("span", { class: "t" }, h("span", { text: c.title || "Conversa" }), c.trecho ? h("small", { class: "snip", text: c.trecho }) : null)));
+      } catch (e) { /* ignora */ }
+    }, 250);
+  }
+
+  async function exportConv(c) {
+    try {
+      const r = await fetch(`/api/conversations/${c.id}/export`, { credentials: "same-origin" });
+      if (!r.ok) throw new Error("Não consegui exportar.");
+      const url = URL.createObjectURL(await r.blob());
+      const a = h("a", { href: url, download: ((c.title || "conversa").replace(/[^\w\- ]+/g, "_").slice(0, 40) || "conversa") + ".md" });
+      document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) { toast(e.message, "error"); }
+  }
+
   function convMenu(anchor, c) {
     menuAt(anchor, [
+      { label: "Exportar (Markdown)", icon: "file", run: () => exportConv(c) },
       { label: "Renomear", icon: "file", run: () => renameConv(c) },
       { label: "Resumir e continuar", icon: "refresh", run: () => refreshConv(c.id) },
       { label: "Apagar", danger: true, icon: "x", run: () => deleteConv(c) },
@@ -701,6 +733,23 @@
     if (!(S.conv && S.conv.messages.length) && !liveFor()) textarea.focus();
     if (S.pendingPrompt) { const p = S.pendingPrompt; S.pendingPrompt = ""; textarea.value = p; autosize(); if (p.endsWith(" ")) { textarea.focus(); textarea.setSelectionRange(p.length, p.length); updateSendState(); } else send(); }
   }
+  function showShortcuts() {
+    const rows = [["/", "Ir para a caixa de mensagem"], ["Ctrl+K", "Buscar nas conversas"], ["Alt+N", "Nova conversa"], ["Alt+1 … 9", "Abrir a seção da barra lateral"], ["Esc", "Fechar janelas e menus"], ["?", "Mostrar esta ajuda"]];
+    modal({ title: "Atalhos de teclado", body: h("div", {}, rows.map(([k, d]) => h("div", { class: "kv", style: "margin-bottom:8px" }, h("code", { text: k }), h("span", { text: d })))), actions: [{ label: "Fechar", kind: "primary" }] });
+  }
+  document.addEventListener("keydown", (ev) => {
+    const t = ev.target, typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") { ev.preventDefault(); toggleSidebar(true); const i = document.getElementById("conv-search"); if (i) { i.focus(); i.select(); } return; }
+    if (ev.altKey && !ev.ctrlKey && !ev.metaKey) {
+      if (ev.key.toLowerCase() === "n") { ev.preventDefault(); newChat(); return; }
+      const n = Number(ev.key);
+      if (n >= 1 && n <= NAV.length) { ev.preventDefault(); go(NAV[n - 1][0]); return; }
+    }
+    if (typing || ev.ctrlKey || ev.metaKey || ev.altKey || document.querySelector(".modal-bg")) return;
+    if (ev.key === "/" && S.view === "chat" && textarea) { ev.preventDefault(); textarea.focus(); }
+    else if (ev.key === "?") { ev.preventDefault(); showShortcuts(); }
+  });
+
   A.ask = (prompt) => { S.pendingPrompt = prompt; newChat(); };               // abre uma conversa nova já com o pedido
 
   function liveFor() { return S.convId && S.live[S.convId]; }

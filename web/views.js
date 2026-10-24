@@ -494,7 +494,7 @@
           await A.refreshState(); this.paint();
         } catch (e) { toast(e.message, "error"); ev.currentTarget.disabled = false; }
       } });
-      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.providersCard(), this.phoneCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
+      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.appearanceCard(), this.providersCard(), this.phoneCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
     },
 
     field(inputs, key, label, type, help, options) {
@@ -540,6 +540,21 @@
         a.urls.forEach((u) => card.append(h("div", { class: "kv", style: "margin-top:6px" }, h("code", { style: "overflow-wrap:anywhere", text: u }))));
         card.append(h("p", { class: "desc", style: "margin-top:12px", text: "No iPhone, abra um desses endereços no Safari (a mesma rede Wi-Fi) e use Compartilhar › Adicionar à Tela de Início. Para usar fora de casa com segurança (e o microfone), instale o Tailscale no PC e no iPhone e abra o endereço do Tailscale com o mesmo código. Nunca exponha a porta direto na internet." }));
       } else card.append(h("p", { class: "desc", style: "margin:0", text: "Desligado: só este computador acessa." }));
+      return card;
+    },
+
+    appearanceCard() {
+      const cur = window.Theme ? window.Theme.get() : { theme: "dark", size: "m" };
+      const card = h("div", { class: "card" }, h("h3", { text: "Aparência" }),
+        h("p", { class: "desc", text: "Vale só neste aparelho e navegador (o celular pode ter outro tema)." }));
+      const pick = (label, key, options) => {
+        const sel = h("select", { "aria-label": label }, options.map(([v, l]) => h("option", { value: v, text: l })));
+        sel.value = cur[key];
+        sel.addEventListener("change", () => { window.Theme.set({ [key]: sel.value }); });
+        return h("label", { class: "f" }, h("span", { text: label }), sel);
+      };
+      card.append(pick("Tema", "theme", [["dark", "Escuro"], ["light", "Claro"], ["auto", "Automático (segue o sistema)"]]),
+        pick("Tamanho do texto", "size", [["s", "Pequeno"], ["m", "Normal"], ["l", "Grande"], ["xl", "Muito grande"]]));
       return card;
     },
 
