@@ -712,6 +712,11 @@ def r_conv_agent(h, q, cid):
     h._json(_public_conv(storage.set_agent(cid, agent)))
 
 
+@route("POST", "/api/conversations/([0-9a-f]{12})/regenerate")
+def r_conv_regenerate(h, q, cid):
+    h._json({"id": h.app.chat.regenerate(cid)})
+
+
 @route("POST", "/api/conversations/([0-9a-f]{12})/refresh")
 def r_conv_refresh(h, q, cid):
     h._json({"id": h.app.chat.refresh(cid)})

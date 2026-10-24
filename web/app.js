@@ -36,6 +36,7 @@
   }
 
   const ICON = {
+    redo: '<path d="M20 12a8 8 0 1 1-2.4-5.7L20 8"/><path d="M20 3v5h-5"/>',
     plus: '<path d="M12 5v14M5 12h14"/>', chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
     tasks: '<path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
@@ -798,8 +799,23 @@
     if (m.stopped) el.append(h("div", { class: "stopped-tag", text: "Você interrompeu esta resposta." }));
     if (m.text) el.append(h("div", { class: "msg-actions" },
       h("button", { class: "icon-btn", type: "button", title: "Copiar", "aria-label": "Copiar resposta", onclick: (ev) => copyText(m.text, ev.currentTarget) }, icon("copy", 16)),
-      "speechSynthesis" in window ? h("button", { class: "icon-btn", type: "button", title: "Ouvir", "aria-label": "Ouvir resposta", onclick: () => speak(m.text) }, icon("speaker", 16)) : null));
+      "speechSynthesis" in window ? h("button", { class: "icon-btn", type: "button", title: "Ouvir", "aria-label": "Ouvir resposta", onclick: () => speak(m.text) }, icon("speaker", 16)) : null,
+      isLastAnswer(m) ? h("button", { class: "icon-btn", type: "button", title: "Gerar a resposta de novo", "aria-label": "Tentar de novo", onclick: regenerate }, icon("redo", 16)) : null));
     return el;
+  }
+
+  const isLastAnswer = (m) => !!(S.conv && S.convId && !liveFor() && S.conv.messages[S.conv.messages.length - 1] === m);
+
+  async function regenerate() {
+    if (!S.convId || liveFor()) return;
+    try {
+      await api("POST", `/api/conversations/${S.convId}/regenerate`);
+      const cur = await api("GET", `/api/conversations/${S.convId}`);
+      S.conv = cur;
+      if (cur.running && !S.live[cur.id]) S.live[cur.id] = { text: "", tools: [], label: "Pensando…", info: "", error: "" };
+      if (!cur.running) delete S.live[cur.id];
+      paintMessages(); scrollDown(true); updateSendState();
+    } catch (e) { toast(e.message, "error"); }
   }
 
   function toolRow(t) {

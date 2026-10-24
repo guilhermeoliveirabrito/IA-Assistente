@@ -95,11 +95,35 @@ class ChatService:
             if conv["title"] == "Nova conversa":
                 conv["title"] = storage.make_title(text or (shown[0]["name"] if shown else ""))
             storage.save(conv)
-            stop = threading.Event()
-            thread = threading.Thread(target=self._run, args=(conv_id, stop, voice), name=f"chat-{conv_id}", daemon=True)
-            self._runs[conv_id] = {"thread": thread, "stop": stop}
-            thread.start()
+            self._start(conv_id, voice)
         return conv_id
+
+    def regenerate(self, conv_id, voice=False):
+        """Descarta a última resposta do assistente e responde de novo ao último pedido."""
+        with self._lock:
+            if self.is_running(conv_id):
+                raise ChatBusy("O assistente ainda está respondendo nesta conversa.")
+            conv = storage.load(conv_id)
+            msgs, contents = conv["messages"], conv["contents"]
+            last_user = next((i for i in range(len(msgs) - 1, -1, -1) if msgs[i].get("role") == "user"), None)
+            if last_user is None:
+                raise ChatError("Não há nenhum pedido para repetir.")
+            turn = next((i for i in range(len(contents) - 1, -1, -1)
+                         if contents[i].get("role") == "user"
+                         and not any("functionResponse" in p for p in contents[i].get("parts", []))), None)
+            if turn is None:
+                raise ChatError("Não consigo repetir: o começo desta conversa foi resumido. Envie o pedido de novo.")
+            del msgs[last_user + 1:]
+            del contents[turn + 1:]
+            storage.save(conv)
+            self._start(conv_id, voice)
+        return conv_id
+
+    def _start(self, conv_id, voice=False):
+        stop = threading.Event()
+        thread = threading.Thread(target=self._run, args=(conv_id, stop, voice), name=f"chat-{conv_id}", daemon=True)
+        self._runs[conv_id] = {"thread": thread, "stop": stop}
+        thread.start()
 
     def stop(self, conv_id):
         with self._lock:

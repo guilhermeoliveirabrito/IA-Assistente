@@ -365,3 +365,28 @@ class AgenteTest(Base):
         self.assertIn("O juiz está deliberando…", infos)
         self.assertEqual(self.sent, [])                      # nenhum passo do motor normal
         self.assertEqual(conv["contents"][-1]["parts"][0]["text"], "**Veredito:** vale a pena.")
+
+
+class RegenerarTest(Base):
+    def test_refaz_a_ultima_resposta_sem_duplicar_o_pedido(self):
+        self.script = [text("primeira"), text("segunda")]
+        cid = self.ask("me diga algo")
+        self.svc.regenerate(cid)
+        self.wait_done(cid)
+        conv = storage.load(cid)
+        self.assertEqual([m["text"] for m in conv["messages"]], ["me diga algo", "segunda"])
+        self.assertEqual(len(conv["contents"]), 2)
+        self.assertEqual(len(self.sent[1]["contents"]), 1)           # a 2ª chamada viu só o pedido, sem a 1ª resposta
+
+    def test_descarta_tambem_os_passos_de_ferramenta(self):
+        self.script = [call("memoria_ler", {}), text("depois da ferramenta"), text("nova")]
+        cid = self.ask("leia minha memória")
+        self.assertGreater(len(storage.load(cid)["contents"]), 2)
+        self.svc.regenerate(cid)
+        self.wait_done(cid)
+        self.assertEqual(len(self.sent[2]["contents"]), 1)
+
+    def test_sem_pedido_e_ocupado(self):
+        cid = storage.new_conversation()["id"]
+        with self.assertRaises(chatsvc.ChatError):
+            self.svc.regenerate(cid)
