@@ -10,13 +10,18 @@ Custo: **zero** (Gemini na camada gratuita, Gmail e Google Agenda, Spotify com a
 
 | Recurso | Como funciona |
 |---|---|
-| **App com janela própria** | Interface escura, respostas com tabelas, listas e código formatados, indicador de "pensando", voz opcional (falar em vez de digitar; ler respostas em voz alta) |
+| **App com janela própria** | Interface com tema escuro, claro ou automático, busca nas conversas, exportar para Markdown, atalhos de teclado (`?` mostra a lista), respostas com tabelas, listas e código formatados, indicador de "pensando", voz opcional (falar em vez de digitar; ler respostas em voz alta) |
 | **Gatinho** | Um gatinho 2D pequeno, de headset, na lateral que reage ao que o app faz: pensa, senta no computadorzinho e digita quando usa ferramentas (a telinha muda conforme a tarefa: código, e-mail, música, mouse, site, encomenda, documentos), escuta, comemora, fica triste com erro, avisa de encomenda e dorme se ficar parado. Vem **desligado** por padrão: ligue em Ajustes › Gatinho, onde também dá para dar um nome a ele. Dá para fazer carinho (clique) |
 | **Automação** | Aba com tudo o que ele confere sozinho (e-mails, agenda, resumo e encomendas): quando roda de novo, o que a última achou e botão "Verificar agora". O medidor (e a lateral) mostram **quanto falta para a próxima checagem de e-mail**, a agenda e as encomendas, o que a última encontrou, e há o botão "Verificar agora" |
 | **Medidor por modelo** | Mostra **qual Gemini está em uso**, quanto cada modelo já gastou hoje, quando a cota renova e avisa quando o app troca de modelo e por quê |
 | **Arquivos e imagens** | Arraste ou cole imagens, PDFs, Word e arquivos de texto/código no chat |
-| **E-mails** | Triagem a cada 15 min (importante / normal / newsletter / spam), resumo diário. Spam só vai para a lixeira com a sua aprovação (por padrão) e nunca é apagado para sempre |
-| **Agenda** | Aponta conflitos, dias lotados e janelas livres (só leitura) |
+| **Início** | Tela inicial com o **resumo do dia** (agenda de hoje, e-mails importantes, encomendas e lembretes), gerado sozinho de manhã (08:00 por padrão, também avisa no celular) ou na hora pelo botão |
+| **Lembretes e alarmes** | "Me lembra às 18h de ligar pro João", "daqui a 20 minutos", "todo dia útil às 8h". Avisa no PC (banner + som, mesmo com a janela na bandeja) **e no celular**. Alarme toca até você dispensar ou adiar. Também pode **mandar o assistente fazer algo** na hora marcada (ex.: resumir e-mails todo dia) |
+| **Internet** | Pesquisa na web com as fontes (pesquisa do Google via Gemini; se falhar, DuckDuckGo) e leitura de páginas públicas, protegida contra acesso à sua rede local |
+| **Vários provedores de IA** | Gemini primeiro; se ele acabar a cota, cair ou ficar sem chave, o app passa sozinho para Groq, Cerebras, OpenRouter, Mistral, GitHub Models, NVIDIA, DeepSeek, OpenAI, Claude ou um modelo local no Ollama (quem tiver chave). Tudo em Ajustes › Provedores de IA |
+| **E-mails** | Triagem a cada 15 min (importante / normal / newsletter / spam), resumo diário. Pelo chat: buscar e ler e-mails, **criar rascunhos e respostas** no seu Gmail, marcar como lido, arquivar. **Enviar** de verdade só se você liberar em Ajustes. Spam só vai para a lixeira com a sua aprovação (por padrão) e nunca é apagado para sempre |
+| **Agenda** | Aponta conflitos, dias lotados e janelas livres; **cria, altera e apaga eventos** ("marque dentista amanhã às 15h") |
+| **Arquivos e área de transferência** | Grava notas, listas e resumos (texto/dados, nunca programas) na pasta de saída, com chave para pedir ou não permissão; lê e escreve na área de transferência para ajudar no controle do PC |
 | **Ativação por voz** | Diga **"ei assistente"** e ele começa a ouvir o seu comando na hora, como a Siri/"Ok Google", e responde falando (veja abaixo) |
 | **Encomendas** | Informe o código de rastreio (na aba ou pelo chat) e ele acompanha sozinho, mostra o histórico e **avisa quando algo mudar** ou quando achar (ou não) o pacote |
 | **Controle do PC** | Abre apps e sites, controla mídia, vê a tela, digita, clica. **Cada ação de risco pede a sua permissão** |
@@ -73,8 +78,20 @@ Ele consulta a cada 60 min (`rastreio.verificar_a_cada_minutos`, mínimo 15) só
 
 Limites honestos: pelas regras do 17TRACK, contas novas ganham uma cota única de **200 códigos gratuitos** (cada código novo gasta 1; consultar de novo não gasta), e a integração foi escrita pela documentação e testada só com respostas simuladas — se a sua chave se comportar diferente, o app mostra o erro na própria encomenda. Sem a chave, os códigos ficam guardados e há o link para consultar no site.
 
-### 7. Projetos e GitHub (opcional)
+### 7. Outros provedores de IA (opcional)
+O Gemini continua sendo o principal. Para o app não parar quando a cota dele acabar, abra **Ajustes › Provedores de IA**, pegue uma chave grátis em um ou mais sites (cada linha tem o link “Pegar chave”), cole, clique em **Salvar** e depois **Testar**. As chaves ficam só no seu `.env`. Marque quem pode ser usado e use as setas para mudar a ordem da fila. Com o **Ollama** (https://ollama.com), um modelo roda no seu PC, sem limite e sem internet: instale, rode `ollama pull llama3.2` e marque “Ollama (local)”.
+
+Observações honestas: os nomes de modelo são padrões e podem mudar nos provedores (edite o campo do modelo se um deixar de existir); os limites grátis também mudam; Groq, Cerebras, OpenRouter e NVIDIA padrão não enxergam imagens, então o controle do PC por tela só cai em provedores que veem imagens (Mistral, GitHub Models, OpenAI, Claude) e, se não houver nenhum, espera o Gemini voltar.
+
+### 8. Projetos e GitHub (opcional)
 Em **Ajustes › Projetos**, escolha a pasta onde ele cria os projetos e liste os repositórios (`usuario/repo`) em que ele **pode** enviar código. Fora dessa lista ele nunca faz push. O envio usa o `git` e as credenciais que já estão no seu computador.
+
+## Lembretes, resumo do dia e arquivos
+
+- **Lembretes** (aba Lembretes, chat ou voz): único ou recorrente (todo dia, dias úteis, toda semana, todo mês, a cada N minutos); alarme toca até dispensar; botões de soneca (+5, +10, +60 min). O aviso do celular usa o ntfy (Ajustes › Avisos no celular). Se o app ficou fechado, lembretes únicos atrasados disparam ao abrir; recorrentes muito atrasados só são reagendados. Os horários são os do relógio do computador.
+- **Resumo do dia**: em `config.yaml › automatico` (`resumo_do_dia`, `resumo_do_dia_as`) ou em Ajustes. Sem Google ele ainda mostra encomendas e lembretes.
+- **Agenda e e-mail**: quem já tinha conectado o Google só tem permissão de **leitura** na agenda. Em Ajustes › Gmail e Agenda clique em **Reconectar para permitir criar eventos**. Enviar e-mail está **desligado** por padrão: ele cria o rascunho e você envia; ligue a chave em Ajustes se quiser que ele envie sozinho.
+- **Arquivos que ele cria**: ficam em `arquivos.pasta_de_saida` (padrão `~/Documents/Assistente`). Ao substituir um arquivo, guarda um `.bak`. A chave “Gravar arquivos sem pedir permissão” (Ajustes › Arquivos que ele cria) vale quando o modo autônomo está desligado.
 
 ## Ativação por voz ("ei assistente")
 
@@ -175,6 +192,13 @@ chatsvc.py         conversas, anexos, aprovações
 context.py         resumo de conversas e limpeza de contexto
 usage.py           medidor de consumo da cota
 gemini.py / ai.py  cliente do Gemini (modelos reserva, tentativas)
+llm.py             ponto único de IA: Gemini primeiro, depois os outros provedores
+providers.py       OpenAI-compatíveis, Claude e Ollama (conversão do formato, chaves)
+reminders.py       lembretes, alarmes e tarefas recorrentes
+briefing.py        resumo do dia
+web_tools.py       pesquisa na internet e leitura de páginas
+google_actions.py  criar eventos, rascunhos, buscar e marcar e-mails
+uia.py             janelas e elementos da interface (Windows)
 permissions.py     o que pede permissão e o que não pede
 workspace.py       pasta de projetos, comandos e git com travas
 pc_control.py      abrir apps, tela, teclado, mouse
@@ -193,6 +217,5 @@ node web/tests/md.test.js
 ```
 
 ## Roadmap
-1. Rascunhos de resposta a e-mails com aprovação
-2. WhatsApp com aprovação (via API oficial)
-3. Vários agentes especializados (fora do plano gratuito, ou com uma chave paga)
+1. WhatsApp com aprovação (via API oficial)
+2. Vários agentes especializados (fora do plano gratuito, ou com uma chave paga)
