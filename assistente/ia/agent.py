@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from assistente.ia import context, gemini, llm
+from assistente.ia import agentes, context, gemini, llm
 from assistente.nucleo import activity, memory, permissions, usage
 
 PC_TIMEOUT = 45                 # s: no controle do PC, resposta que trava por tanto tempo é abandonada (tenta o próximo modelo)
@@ -34,7 +34,7 @@ class ApprovalTimeout(Exception):
 
 
 def build_system_prompt(cfg: dict, mode: str = "chat", project: str = None, task: dict = None, now: datetime = None,
-                        voice: bool = False) -> str:
+                        voice: bool = False, agent: str = None) -> str:
     now = now or datetime.now(ZoneInfo(TIMEZONE))
     name = ((cfg.get("app") or {}).get("seu_nome") or "").strip()
     who = f"o assistente pessoal de {name}" if name else "o assistente pessoal do usuário"
@@ -93,6 +93,9 @@ def build_system_prompt(cfg: dict, mode: str = "chat", project: str = None, task
             "Não repita a mesma ação que falhou mais de 2 vezes: mude de abordagem ou peça ajuda. "
             "Seja econômico: cada chamada ao modelo consome a cota gratuita do dia.",
         ]
+    spec = agentes.prompt_block(agent)
+    if spec:
+        lines.append(spec)
     block = memory.prompt_block()
     if block:
         lines.append(block)

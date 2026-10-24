@@ -108,6 +108,7 @@ FIELDS = {
     "notificacoes.avisar_lembretes": (_bool, True),
     "notificacoes.avisar_resumo": (_bool, True),
     "automatico.resumo_do_dia": (_bool, True),
+    "debate.rodadas": (_num(0, 2), False),
     "automatico.resumo_do_dia_as": (_text(5, r"^([01]\d|2[0-3]):[0-5]\d$", allow_empty=False), True),
     "rastreio.verificar_a_cada_minutos": (_num(15, 1440), True),
     "projetos.repos_permitidos": (_list(30, _repo), True),

@@ -10,6 +10,7 @@ from pathlib import Path
 from assistente.ia import (
     chatsvc,
     context,
+    debate,
     gemini,
 )
 from assistente.nucleo import (
@@ -328,3 +329,39 @@ class CompactAndRefreshTest(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AgenteTest(Base):
+    def test_especialista_muda_o_prompt_e_as_ferramentas(self):
+        self.script = [text("Pronto.")]
+        cid = self.svc.send(None, "revise este texto", agent="redator")
+        self.wait_done(cid)
+        self.assertEqual(storage.load(cid)["agent"], "redator")
+        self.assertIn("redator", self.sent[0]["system"].lower())
+
+    def test_agente_inexistente_e_recusado(self):
+        with self.assertRaises(chatsvc.ChatError):
+            self.svc.send(None, "oi", agent="inventado")
+
+    def test_mesa_de_debate_responde_so_o_parecer(self):
+        seen = []
+        orig = debate._ask
+
+        def fake(cfg, system, prompt, temperature):
+            seen.append(system)
+            return "**Veredito:** vale a pena." if "JUIZ" in system else "argumento secreto"
+
+        debate._ask = fake
+        try:
+            cid = self.svc.send(None, "Devo aprender Rust?", agent="debate")
+            self.wait_done(cid)
+        finally:
+            debate._ask = orig
+        conv = storage.load(cid)
+        self.assertEqual(conv["messages"][-1]["text"], "**Veredito:** vale a pena.")
+        self.assertNotIn("argumento secreto", str(conv["messages"]))
+        self.assertEqual(len(seen), 5)
+        infos = [e["text"] for e in self.events() if e["type"] == "info"]
+        self.assertIn("O juiz está deliberando…", infos)
+        self.assertEqual(self.sent, [])                      # nenhum passo do motor normal
+        self.assertEqual(conv["contents"][-1]["parts"][0]["text"], "**Veredito:** vale a pena.")

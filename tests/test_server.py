@@ -461,5 +461,23 @@ class ServerTest(unittest.TestCase):
         self.assertIn(b'"done"', seen)
 
 
+    def test_agentes_api(self):
+        st, body, _ = self.req("GET", "/api/agents")
+        self.assertEqual(st, 200)
+        self.assertEqual(body["default"], "geral")
+        self.assertIn("debate", [a["id"] for a in body["agents"]])
+        st, novo, _ = self.req("POST", "/api/agents", {"nome": "Chef", "instrucao": "Você sugere receitas simples e rápidas."})
+        self.assertEqual(st, 200)
+        st, conv, _ = self.req("POST", "/api/conversations", {})
+        st, r, _ = self.req("POST", f"/api/conversations/{conv['id']}/agent", {"agent": novo["id"]})
+        self.assertEqual((st, r["agent"]), (200, novo["id"]))
+        st, _, _ = self.req("POST", f"/api/conversations/{conv['id']}/agent", {"agent": "nada"})
+        self.assertEqual(st, 400)
+        st, _, _ = self.req("DELETE", f"/api/agents/{novo['id']}")
+        self.assertEqual(st, 200)
+        st, _, _ = self.req("POST", "/api/agents", {"nome": "x", "instrucao": "curto"})
+        self.assertEqual(st, 400)
+
+
 if __name__ == "__main__":
     unittest.main()

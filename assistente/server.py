@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from assistente.ia import ai, chatsvc, gemini, providers
+from assistente.ia import agentes, ai, chatsvc, gemini, providers
 from assistente.integracoes import notify, spotify_control
 from assistente.nucleo import activity, memory, permissions, settings, storage, usage
 from assistente.nucleo import bus as busmod
@@ -679,6 +679,39 @@ def r_conv_rename(h, q, cid):
     h._json(_public_conv(storage.rename(cid, str(title))))
 
 
+@route("GET", "/api/agents")
+def r_agents(h, q):
+    h._json({"agents": agentes.all_agents(), "default": agentes.DEFAULT})
+
+
+@route("POST", "/api/agents")
+def r_agent_new(h, q):
+    body = h._body()
+    try:
+        h._json(agentes.create(body.get("nome"), body.get("instrucao"), body.get("icone")))
+    except agentes.AgentError as e:
+        raise HTTPError(400, str(e))
+
+
+@route("DELETE", "/api/agents/(p[0-9a-f]{8})")
+def r_agent_delete(h, q, aid):
+    try:
+        agentes.delete(aid)
+    except agentes.AgentError as e:
+        raise HTTPError(404, str(e))
+    h._json({"ok": True})
+
+
+@route("POST", "/api/conversations/([0-9a-f]{12})/agent")
+def r_conv_agent(h, q, cid):
+    agent = str(h._body().get("agent") or "")
+    if not agentes.exists(agent):
+        raise HTTPError(400, "Esse agente não existe.")
+    if h.app.chat.is_running(cid):
+        raise HTTPError(409, "Espere a resposta terminar para trocar de agente.")
+    h._json(_public_conv(storage.set_agent(cid, agent)))
+
+
 @route("POST", "/api/conversations/([0-9a-f]{12})/refresh")
 def r_conv_refresh(h, q, cid):
     h._json({"id": h.app.chat.refresh(cid)})
@@ -699,7 +732,7 @@ def r_conv_file(h, q, cid, stored):
 
 
 def _public_conv(conv):
-    return {k: conv[k] for k in ("id", "title", "created", "updated", "messages")}
+    return {**{k: conv[k] for k in ("id", "title", "created", "updated", "messages")}, "agent": conv.get("agent") or "geral"}
 
 
 @route("POST", "/api/chat")
@@ -711,7 +744,7 @@ def r_chat(h, q):
             files.append((str(item.get("name") or "arquivo"), base64.b64decode(item.get("data") or "", validate=True)))
         except (ValueError, TypeError, AttributeError):
             raise HTTPError(400, "Anexo inválido.")
-    cid = h.app.chat.send(body.get("conversation_id") or None, body.get("text"), files)
+    cid = h.app.chat.send(body.get("conversation_id") or None, body.get("text"), files, agent=body.get("agent") or None)
     h._json({"conversation_id": cid})
 
 

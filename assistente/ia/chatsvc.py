@@ -3,7 +3,7 @@ import threading
 import time
 import uuid
 
-from assistente.ia import agent, agent_tools, context, gemini
+from assistente.ia import agent, agent_tools, agentes, context, debate, gemini
 from assistente.nucleo import activity, attachments, permissions, storage
 
 APPROVAL_TIMEOUT = 600  # segundos esperando você aprovar uma ação no chat
@@ -72,7 +72,7 @@ class ChatService:
             parts.append({"text": "Analise o(s) arquivo(s) anexado(s) e me diga o que é importante."})
         return parts, shown
 
-    def send(self, conv_id, text, files=None, voice=False):
+    def send(self, conv_id, text, files=None, voice=False, agent=None):
         text = (text or "").strip()
         if len(text) > 30000:
             raise ChatError("Mensagem longa demais (máximo 30.000 caracteres). Anexe como arquivo.")
@@ -80,6 +80,10 @@ class ChatService:
             conv = storage.load(conv_id)
         else:
             conv = storage.new_conversation()
+        if agent and agent != conv.get("agent"):
+            if not agentes.exists(agent):
+                raise ChatError("Esse agente não existe.")
+            conv["agent"] = agent
         conv_id = conv["id"]
         with self._lock:
             if self.is_running(conv_id):
@@ -185,12 +189,16 @@ class ChatService:
                     contents[:] = new
                     notes.append({"id": uuid.uuid4().hex[:8], "role": "note", "ts": time.time(),
                                   "text": "O começo desta conversa foi resumido para manter o assistente rápido."})
+            spec = agentes.get(conv.get("agent"))
+            if spec["especial"] == "debate":
+                self._run_debate(conv, contents, assistant, emit, stop)
+                return
             ctx = agent_tools.ToolContext(self.cfg, mode="chat", hooks=dict(self.window_hooks))
-            engine = agent.Engine(self.cfg, agent_tools.Registry(ctx), self.policy, mode="chat", emit=emit,
+            engine = agent.Engine(self.cfg, agent_tools.Registry(ctx, spec["fora"]), self.policy, mode="chat", emit=emit,
                                   ask_approval=self._approval_fn(conv_id, stop), stop_event=stop,
                                   window=self._windows.setdefault(conv_id, {"until": 0.0}),
                                   resolve=lambda c: storage.resolve_contents(conv_id, c))
-            status = engine.run(contents, agent.build_system_prompt(self.cfg, "chat", voice=voice))
+            status = engine.run(contents, agent.build_system_prompt(self.cfg, "chat", voice=voice, agent=spec["id"]))
             if status == "empty":
                 assistant["error"] = "O modelo não devolveu resposta. Tente de novo."
         except gemini.GeminiError as e:
@@ -224,6 +232,23 @@ class ChatService:
                     self.on_voice_reply(assistant["text"] or assistant["error"])
                 except Exception as e:
                     activity.log("erro", f"Voz: {e}")
+
+    def _run_debate(self, conv, contents, assistant, emit, stop):
+        """Mesa de debate: defensor, opositor e juiz; a conversa só recebe o parecer do juiz."""
+        question = next((m["text"] for m in reversed(conv["messages"]) if m.get("role") == "user" and m.get("text")), "")
+        history = [m for m in conv["messages"][:-1] if m.get("text") and m.get("role") in ("user", "assistant")][-4:]
+        context_text = "\n".join(f"{'Usuário' if m['role'] == 'user' else 'Assistente'}: {m['text'][:600]}" for m in history)
+        try:
+            out = debate.run(self.cfg, question, context_text, progress=lambda t: emit({"type": "info", "text": t}), stop=stop)
+        except debate.DebateStopped:
+            emit({"type": "stopped"})
+            return
+        except ValueError as e:
+            assistant["error"] = str(e)
+            emit({"type": "error", "kind": "internal", "message": str(e)})
+            return
+        emit({"type": "delta", "text": out["parecer"]})
+        contents.append({"role": "model", "parts": [{"text": out["parecer"]}]})
 
     # ---- recomeçar com resumo -----------------------------------------------------------
 

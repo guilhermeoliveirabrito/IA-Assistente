@@ -44,7 +44,7 @@ def make_title(text: str, limit: int = 48) -> str:
 def new_conversation(title: str = "Nova conversa") -> dict:
     now = time.time()
     conv = {"id": uuid.uuid4().hex[:12], "title": title, "created": now, "updated": now,
-            "messages": [], "contents": []}
+            "messages": [], "contents": [], "agent": "geral"}
     save(conv)
     return conv
 
@@ -149,6 +149,14 @@ def to_markdown(conv: dict) -> str:
             out.append(m["text"])
         out.append("")
     return "\n".join(out).rstrip() + "\n"
+
+
+def set_agent(cid: str, agent: str) -> dict:
+    with _lock:
+        conv = load(cid)
+        conv["agent"] = str(agent)
+        save(conv)
+    return conv
 
 
 def rename(cid: str, title: str) -> dict:

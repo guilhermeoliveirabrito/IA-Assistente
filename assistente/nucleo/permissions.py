@@ -32,6 +32,7 @@ CATEGORIES = {
     "email_enviar": ("Enviar e-mails", "high"),
     "web": ("Pesquisar na internet e ler páginas públicas", "low"),
     "lembretes": ("Criar e gerenciar lembretes e alarmes", "low"),
+    "debate": ("Pedir um debate entre agentes (gasta várias requisições)", "low"),
     "projeto_ler": ("Ler arquivos do projeto", "low"),
     "abrir": ("Abrir aplicativos e sites", "medium"),
     "projeto_escrever": ("Criar e editar arquivos do projeto", "medium"),
@@ -43,7 +44,7 @@ CATEGORIES = {
     "regra": ("Ação que vai contra uma regra sua", "high"),
 }
 
-_LEITURA = ["tarefa", "memoria", "ler_arquivos", "email_agenda", "midia", "rastreio", "lembretes", "web", "projeto_ler"]
+_LEITURA = ["tarefa", "memoria", "ler_arquivos", "email_agenda", "midia", "rastreio", "lembretes", "web", "debate", "projeto_ler"]
 PROFILES = {
     "leitura": _LEITURA,
     "projeto": _LEITURA + ["abrir", "agenda_escrever", "email_escrever", "arquivos_escrever", "projeto_escrever", "comandos", "git_push"],
