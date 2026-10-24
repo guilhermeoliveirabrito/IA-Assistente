@@ -182,39 +182,41 @@ Observações: o computador precisa estar **ligado, com o app aberto e conectado
 ## Estrutura
 
 ```
-app.py             abre o app (janela própria)
-server.py          servidor local + API da interface (stdlib, sem framework)
-web/               interface (pet.js/pet.css = o gatinho) (HTML/CSS/JS puro, sem build)
-agent.py           laço do agente (pensa, usa ferramentas, pede permissão)
-agent_tools.py     ferramentas: arquivos, e-mail/agenda, PC, Spotify, projetos...
-tasks.py           fila de tarefas autônomas (orçamento, pausa e retomada)
-chatsvc.py         conversas, anexos, aprovações
-context.py         resumo de conversas e limpeza de contexto
-usage.py           medidor de consumo da cota
-gemini.py / ai.py  cliente do Gemini (modelos reserva, tentativas)
-llm.py             ponto único de IA: Gemini primeiro, depois os outros provedores
-providers.py       OpenAI-compatíveis, Claude e Ollama (conversão do formato, chaves)
-reminders.py       lembretes, alarmes e tarefas recorrentes
-briefing.py        resumo do dia
-web_tools.py       pesquisa na internet e leitura de páginas
-google_actions.py  criar eventos, rascunhos, buscar e marcar e-mails
-uia.py             janelas e elementos da interface (Windows)
-permissions.py     o que pede permissão e o que não pede
-workspace.py       pasta de projetos, comandos e git com travas
-pc_control.py      abrir apps, tela, teclado, mouse
-spotify_control.py Spotify (API oficial)
-wake.py            ativação por voz (frase de chamada, gravação, resposta falada)
-tracking.py        rastreio de encomendas (17TRACK)
-automation.py      rotina de e-mails e agenda em segundo plano
-main.py            comandos de terminal (setup, triagem, memória...)
-tests/             testes automáticos (não chamam Gemini nem Google)
+app.py                       atalho que abre o app (janela própria)
+main.py                      atalho dos comandos de terminal (setup, triagem, memória...)
+config.yaml                  configurações (o que muda no app fica em data/settings.json)
+web/                         interface (HTML/CSS/JS puro, sem build; pet.js/pet.css = o gatinho)
+memory_example/              modelos das notas de memória
+tests/                       testes automáticos (não chamam Gemini, Google nem o Windows)
+assistente/
+  app.py  server.py  cli.py  janela/bandeja, servidor local + API da interface, comandos de terminal
+  nucleo/                    base do app, sem depender dos outros pacotes
+    settings  permissions  storage  usage  bus  memory  attachments  activity  workspace
+  ia/                        tudo que fala com modelos de IA
+    llm        ponto único de IA: Gemini primeiro, depois os outros provedores
+    gemini  providers        clientes (Gemini; OpenAI-compatíveis, Claude e Ollama)
+    agent  agent_tools       laço do agente (pensa, usa ferramentas, pede permissão) e as ferramentas
+    ai  chat  chatsvc  context   perguntas simples, conversa de terminal, conversas/anexos/aprovações, resumo de contexto
+  integracoes/               serviços externos
+    google_auth  google_actions  gmail_tools  agenda  triage   Google (login, agenda, e-mail, triagem)
+    spotify_control  notify  web_tools                          Spotify, avisos no celular (ntfy), internet
+  pc/                        o computador
+    pc_control  uia  files  wake    tela/teclado/mouse, janelas (Windows), arquivos, voz
+  servicos/                  rotinas em segundo plano
+    tasks  tracking  reminders  briefing  automation
 ```
 
-## Testes
+Regras simples: `nucleo` não importa os outros pacotes (única exceção: `settings` lê a lista de provedores); `ia`, `integracoes`, `pc` e `servicos` podem usar o `nucleo`; só `server`, `app` e `cli` juntam tudo.
+
+## Testes e qualidade
 ```
-python -m unittest discover -s tests
+python -m unittest discover -s tests -t .
 node web/tests/md.test.js
+ruff check .            # estilo e código morto (configurado em pyproject.toml)
 ```
+
+## Contribuindo
+Os commits seguem o padrão *Conventional Commits*: `feat:` (funcionalidade nova), `fix:` (correção), `docs:`, `refactor:`, `perf:`, `test:`, `style:` e `chore:`, com uma frase curta no imperativo.
 
 ## Roadmap
 1. WhatsApp com aprovação (via API oficial)
