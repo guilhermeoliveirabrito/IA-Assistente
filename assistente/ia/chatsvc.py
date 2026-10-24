@@ -190,6 +190,7 @@ class ChatService:
                     notes.append({"id": uuid.uuid4().hex[:8], "role": "note", "ts": time.time(),
                                   "text": "O começo desta conversa foi resumido para manter o assistente rápido."})
             spec = agentes.get(conv.get("agent"))
+            assistant["agent"] = spec["id"]
             if spec["especial"] == "debate":
                 self._run_debate(conv, contents, assistant, emit, stop)
                 return

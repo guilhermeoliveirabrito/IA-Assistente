@@ -682,7 +682,7 @@
   }
 
   function newChat() {
-    S.convId = null; S.conv = null; S.view = "chat";
+    S.convId = null; S.conv = null; S.view = "chat"; S.agentPick = null;
     toggleSidebar(false);
     paintNav(); paintConvList();
     renderView();
@@ -791,6 +791,7 @@
     }
     if (m.role === "note") return h("div", { class: "msg note" }, h("div", { class: "box prose", html: MD.render(m.text) }));
     const el = h("div", { class: "msg assistant" });
+    if (m.agent && m.agent !== "geral") { const ag = agentOf(m.agent); el.append(h("div", { class: "agent-tag", text: m.agent === "debate" ? "⚖️ Parecer do juiz" : `${ag.icone} ${ag.nome}` })); }
     if (m.tools && m.tools.length) el.append(h("div", { class: "tools" }, m.tools.map(toolRow)));
     if (m.text) el.append(h("div", { class: "body prose", html: MD.render(m.text) }));
     if (m.error) el.append(h("div", { class: "err-box", text: m.error }));
@@ -908,13 +909,71 @@
     const mic = canRecord() ? h("button", { class: "icon-btn mic", type: "button", title: "Falar em vez de digitar", "aria-label": "Gravar mensagem de voz", id: "mic-btn", onclick: toggleRecord }, icon("mic")) : null;
     const box = h("div", { class: "composer", id: "composer" },
       h("div", { class: "att-row", id: "att-row" }), textarea,
-      h("div", { class: "tools-row" }, h("button", { class: "icon-btn", type: "button", title: "Anexar arquivos (imagem, PDF, texto, Word)", "aria-label": "Anexar arquivos", onclick: () => fileInput.click() }, icon("clip")), fileInput, h("span", { class: "grow" }), mic, sendBtn));
+      h("div", { class: "tools-row" }, h("button", { class: "icon-btn", type: "button", title: "Anexar arquivos (imagem, PDF, texto, Word)", "aria-label": "Anexar arquivos", onclick: () => fileInput.click() }, icon("clip")), fileInput, agentChip(), h("span", { class: "grow" }), mic, sendBtn));
     ["dragenter", "dragover"].forEach((n) => box.addEventListener(n, (ev) => { ev.preventDefault(); box.classList.add("drag"); }));
     ["dragleave", "drop"].forEach((n) => box.addEventListener(n, (ev) => { ev.preventDefault(); box.classList.remove("drag"); }));
     box.addEventListener("drop", (ev) => addFiles([...ev.dataTransfer.files]));
     const wrap = h("div", { class: "composer-wrap" }, h("div", { class: "column", style: "padding:0" }, box, h("div", { class: "hint", text: "O assistente pode errar. Confira informações importantes e ações antes de aprovar." })));
     paintAttachments(); updateSendState();
     return wrap;
+  }
+
+  // ------------------------------------------------------------------ agentes especializados
+
+  const agentOf = (id) => (S.agents || []).find((a) => a.id === id) || (S.agents || [])[0] || { id: "geral", nome: "Geral", icone: "✨", resumo: "" };
+  const currentAgent = () => (S.conv && S.conv.agent) || S.agentPick || "geral";
+
+  function agentChip() {
+    const a = agentOf(currentAgent());
+    const chip = h("button", { class: "agent-chip" + (a.id !== "geral" ? " on" : ""), type: "button", id: "agent-chip", title: "Escolher o agente especialista: " + a.resumo, "aria-label": "Agente atual: " + a.nome + ". Trocar agente",
+      onclick: pickAgent }, h("span", { class: "ag-ic", text: a.icone }), h("span", { class: "ag-name", text: a.nome }));
+    if (textarea) textarea.placeholder = a.id === "debate" ? "Descreva a ideia ou a decisão para o debate…" : "Pergunte ou peça algo…";
+    return chip;
+  }
+  function paintAgentChip() { const old = document.getElementById("agent-chip"); if (old) old.replaceWith(agentChip()); }
+
+  async function setAgent(id) {
+    if (id === currentAgent()) return;
+    if (S.convId && S.conv) {
+      if (liveFor()) { toast("Espere a resposta terminar para trocar de agente.", "error"); return; }
+      try { S.conv.agent = (await api("POST", `/api/conversations/${S.convId}/agent`, { agent: id })).agent; } catch (e) { toast(e.message, "error"); return; }
+    } else S.agentPick = id;
+    paintAgentChip();
+    if (textarea) textarea.focus();
+  }
+
+  async function pickAgent() {
+    try { S.agents = (await api("GET", "/api/agents")).agents; } catch (e) { /* usa a lista que já tem */ }
+    const list = h("div", { class: "agent-list" });
+    let close = () => {};
+    const draw = () => {
+      list.replaceChildren(...S.agents.map((a) => h("div", { class: "agent-opt" + (a.id === currentAgent() ? " sel" : "") },
+        h("button", { type: "button", class: "agent-pick", onclick: () => { close(); setAgent(a.id); } },
+          h("span", { class: "ag-ic", text: a.icone }), h("span", { class: "ag-txt" }, h("b", { text: a.nome }), h("small", { text: a.resumo }))),
+        a.personalizado ? h("button", { type: "button", class: "icon-btn", title: "Apagar este agente", "aria-label": "Apagar o agente " + a.nome, onclick: async () => {
+          if (!(await confirmBox("Apagar agente", `Apagar o agente “${a.nome}”? As conversas que o usam voltam para o Geral.`, "Apagar", true))) return;
+          try { await api("DELETE", `/api/agents/${a.id}`); S.agents = (await api("GET", "/api/agents")).agents; if (S.agentPick === a.id) S.agentPick = null; paintAgentChip(); draw(); } catch (e) { toast(e.message, "error"); }
+        } }, icon("x", 16)) : null)));
+    };
+    draw();
+    close = modal({ title: "Escolha o agente", body: h("div", {}, h("p", { style: "margin:0 0 12px;color:var(--muted);font-size:14px", text: "Cada especialista trabalha de um jeito e usa só as ferramentas da sua função. O Geral faz de tudo." }), list),
+      actions: [{ label: "Criar o meu agente…", run: () => { setTimeout(createAgent, 0); } }, { label: "Fechar", kind: "primary" }], wide: true });
+  }
+
+  function createAgent() {
+    const nome = h("input", { type: "text", maxlength: "40", placeholder: "Ex.: Chef, Advogado de bolso, Personal trainer" });
+    const icone = h("input", { type: "text", maxlength: "4", value: "🤖", style: "width:70px", "aria-label": "Ícone (um emoji)" });
+    const ins = h("textarea", { rows: "6", maxlength: "3000", placeholder: "Como ele deve trabalhar? Ex.: Você é um chef que sugere receitas simples com o que tenho em casa, pergunta restrições alimentares e passa o modo de preparo em passos curtos." });
+    modal({ title: "Criar agente", body: h("div", {}, h("label", { class: "f" }, h("span", { text: "Nome" }), nome), h("label", { class: "f" }, h("span", { text: "Ícone" }), icone),
+      h("label", { class: "f" }, h("span", { text: "Instruções" }), ins, h("small", { text: "Ele não recebe controle de teclado e mouse; o resto das ferramentas e das permissões é igual ao Geral." }))),
+      actions: [{ label: "Cancelar" }, { label: "Criar e usar", kind: "primary", run: async () => {
+        try {
+          const a = await api("POST", "/api/agents", { nome: nome.value, instrucao: ins.value, icone: icone.value });
+          S.agents = (await api("GET", "/api/agents")).agents;
+          await setAgent(a.id);
+          toast(`Agente ${a.nome} criado.`, "ok");
+        } catch (e) { toast(e.message, "error"); return false; }
+      } }] });
   }
 
   function autosize() { textarea.style.height = "auto"; textarea.style.height = Math.min(textarea.scrollHeight, 220) + "px"; }
@@ -975,7 +1034,7 @@
       textarea.value = ""; autosize(); S.attachments = []; paintAttachments();
       scrollDown(true);
       if (S.speak && window.speechSynthesis) speechSynthesis.cancel();
-      const r = await api("POST", "/api/chat", { conversation_id: S.convId, text, attachments: payload });
+      const r = await api("POST", "/api/chat", { conversation_id: S.convId, text, attachments: payload, agent: currentAgent() });
       const isNew = S.convId !== r.conversation_id;
       S.convId = r.conversation_id;
       // a resposta pode já ter começado (ou até terminado) antes desta chamada voltar: o servidor é quem sabe
@@ -1046,7 +1105,7 @@
     buildShell();
     paintNav();
     renderView();
-    await Promise.all([refreshState(), refreshConvs()]);
+    await Promise.all([refreshState(), refreshConvs(), api("GET", "/api/agents").then((r) => { S.agents = r.agents; }).catch(() => {})]);
     try { S.tasks = (await api("GET", "/api/tasks")).tasks; } catch (e) { /* ok */ }
     paintNav();
     if (S.view === "chat" && !S.conv) renderView();   // saudação com o nome
