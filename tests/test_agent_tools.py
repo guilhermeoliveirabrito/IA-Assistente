@@ -386,6 +386,94 @@ class WebToolsTest(ToolsBase):
             web_tools.search, web_tools.fetch_page = saved
 
 
+class GoogleToolsTest(ToolsBase):
+    def setUp(self):
+        super().setUp()
+        import types
+
+        self._old_mod = sys.modules.get("google_auth")
+        self.write = True
+        self.cal, self.mail = _FakeCal(), _FakeMail()
+        fake = types.ModuleType("google_auth")            # as bibliotecas do Google não precisam estar instaladas
+        fake.can_write_calendar = lambda: self.write
+        fake.calendar_service = lambda: self.cal
+        fake.gmail_service = lambda: self.mail
+        sys.modules["google_auth"] = fake
+
+    def tearDown(self):
+        if self._old_mod is None:
+            sys.modules.pop("google_auth", None)
+        else:
+            sys.modules["google_auth"] = self._old_mod
+        super().tearDown()
+
+    def test_agenda_somente_leitura_pede_reconexao(self):
+        reg, _ = self.reg()
+        self.write = False
+        res, _ = reg.execute("agenda_criar", {"titulo": "X", "inicio": "2026-10-24 10:00"})
+        self.assertIn("Reconectar", res["erro"])
+        self.write = True
+        res, _ = reg.execute("agenda_criar", {"titulo": "X", "inicio": "2026-10-24 10:00"})
+        self.assertTrue(res["ok"])
+
+    def test_enviar_email_exige_liberacao_nos_ajustes(self):
+        reg, _ = self.reg()
+        args = {"para": "a@x.com", "assunto": "Oi", "corpo": "texto"}
+        self.assertIn("desligado", reg.execute("email_enviar", args)[0]["erro"])
+        self.assertEqual(self.mail.sent, [])
+        self.cfg["google"] = {"permitir_enviar_email": True}
+        self.assertTrue(reg.execute("email_enviar", args)[0]["ok"])
+        self.assertEqual(len(self.mail.sent), 1)
+
+    def test_categorias_e_perfis(self):
+        import permissions as perm
+
+        reg, _ = self.reg()
+        self.assertEqual(reg.category("email_enviar", {}), "email_enviar")
+        self.assertEqual(perm.risk_of("email_enviar"), "high")
+        self.assertNotIn("agenda_escrever", perm.PROFILES["leitura"])      # tarefa só de leitura não mexe na agenda
+        self.assertNotIn("email_enviar", perm.PROFILES["projeto"])
+        self.assertIn("email_enviar", perm.ALWAYS_ASK_IN_CHAT)
+
+    def test_leitura_de_email_marca_como_dado_de_terceiros(self):
+        res, _ = self.reg()[0].execute("email_buscar", {})
+        self.assertIn("dado", res["nota"])
+
+
+class _Exec:
+    def __init__(self, fn):
+        self.fn = fn
+
+    def execute(self):
+        return self.fn()
+
+
+class _FakeCal:
+    def events(self):
+        return self
+
+    def insert(self, **kw):
+        return _Exec(lambda: {"id": "ev1", "summary": kw["body"]["summary"]})
+
+
+class _FakeMail:
+    def __init__(self):
+        self.sent = []
+
+    def users(self):
+        return self
+
+    def messages(self):
+        return self
+
+    def list(self, **kw):
+        return _Exec(lambda: {"messages": []})
+
+    def send(self, **kw):
+        self.sent.append(kw)
+        return _Exec(lambda: {"id": "s1"})
+
+
 class MiscTest(ToolsBase):
     def test_resultado_grande_e_cortado(self):
         big = {"conteudo": "x" * 20000}

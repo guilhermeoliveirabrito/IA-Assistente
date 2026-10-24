@@ -26,6 +26,9 @@ CATEGORIES = {
     "email_agenda": ("Ler emails e agenda", "low"),
     "midia": ("Controlar música e volume", "low"),
     "rastreio": ("Acompanhar encomendas", "low"),
+    "agenda_escrever": ("Criar, alterar e apagar eventos da agenda", "medium"),
+    "email_escrever": ("Criar rascunhos e organizar e-mails", "medium"),
+    "email_enviar": ("Enviar e-mails", "high"),
     "web": ("Pesquisar na internet e ler páginas públicas", "low"),
     "lembretes": ("Criar e gerenciar lembretes e alarmes", "low"),
     "projeto_ler": ("Ler arquivos do projeto", "low"),
@@ -42,8 +45,8 @@ CATEGORIES = {
 _LEITURA = ["tarefa", "memoria", "ler_arquivos", "email_agenda", "midia", "rastreio", "lembretes", "web", "projeto_ler"]
 PROFILES = {
     "leitura": _LEITURA,
-    "projeto": _LEITURA + ["abrir", "projeto_escrever", "comandos", "git_push"],
-    "total": _LEITURA + ["abrir", "projeto_escrever", "comandos", "git_push", "tela", "entrada"],
+    "projeto": _LEITURA + ["abrir", "agenda_escrever", "email_escrever", "projeto_escrever", "comandos", "git_push"],
+    "total": _LEITURA + ["abrir", "agenda_escrever", "email_escrever", "email_enviar", "projeto_escrever", "comandos", "git_push", "tela", "entrada"],
 }
 PROFILE_LABELS = {
     "leitura": "Só leitura: lê arquivos, emails e agenda, mexe na memória e na música",
@@ -52,7 +55,7 @@ PROFILE_LABELS = {
 }
 
 # No chat, estas categorias SEMPRE pedem confirmação, mesmo se estiverem na lista de confiança
-ALWAYS_ASK_IN_CHAT = {"tela", "entrada", "comandos", "git_push"}
+ALWAYS_ASK_IN_CHAT = {"tela", "entrada", "comandos", "git_push", "email_enviar"}
 
 
 def risk_of(category: str) -> str:

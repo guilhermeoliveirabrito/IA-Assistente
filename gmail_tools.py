@@ -9,7 +9,7 @@ def _decode(data: str) -> str:
     return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)).decode("utf-8", errors="replace")
 
 
-def _extract_text(payload) -> str:
+def _extract_text(payload, limit: int = MAX_BODY_CHARS) -> str:
     """Pega o texto simples do email (ou HTML sem tags, se for o único)."""
     plain, html = [], []
 
@@ -25,7 +25,7 @@ def _extract_text(payload) -> str:
 
     walk(payload)
     text = "\n".join(plain) if plain else re.sub(r"<[^>]+>", " ", "\n".join(html))
-    return re.sub(r"\s+", " ", text).strip()[:MAX_BODY_CHARS]
+    return re.sub(r"\s+", " ", text).strip()[:limit]
 
 
 def list_new_emails(service, processed_ids: set, max_results: int = 25, query: str = "in:inbox is:unread newer_than:2d"):
