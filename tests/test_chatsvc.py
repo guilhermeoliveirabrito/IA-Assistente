@@ -9,11 +9,11 @@ from pathlib import Path
 
 from assistente.ia import (
     chatsvc,
+    context,
     gemini,
 )
 from assistente.nucleo import (
     activity,
-    context,
     storage,
 )
 from assistente.nucleo import bus as busmod

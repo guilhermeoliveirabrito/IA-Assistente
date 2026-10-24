@@ -6,10 +6,9 @@ import time
 import unittest
 from pathlib import Path
 
-from assistente.ia import gemini
+from assistente.ia import context, gemini
 from assistente.nucleo import (
     activity,
-    context,
 )
 from assistente.nucleo import bus as busmod
 from assistente.pc import pc_control as pc

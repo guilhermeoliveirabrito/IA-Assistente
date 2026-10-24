@@ -1,6 +1,6 @@
 import unittest
 
-from assistente.nucleo import context as ctx
+from assistente.ia import context as ctx
 
 
 def u(text):

@@ -14,8 +14,8 @@ import time
 import uuid
 from pathlib import Path
 
-from assistente.ia import agent, agent_tools, gemini
-from assistente.nucleo import activity, context, permissions, usage, workspace
+from assistente.ia import agent, agent_tools, context, gemini
+from assistente.nucleo import activity, permissions, usage, workspace
 
 DATA = Path("data")
 TASK_DIR = DATA / "tasks"
