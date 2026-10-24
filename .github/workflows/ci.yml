@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: "20"
       - name: Dependências
-        run: pip install ruff pypdf python-docx pyyaml
+        run: pip install ruff pypdf python-docx pyyaml pillow
       - name: Estilo (ruff)
         run: ruff check .
       - name: Testes Python
