@@ -308,6 +308,31 @@ class ServerTest(unittest.TestCase):
         titles = [t["title"] for t in self.req("GET", "/api/tasks")[1]["tasks"]]
         self.assertTrue(any("resuma meus e-mails" in t for t in titles))
 
+    def test_resumo_do_dia(self):
+        import ai
+        import briefing
+
+        saved = ai.ask_text
+        ai.ask_text = lambda prompt, model: "## Bom dia, teste"
+        try:
+            self.assertEqual(self.req("GET", "/api/briefing")[1]["latest"], {})
+            self.req("POST", "/api/reminders", {"text": "tomar água", "in_minutes": 5})
+            q = self.srv.app.bus.subscribe()
+            sent = []
+            self.srv.app.notifier.notify = lambda kind, title, msg, priority=3: sent.append((kind, msg)) or True
+            rec = self.srv.app.briefing.run()
+            self.assertEqual(rec["text"], "## Bom dia, teste")
+            self.assertEqual(self.req("GET", "/api/briefing")[1]["latest"]["text"], "## Bom dia, teste")
+            self.assertEqual(sent, [("resumo", "Bom dia, teste")])
+            self.assertTrue([j for j in self.req("GET", "/api/state")[1]["checks"]["jobs"] if j["id"] == "resumo_do_dia"])
+            data = self.srv.app._briefing_data()                      # sem Google: agenda e e-mails indisponíveis, o resto vem
+            self.assertIsNone(data["agenda"])
+            self.assertEqual(data["encomendas"], [])
+            self.assertEqual(self.req("POST", "/api/briefing/run")[0], 200)
+            self.assertEqual(briefing.default(), self.srv.app.briefing)
+        finally:
+            ai.ask_text = saved
+
     def test_provedores_rotas_chave_nunca_volta(self):
         import providers
 

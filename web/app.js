@@ -6,7 +6,7 @@
 
   const A = (window.A = {
     S: {
-      state: null, convs: [], convId: null, conv: null, live: {}, view: "chat", approvals: [],
+      state: null, convs: [], convId: null, conv: null, live: {}, view: "home", pendingPrompt: "", approvals: [],
       attachments: [], speak: false, online: false, tasks: [], sidebarOpen: false,
     },
     views: {},
@@ -49,6 +49,7 @@
     copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
     bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',
     box: '<path d="M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+    home: '<path d="M3 11l9-8 9 8M5 10v10h14V10M10 20v-6h4v6"/>',
     bell: '<path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8M13.7 21a2 2 0 01-3.4 0"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
     file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/>',
@@ -192,6 +193,7 @@
     if (A.pet) A.pet.onEvent(e);
     if (e.type === "toast") return toast(e.text, e.kind);
     if (e.type === "reminder") { showReminder(e); return; }
+    if (e.type === "briefing") { if (S.view === "home" && A.views.home) A.views.home.refresh(); return; }
     if (e.type === "reminders") {
       if (S.state) { S.state.reminders = { count: e.count, ringing: e.ringing }; paintNav(); }
       if (S.view === "reminders" && A.views.reminders) A.views.reminders.refresh();
@@ -257,7 +259,7 @@
 
   // ------------------------------------------------------------------ estrutura (barra lateral e topo)
 
-  const NAV = [["chat", "Conversa", "chat"], ["tasks", "Tarefas", "tasks"], ["reminders", "Lembretes", "bell"], ["tracking", "Encomendas", "box"], ["automation", "Automação", "bolt"], ["activity", "Histórico", "clock"], ["memory", "Memória", "brain"], ["settings", "Ajustes", "gear"]];
+  const NAV = [["home", "Início", "home"], ["chat", "Conversa", "chat"], ["tasks", "Tarefas", "tasks"], ["reminders", "Lembretes", "bell"], ["tracking", "Encomendas", "box"], ["automation", "Automação", "bolt"], ["activity", "Histórico", "clock"], ["memory", "Memória", "brain"], ["settings", "Ajustes", "gear"]];
 
   function buildShell() {
     const app = document.getElementById("app");
@@ -642,7 +644,7 @@
     content.replaceChildren();
     const v = A.views[S.view];
     if (S.view === "chat") { renderChat(content); return; }
-    const titles = { reminders: "Lembretes", automation: "Automação", tracking: "Encomendas", tasks: "Tarefas", activity: "Histórico", memory: "Memória", settings: "Ajustes" };
+    const titles = { home: "Início", reminders: "Lembretes", automation: "Automação", tracking: "Encomendas", tasks: "Tarefas", activity: "Histórico", memory: "Memória", settings: "Ajustes" };
     setTitle(titles[S.view] || "");
     if (v) v.render(content); else content.append(h("div", { class: "column" }, h("p", { text: "Seção indisponível." })));
   }
@@ -697,7 +699,9 @@
     paintMessages();
     scrollDown(true);
     if (!(S.conv && S.conv.messages.length) && !liveFor()) textarea.focus();
+    if (S.pendingPrompt) { const p = S.pendingPrompt; S.pendingPrompt = ""; textarea.value = p; autosize(); if (p.endsWith(" ")) { textarea.focus(); textarea.setSelectionRange(p.length, p.length); updateSendState(); } else send(); }
   }
+  A.ask = (prompt) => { S.pendingPrompt = prompt; newChat(); };               // abre uma conversa nova já com o pedido
 
   function liveFor() { return S.convId && S.live[S.convId]; }
 

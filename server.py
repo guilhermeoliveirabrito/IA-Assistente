@@ -7,6 +7,7 @@ SEGURANÇA — este servidor controla o seu PC, então:
 - tentativas erradas de código são limitadas por endereço.
 """
 import base64
+from datetime import datetime
 import hmac
 import json
 import mimetypes
@@ -24,6 +25,7 @@ from urllib.parse import parse_qs, urlparse
 
 import activity
 import automation
+import briefing
 import ai
 import bus as busmod
 import chatsvc
@@ -116,6 +118,9 @@ class App:
         self.reminders = reminders.Reminders(cfg, on_fire=self._reminder_fired, on_change=self._reminders_changed)
         reminders.set_default(self.reminders)
         self.reminders.start()
+        self.briefing = briefing.Briefing(cfg, self._briefing_data, on_ready=self._briefing_ready, on_change=self._checks_changed)
+        briefing.set_default(self.briefing)
+        self.briefing.start()
         self._voice_conv = {"id": None, "ts": 0.0}
         self.voice = wake.VoiceService(cfg, self.voice_command, self.bus.publish, self._transcribe_voice)
         self.chat.on_voice_reply = self.voice.speak_reply
@@ -150,7 +155,7 @@ class App:
     def checks(self):
         """Verificações em segundo plano (e-mail, agenda...) com a contagem para a próxima."""
         st = self.automation.status()
-        st["jobs"] = st["jobs"] + [self.tracker.status(), self.reminders.status()]
+        st["jobs"] = st["jobs"] + [self.tracker.status(), self.reminders.status(), self.briefing.status()]
         return st
 
     # ---- encomendas ----------------------------------------------------------------------
@@ -164,6 +169,41 @@ class App:
     def _tracking_changed(self):
         self.bus.publish({"type": "tracking", "unread": self.tracker.unread(), "configured": self.tracker.configured})
         self._checks_changed()
+
+    # ---- resumo do dia ---------------------------------------------------------------------
+
+    def _briefing_data(self):
+        now = datetime.now()
+        today = now.date().isoformat()
+        data = {"agenda": None, "emails": None}
+        if automation.google_ready():
+            try:
+                import google_actions
+                import google_auth
+
+                data["agenda"] = google_actions.list_events(google_auth.calendar_service(), today, 1)
+            except Exception:
+                pass
+            try:
+                import triage
+
+                recent = [r for r in triage._load(triage.RESULTS_FILE, [])
+                          if r.get("categoria") == "importante" and now.timestamp() - datetime.fromisoformat(r["quando"]).timestamp() < 86400]
+                data["emails"] = [{k: r.get(k) for k in ("de", "assunto", "resumo", "precisa_resposta")} for r in recent]
+            except Exception:
+                pass
+        data["encomendas"] = [{"nome": i.get("name") or i.get("code"), "situacao": tracking.describe(i) or "sem novidades"}
+                              for i in self.tracker.active()]
+        data["lembretes"] = [{"quando": reminders.public(i)["quando"], "texto": i["text"]} for i in self.reminders.items()
+                             if i["status"] == "ativo" and reminders.public(i)["quando"].startswith(today)]
+        return data
+
+    def _briefing_ready(self, text):
+        activity.log("resultado", "Resumo do dia pronto.")
+        self.bus.publish({"type": "briefing", "text": text})
+        self.bus.publish({"type": "toast", "kind": "ok", "text": "☀️ Seu resumo do dia está pronto (aba Início)."})
+        first = next((ln.strip(" #*-") for ln in text.splitlines() if ln.strip(" #*-")), "Abra o app para ver.")
+        self.notifier.notify("resumo", "☀️ Resumo do dia", first[:200])
 
     # ---- lembretes -----------------------------------------------------------------------
 
@@ -208,6 +248,8 @@ class App:
         self.voice.stop()
         self.tracker.stop()
         self.reminders.stop()
+        self.briefing.stop()
+        briefing.set_default(None)
         reminders.set_default(None)
         tracking.set_default(None)
         self.automation.stop()
@@ -927,6 +969,17 @@ def r_reminders_delete(h, q, rid):
         h.app.reminders.cancel(rid)
     except reminders.ReminderError as e:
         raise HTTPError(404, str(e))
+    h._json({"ok": True})
+
+
+@route("GET", "/api/briefing")
+def r_briefing(h, q):
+    h._json({"latest": h.app.briefing.latest(), "status": h.app.briefing.status(), "now": time.time()})
+
+
+@route("POST", "/api/briefing/run")
+def r_briefing_run(h, q):
+    h.app.briefing.run_async()
     h._json({"ok": True})
 
 

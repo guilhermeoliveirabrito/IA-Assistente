@@ -434,3 +434,8 @@ a.btn:visited { color: inherit; }
 .reminder-card .rc-text { font-size: 15px; overflow-wrap: anywhere; }
 @keyframes rc-pulse { 50% { box-shadow: 0 0 0 4px rgba(226, 184, 102, .35); } }
 @media (prefers-reduced-motion: reduce) { .reminder-card.alarm { animation: none; } }
+
+/* Início */
+.home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.home-grid .card { margin: 0; }
+.kv b { font-variant-numeric: tabular-nums; }

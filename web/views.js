@@ -239,6 +239,41 @@
 
   // =================================================================== AUTOMAÇÃO
 
+  // ------------------------------------------------------------------ início
+  const HOME_ASKS = [["Resumir meus e-mails", "Resuma meus e-mails importantes de hoje."], ["Como está minha agenda?", "Como está minha agenda dos próximos dias?"],
+    ["Pesquisar na internet", "Pesquise na internet: "], ["Marcar um lembrete", "Me lembra daqui a 30 minutos de "], ["Ver minhas encomendas", "Como estão minhas encomendas?"]];
+  const home = {
+    box: null, data: null, rem: null,
+    async render(content) { this.box = content; await this.refresh(); },
+    resync() { if (S.view === "home") this.refresh(); },
+    async refresh() {
+      if (S.view !== "home" || !this.box) return;
+      try { [this.data, this.rem] = await Promise.all([api("GET", "/api/briefing"), api("GET", "/api/reminders")]); await A.refreshState(); } catch (e) { toast(e.message, "error"); return; }
+      this.paint();
+    },
+    paint() {
+      const d = this.data, st = S.state || {}, name = st.name;
+      const kids = [];
+      const run = h("button", { class: "btn sm", type: "button", text: d.latest.ts ? "Atualizar agora" : "Gerar o resumo de hoje", onclick: async (ev) => {
+        ev.currentTarget.disabled = true; ev.currentTarget.textContent = "Montando…";
+        try { await api("POST", "/api/briefing/run"); setTimeout(() => this.refresh(), 6000); setTimeout(() => this.refresh(), 15000); } catch (e) { toast(e.message, "error"); }
+      } });
+      const card = h("div", { class: "card" }, h("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap" }, h("h3", { text: "Resumo do dia", style: "margin:0" }), run));
+      if (d.latest.text) {
+        card.append(h("div", { class: "prose", style: "margin-top:10px", html: MD.render(d.latest.text) }),
+          h("p", { class: "desc", style: "margin:10px 0 0", text: "Gerado " + F.dayTime(d.latest.ts) + (d.status.next_ts ? ". Próximo automático em " : "") }, d.status.next_ts ? h("b", { "data-next": String(d.status.next_ts), text: A.countdown(d.status.next_ts) }) : null));
+      } else card.append(h("p", { class: "desc", style: "margin:10px 0 0", text: "Todo dia de manhã o assistente junta sua agenda, e-mails importantes, encomendas e lembretes aqui e te avisa no celular. Clique para ver como fica agora." }));
+      kids.push(card);
+      const next = (this.rem.items || []).filter((i) => i.status === "ativo").slice(0, 3);
+      const glance = h("div", { class: "home-grid" },
+        h("div", { class: "card" }, h("h3", { text: "Próximos lembretes" }), next.length ? next.map((i) => h("div", { class: "kv", style: "margin-bottom:6px" }, h("span", { text: (i.tipo === "alarme" ? "⏰ " : "🔔 ") + i.texto }), h("b", { "data-next": String(i.due), text: A.countdown(i.due) }))) : h("p", { class: "desc", style: "margin:0", text: "Nada marcado." }), h("div", { style: "margin-top:8px" }, h("button", { class: "btn sm", type: "button", text: "Abrir lembretes", onclick: () => A.go("reminders") }))),
+        h("div", { class: "card" }, h("h3", { text: "Encomendas" }), h("p", { class: "desc", style: "margin:0 0 8px", text: (st.tracking && st.tracking.count) ? `${st.tracking.count} acompanhada(s)` + (st.tracking.unread ? `, ${st.tracking.unread} com novidade` : ".") : "Nenhuma acompanhada." }), h("button", { class: "btn sm", type: "button", text: "Abrir encomendas", onclick: () => A.go("tracking") })),
+        h("div", { class: "card" }, h("h3", { text: "Pedir algo" }), h("div", { class: "chips", style: "justify-content:flex-start" }, HOME_ASKS.map(([label, prompt]) => h("button", { class: "chip", type: "button", text: label, onclick: () => A.ask(prompt) })))));
+      kids.push(glance);
+      this.box.replaceChildren(page(`${F.greeting()}${name ? ", " + name : ""}`, "O que está acontecendo hoje.", ...kids));
+    },
+  };
+
   // ------------------------------------------------------------------ lembretes e alarmes
   const REPEAT_LABEL = [["nao", "Uma vez"], ["diario", "Todo dia"], ["dias_uteis", "Dias úteis"], ["semanal", "Toda semana"], ["mensal", "Todo mês"], ["intervalo", "A cada N minutos"]];
   const reminders = {
@@ -683,5 +718,5 @@
     },
   };
 
-  A.views.reminders = reminders; A.views.automation = automation; A.views.tracking = tracking; A.views.tasks = tasks; A.views.activity = activity; A.views.memory = memory; A.views.settings = settings;
+  A.views.home = home; A.views.reminders = reminders; A.views.automation = automation; A.views.tracking = tracking; A.views.tasks = tasks; A.views.activity = activity; A.views.memory = memory; A.views.settings = settings;
 })();

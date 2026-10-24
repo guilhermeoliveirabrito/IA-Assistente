@@ -127,6 +127,7 @@ notificacoes:
   avisar_erros: true
   avisar_encomendas: true
   avisar_lembretes: true
+  avisar_resumo: true
 
 projetos:
   # Pasta onde ele cria os projetos (uma subpasta por projeto).
@@ -159,4 +160,7 @@ agenda:
 automatico:
   triagem_a_cada_minutos: 15
   resumo_diario_as: "08:00"
+  # Resumo do dia (agenda, e-mails, encomendas e lembretes) na aba Início e no celular. Funciona mesmo sem o Google.
+  resumo_do_dia: true
+  resumo_do_dia_as: "08:00"
   analise_agenda_as: "07:30"
