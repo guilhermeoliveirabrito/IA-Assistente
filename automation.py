@@ -17,6 +17,17 @@ def google_ready() -> bool:
     return Path("token.json").exists()
 
 
+def calendar_write() -> bool:
+    """O token salvo permite criar e mudar eventos? (lê o arquivo; não precisa das bibliotecas do Google)"""
+    import json
+
+    try:
+        scopes = set(json.loads(Path("token.json").read_text(encoding="utf-8")).get("scopes") or [])
+    except (OSError, ValueError):
+        return False
+    return bool(scopes & {"https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/calendar"})
+
+
 def _save(name: str, text: str):
     DATA.mkdir(exist_ok=True)
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")

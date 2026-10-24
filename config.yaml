@@ -21,6 +21,10 @@ ia:
   ordem_provedores: [gemini, groq, cerebras, openrouter, mistral, github, nvidia, deepseek]
   modelos_pc: [gemini-3.5-flash-lite, gemini-3.1-flash-lite]
 
+google:
+  # Desligado: o assistente só prepara RASCUNHOS no seu Gmail e você envia. Ligue para ele poder enviar e-mails sozinho.
+  permitir_enviar_email: false
+
 # Limites usados pelo medidor de consumo do app. O Gemini não informa a cota restante,
 # então o app conta as chamadas e compara com estes números.
 # Confira os seus limites reais em https://aistudio.google.com/rate-limit e ajuste aqui.

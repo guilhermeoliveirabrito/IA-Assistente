@@ -224,7 +224,8 @@ class ServerTest(unittest.TestCase):
 
     def test_google_sem_credenciais_explica_o_que_fazer(self):
         st = self.req("GET", "/api/state")[1]
-        self.assertEqual(st["google"], {"credentials": False, "connected": False, "running": False})
+        self.assertEqual(st["google"], {"credentials": False, "connected": False, "running": False,
+                                         "calendar_write": False, "send_email": False})
         status, r, _ = self.req("POST", "/api/google/connect")
         self.assertEqual(status, 400)
         self.assertIn("credentials.json", r["error"])

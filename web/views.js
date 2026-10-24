@@ -650,7 +650,12 @@
       const card = h("div", { class: "card" }, h("h3", { text: "Gmail e Agenda" }));
       if (g.connected) {
         card.append(h("p", { class: "desc", text: g.running ? "Conectado. A triagem de e-mails (a cada 15 min), o resumo diário e a análise da agenda rodam sozinhos enquanto o app estiver aberto." : "Conectado. Reabra o app para ligar a rotina automática." }),
-          h("p", { class: "desc", style: "margin:0", text: "Para pedir agora, é só falar no chat: “resuma meus e-mails” ou “como está minha agenda?”." }));
+          h("p", { class: "desc", text: "Para pedir agora, é só falar no chat: “resuma meus e-mails”, “marque dentista amanhã às 15h”, “responda o e-mail da Maria dizendo que sim” (vira rascunho no seu Gmail)." }));
+        if (!g.calendar_write) card.append(h("div", { class: "alert warn" }, "A agenda está conectada só para leitura. Para o assistente criar e mudar eventos, reconecte e aceite a nova permissão. ",
+          h("button", { class: "btn sm", type: "button", text: "Reconectar para permitir criar eventos", onclick: async () => { try { await api("POST", "/api/google/connect", { reauth: true }); toast("Autorize no navegador que abriu…"); } catch (e) { toast(e.message, "error"); } } })));
+        const send = h("input", { type: "checkbox", checked: !!g.send_email });
+        send.addEventListener("change", async () => { try { await api("POST", "/api/settings", { changes: { "google.permitir_enviar_email": send.checked } }); await A.refreshState(); toast(send.checked ? "Ele agora pode enviar e-mails sozinho." : "Ele só prepara rascunhos.", "ok"); } catch (e) { toast(e.message, "error"); send.checked = !send.checked; } });
+        card.append(h("label", { class: "switch" }, send, h("span", { text: "Permitir que ele ENVIE e-mails sozinho (desligado = só cria rascunhos para você enviar)" })));
       } else if (!g.credentials) {
         card.append(h("p", { class: "desc", style: "margin:0" }, "Falta o arquivo ", h("code", { text: "credentials.json" }), " na pasta do projeto. Ele é criado no Google Cloud (grátis) — veja o passo 4 do README. Depois volte aqui e clique em Conectar."));
       } else {

@@ -246,7 +246,8 @@ class App:
             "default_budget": int((cfg.get("tarefas") or {}).get("orcamento_de_requisicoes", 60)),
             "access": (cfg.get("app") or {}).get("acesso", "local"),
             "google": {"credentials": Path("credentials.json").exists(), "connected": automation.google_ready(),
-                       "running": self.automation.running},
+                       "running": self.automation.running, "calendar_write": automation.calendar_write(),
+                       "send_email": bool((cfg.get("google") or {}).get("permitir_enviar_email"))},
             "voice": self.voice.status(),
             "checks": self.checks(),
             "reminders": {"count": len(self.reminders.items()),
@@ -281,7 +282,7 @@ class App:
 
     # ---- google (gmail + agenda) ------------------------------------------------------
 
-    def google_connect(self):
+    def google_connect(self, reauth=False):
         if not Path("credentials.json").exists():
             raise HTTPError(400, "Falta o arquivo credentials.json na pasta do projeto. Veja o passo 4 do README "
                                  "(criar o acesso no Google Cloud).")
@@ -290,7 +291,7 @@ class App:
             try:
                 import google_auth
 
-                google_auth.get_credentials()          # abre o navegador para você entrar e autorizar
+                google_auth.get_credentials(force=reauth)   # abre o navegador para você entrar e autorizar
                 self.automation.start()
                 self.bus.publish({"type": "toast", "kind": "ok", "text": "Google conectado. Gmail e Agenda ligados."})
             except BaseException as e:                  # inclui o SystemExit do login
@@ -1015,7 +1016,7 @@ def r_voice_pause(h, q):
 
 @route("POST", "/api/google/connect")
 def r_google(h, q):
-    h.app.google_connect()
+    h.app.google_connect(bool(h._body().get("reauth")))
     h._json({"ok": True})
 
 
