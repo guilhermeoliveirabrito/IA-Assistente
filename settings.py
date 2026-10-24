@@ -109,6 +109,8 @@ FIELDS = {
     "rastreio.verificar_a_cada_minutos": (_num(15, 1440), True),
     "projetos.repos_permitidos": (_list(30, _repo), True),
     "projetos.pasta": (_folder, True),
+    "arquivos.gravar_sem_perguntar": (_bool, False),
+    "arquivos.pasta_de_saida": (_folder, False),
     "arquivos.pastas_permitidas": (_list(20, _folder), False),
     "pc.modo_autonomo": (_bool, False),
     "pc.esconder_janela": (_bool, False),

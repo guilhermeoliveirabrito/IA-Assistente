@@ -145,6 +145,10 @@ arquivos:
   # Exemplos: "~/Documents/assistente", "C:/Users/voce/Documentos/assistente"
   pastas_permitidas:
     - "~/assistente-arquivos"
+  # Onde ele GRAVA o que cria (notas, resumos, listas). Nome relativo cai aqui. Só grava texto/dados, nunca programas.
+  pasta_de_saida: "~/Documents/Assistente"
+  # Desligado: fora do modo autônomo, cada gravação pede a sua confirmação. Ligado: grava sem perguntar.
+  gravar_sem_perguntar: false
 
 agenda:
   dias_a_frente: 7
