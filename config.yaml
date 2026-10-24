@@ -169,4 +169,7 @@ debate:
   # Mesa de debate (agente "Mesa de debate" e ferramenta "debater"): defensor e opositor argumentam e um juiz decide.
   # Quantas rodadas de réplica antes do juiz (0 a 2). Cada rodada gasta 2 requisições; o total é 3 + 2 x rodadas.
   rodadas: 1
-
+  # Pesquisa fatos na internet antes (1 requisição a mais) e dá os mesmos fatos, com fontes, ao defensor, ao opositor e ao juiz.
+  pesquisar: false
+  # Mostra, recolhidos sob o parecer, os argumentos dos dois lados. Desligado: só o parecer do juiz.
+  mostrar_argumentos: false

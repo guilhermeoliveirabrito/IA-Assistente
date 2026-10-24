@@ -795,6 +795,18 @@
     if (m.agent && m.agent !== "geral") { const ag = agentOf(m.agent); el.append(h("div", { class: "agent-tag", text: m.agent === "debate" ? "⚖️ Parecer do juiz" : `${ag.icone} ${ag.nome}` })); }
     if (m.tools && m.tools.length) el.append(h("div", { class: "tools" }, m.tools.map(toolRow)));
     if (m.text) el.append(h("div", { class: "body prose", html: MD.render(m.text) }));
+    if (m.debate_info) {
+      const i = m.debate_info;
+      el.append(h("div", { class: "debate-info", text: `Debate com ${i.chamadas} requisições · ${i.rodadas} ${i.rodadas === 1 ? "réplica" : "réplicas"}${i.pesquisou ? " · com pesquisa na internet" : ""}` }));
+    }
+    if (m.debate) {
+      const d = m.debate, srcs = (d.fontes || []).filter((s) => /^https?:\/\//.test(s.url));
+      el.append(h("details", { class: "debate-args" }, h("summary", { text: "Ver os argumentos dos dois lados" }),
+        h("h4", { text: "Defensor" }), h("div", { class: "prose", html: MD.render(d.defensor) }),
+        h("h4", { text: "Opositor" }), h("div", { class: "prose", html: MD.render(d.opositor) }),
+        srcs.length ? h("h4", { text: "Fontes pesquisadas" }) : null,
+        srcs.length ? h("ul", {}, srcs.map((s) => h("li", {}, h("a", { href: s.url, target: "_blank", rel: "noopener noreferrer", text: s.titulo || s.url })))) : null));
+    }
     if (m.error) el.append(h("div", { class: "err-box", text: m.error }));
     if (m.stopped) el.append(h("div", { class: "stopped-tag", text: "Você interrompeu esta resposta." }));
     if (m.text) el.append(h("div", { class: "msg-actions" },

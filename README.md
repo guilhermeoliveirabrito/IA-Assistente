@@ -104,7 +104,12 @@ Na caixa de mensagem do chat, o botão com o nome do agente (começa em **✨ Ge
 
 Em **Criar o meu agente** você escreve o nome, um ícone e as instruções; ele fica salvo em `data/agentes.json`. Agentes seus não recebem teclado e mouse. As permissões (o que pede aprovação) são as mesmas para todos.
 
-**Mesa de debate.** Você descreve uma ideia ou decisão ("devo trocar de emprego?", "vale migrar o projeto para Rust?"). Um **defensor** e um **opositor** montam seus argumentos sem ver um ao outro, respondem um ao outro (réplica) e um **juiz** imparcial decide. Você recebe **só o parecer do juiz**: veredito, razões, ressalvas e próximo passo. O agente Geral também pode abrir um debate sozinho (ferramenta `debater`) quando você pedir "prós e contras". Cada debate usa 5 requisições da cota do dia (3 + 2 por rodada de réplica); ajuste `debate.rodadas` no `config.yaml` (0 a 2). Os argumentos dos dois lados não são mostrados nem guardados na conversa.
+**Mesa de debate.** Você descreve uma ideia ou decisão ("devo trocar de emprego?", "vale migrar o projeto para Rust?"). Um **defensor** e um **opositor** montam seus argumentos sem ver um ao outro, respondem um ao outro (réplica) e um **juiz** imparcial decide. Você recebe **só o parecer do juiz**: veredito, razões, ressalvas e próximo passo. O agente Geral também pode abrir um debate sozinho (ferramenta `debater`) quando você pedir "prós e contras". O juiz fecha com veredito, razões, ressalvas, **confiança** (alta, média ou baixa) e próximo passo. Embaixo do parecer aparece quantas requisições o debate gastou.
+
+Em **Ajustes › Mesa de debate** (ou em `debate:` no `config.yaml`) você escolhe:
+- **Rodadas de réplica (0 a 2):** cada debate usa 3 requisições da cota do dia mais 2 por rodada (padrão 1 = 5 requisições).
+- **Pesquisar fatos na internet antes:** +1 requisição; defensor, opositor e juiz recebem os mesmos fatos, com fontes, e o debate fica menos baseado em "achismo". Se a pesquisa falhar, o debate segue sem ela.
+- **Poder ver os argumentos dos dois lados:** por padrão só o parecer do juiz aparece e os argumentos não são guardados; ligado, eles ficam recolhidos sob o parecer ("Ver os argumentos dos dois lados"), junto com as fontes.
 
 **Comandos com `/` no chat.** Digite `/` e escolha: `/debate tema` (abre a mesa de debate só para aquela mensagem, em qualquer agente), `/agente` ou `/agente programador` (troca o especialista), `/pesquisar`, `/lembrete`, `/lembrar` (guarda na memória), `/resumo` (resumo do dia) e `/novo`. Tab ou Enter completa o primeiro da lista.
 

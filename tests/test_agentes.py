@@ -121,6 +121,37 @@ class DebateTest(unittest.TestCase):
             debate.run({}, "Tema", stop=ev)
         self.assertEqual(self.calls, [])
 
+    def test_pesquisa_opcional_entrega_os_mesmos_fatos_aos_tres(self):
+        orig = debate.web_tools.search
+        debate.web_tools.search = lambda cfg, q: {"resposta": "O preço subiu 10% em 2026.", "fontes": [{"titulo": "Site", "url": "https://x.org"}]}
+        try:
+            out = debate.run({"debate": {"pesquisar": True}}, "Vale comprar agora?", progress=lambda t: None)
+        finally:
+            debate.web_tools.search = orig
+        self.assertEqual(out["chamadas"], 6)
+        self.assertTrue(out["pesquisou"])
+        self.assertEqual(out["fontes"][0]["url"], "https://x.org")
+        self.assertTrue(all("subiu 10%" in p for _, p in self.calls))
+
+    def test_pesquisa_que_falha_nao_derruba_o_debate(self):
+        orig = debate.web_tools.search
+
+        def boom(cfg, q):
+            raise RuntimeError("sem rede")
+
+        debate.web_tools.search = boom
+        try:
+            out = debate.run({"debate": {"pesquisar": True}}, "Tema")
+        finally:
+            debate.web_tools.search = orig
+        self.assertFalse(out["pesquisou"])
+        self.assertEqual(out["chamadas"], 5)
+
+    def test_resultado_traz_argumentos_e_juiz_pede_confianca(self):
+        out = debate.run({}, "Tema")
+        self.assertIn("argumento do defensor", out["argumentos"]["defensor"])
+        self.assertIn("Confiança", self.calls[-1][0])
+
     def test_erro_do_modelo_sobe(self):
         def boom(cfg, system, prompt, temperature):
             raise gemini.GeminiError("cota", "quota")

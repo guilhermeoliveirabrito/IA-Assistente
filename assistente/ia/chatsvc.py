@@ -285,6 +285,9 @@ class ChatService:
             assistant["error"] = str(e)
             emit({"type": "error", "kind": "internal", "message": str(e)})
             return
+        assistant["debate_info"] = {"chamadas": out["chamadas"], "rodadas": out["rodadas"], "pesquisou": out["pesquisou"]}
+        if debate.option(self.cfg, "mostrar_argumentos"):
+            assistant["debate"] = {**out["argumentos"], "fontes": out["fontes"]}
         emit({"type": "delta", "text": out["parecer"]})
         contents.append({"role": "model", "parts": [{"text": out["parecer"]}]})
 

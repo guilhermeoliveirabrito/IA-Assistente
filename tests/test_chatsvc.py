@@ -420,3 +420,13 @@ class DebateAvulsoTest(Base):
         self.svc.regenerate(cid)
         self.wait_done(cid)
         self.assertEqual(storage.load(cid)["messages"][-1]["text"], "**Veredito:** ok")
+
+    def test_argumentos_so_ficam_guardados_se_o_ajuste_estiver_ligado(self):
+        cid = self.ask("/debate tema um")
+        m = storage.load(cid)["messages"][-1]
+        self.assertNotIn("debate", m)
+        self.assertEqual(m["debate_info"]["chamadas"], 5)
+        self.cfg["debate"] = {"mostrar_argumentos": True}
+        cid = self.ask("/debate tema dois")
+        m = storage.load(cid)["messages"][-1]
+        self.assertEqual(m["debate"]["defensor"].split("\n")[0], "arg")
