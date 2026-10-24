@@ -3,7 +3,7 @@ import email
 import email.header
 import unittest
 
-import google_actions as ga
+from assistente.integracoes import google_actions as ga
 
 
 class Call:

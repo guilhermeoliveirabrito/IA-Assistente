@@ -23,27 +23,27 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-import activity
-import automation
-import briefing
-import ai
-import bus as busmod
-import chatsvc
-import gemini
-import memory
-import notify
-import permissions
-import providers
-import reminders
-import settings
-import spotify_control
-import storage
-import tasks
-import tracking
-import usage
-import wake
+from assistente.nucleo import activity
+from assistente.servicos import automation
+from assistente.servicos import briefing
+from assistente.ia import ai
+from assistente.nucleo import bus as busmod
+from assistente.ia import chatsvc
+from assistente.ia import gemini
+from assistente.nucleo import memory
+from assistente.integracoes import notify
+from assistente.nucleo import permissions
+from assistente.ia import providers
+from assistente.servicos import reminders
+from assistente.nucleo import settings
+from assistente.integracoes import spotify_control
+from assistente.nucleo import storage
+from assistente.servicos import tasks
+from assistente.servicos import tracking
+from assistente.nucleo import usage
+from assistente.pc import wake
 
-WEB_DIR = Path(__file__).resolve().parent / "web"
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 TOKEN_FILE = Path("data") / "access_token.txt"
 MAX_JSON = 40 * 1024 * 1024
 MAX_AUDIO = 10 * 1024 * 1024
@@ -178,14 +178,14 @@ class App:
         data = {"agenda": None, "emails": None}
         if automation.google_ready():
             try:
-                import google_actions
-                import google_auth
+                from assistente.integracoes import google_actions
+                from assistente.integracoes import google_auth
 
                 data["agenda"] = google_actions.list_events(google_auth.calendar_service(), today, 1)
             except Exception:
                 pass
             try:
-                import triage
+                from assistente.integracoes import triage
 
                 recent = [r for r in triage._load(triage.RESULTS_FILE, [])
                           if r.get("categoria") == "importante" and now.timestamp() - datetime.fromisoformat(r["quando"]).timestamp() < 86400]
@@ -331,7 +331,7 @@ class App:
 
         def go():
             try:
-                import google_auth
+                from assistente.integracoes import google_auth
 
                 google_auth.get_credentials(force=reauth)   # abre o navegador para você entrar e autorizar
                 self.automation.start()
@@ -344,7 +344,7 @@ class App:
     # ---- spotify ---------------------------------------------------------------------
 
     def spotify_connect(self):
-        import agent_tools
+        from assistente.ia import agent_tools
 
         sp = agent_tools.build_spotify(self.cfg)
         sp._require_client_id()

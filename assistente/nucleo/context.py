@@ -7,7 +7,7 @@ raciocínio dos turnos recentes, porque a API exige esses pares íntegros.
 """
 import json
 
-import ai
+from assistente.ia import ai
 
 IMAGE_TOKENS = 1500           # custo estimado de uma imagem ou arquivo anexado
 DEFAULT_LIMIT_TOKENS = 24000  # acima disso o histórico é resumido

@@ -3,8 +3,8 @@ import csv
 import io
 from pathlib import Path
 
-import ai
-import memory
+from assistente.ia import ai
+from assistente.nucleo import memory
 
 TEXT_EXTENSIONS = {".txt", ".md", ".json", ".yaml", ".yml", ".py", ".js", ".html", ".log", ".ini", ".xml"}
 MAX_CHARS = 20000  # limite do que vai para a IA (camada gratuita tem limite de uso)

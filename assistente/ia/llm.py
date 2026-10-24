@@ -3,9 +3,9 @@ puder atender (cota, sobrecarga, chave ausente ou recusada), os outros provedore
 
 Tem a mesma interface de `gemini.stream/generate`, então o agente e o resto do app só trocam o nome do módulo.
 """
-import gemini
-import providers
-import usage
+from assistente.ia import gemini
+from assistente.ia import providers
+from assistente.nucleo import usage
 
 GeminiError = gemini.GeminiError
 _cfg = {}

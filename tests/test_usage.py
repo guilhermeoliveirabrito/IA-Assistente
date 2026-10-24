@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import usage  # noqa: E402
+from assistente.nucleo import usage  # noqa: E402
 
 
 def utc(y, mo, d, h=0, mi=0):

@@ -18,7 +18,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-import activity
+from assistente.nucleo import activity
 
 FILE = Path("data") / "rastreio.json"
 API = "https://api.17track.net/track/v2.2"

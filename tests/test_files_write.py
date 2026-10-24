@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import files
-import permissions as perm
-import pc_control as pc
+from assistente.pc import files
+from assistente.nucleo import permissions as perm
+from assistente.pc import pc_control as pc
 
 
 class WriteTest(unittest.TestCase):

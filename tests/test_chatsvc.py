@@ -11,13 +11,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import activity  # noqa: E402
-import bus as busmod  # noqa: E402
-import chatsvc  # noqa: E402
-import context  # noqa: E402
-import gemini  # noqa: E402
-import pc_control as pc  # noqa: E402
-import storage  # noqa: E402
+from assistente.nucleo import activity  # noqa: E402
+from assistente.nucleo import bus as busmod  # noqa: E402
+from assistente.ia import chatsvc  # noqa: E402
+from assistente.nucleo import context  # noqa: E402
+from assistente.ia import gemini  # noqa: E402
+from assistente.pc import pc_control as pc  # noqa: E402
+from assistente.nucleo import storage  # noqa: E402
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 30
 

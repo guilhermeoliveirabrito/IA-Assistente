@@ -8,10 +8,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import agent_tools as at  # noqa: E402
-import pc_control as pc  # noqa: E402
-import permissions as perm  # noqa: E402
+from assistente.ia import agent_tools as at  # noqa: E402
+from assistente.pc import pc_control as pc  # noqa: E402
+from assistente.nucleo import permissions as perm  # noqa: E402
 import shutil  # noqa: E402
+
+_GA = "assistente.integracoes.google_auth"
 
 
 class FakeSpotify:
@@ -259,7 +261,7 @@ class PrecisaoTest(ToolsBase):
 
     def setUp(self):
         super().setUp()
-        import uia
+        from assistente.pc import uia
         from tests.test_uia import FakeBackend
 
         self.uia = uia
@@ -328,7 +330,7 @@ class PrecisaoTest(ToolsBase):
 class LembretesToolsTest(ToolsBase):
     def setUp(self):
         super().setUp()
-        import reminders
+        from assistente.servicos import reminders
 
         self.rem = reminders
         self.r = reminders.Reminders()
@@ -361,7 +363,7 @@ class LembretesToolsTest(ToolsBase):
         self.assertIn("erro", reg.execute("lembrete_cancelar", {"id": "00000000"})[0])
 
     def test_e_ferramenta_de_leitura(self):
-        import permissions as perm
+        from assistente.nucleo import permissions as perm
 
         self.assertEqual(self.reg()[0].category("lembrete_criar", {}), "lembretes")
         self.assertIn("lembretes", perm.PROFILES["leitura"])         # tarefas só de leitura também podem usar
@@ -369,7 +371,7 @@ class LembretesToolsTest(ToolsBase):
 
 class WebToolsTest(ToolsBase):
     def test_ferramentas_da_web(self):
-        import web_tools
+        from assistente.integracoes import web_tools
 
         saved = (web_tools.search, web_tools.fetch_page)
         web_tools.search = lambda cfg, q: {"resposta": "r " + q, "fontes": []}
@@ -391,20 +393,29 @@ class GoogleToolsTest(ToolsBase):
         super().setUp()
         import types
 
-        self._old_mod = sys.modules.get("google_auth")
+        from assistente import integracoes
+
+        self._pkg = integracoes
+        self._old_mod = sys.modules.get(_GA)
+        self._old_attr = getattr(integracoes, "google_auth", None)
         self.write = True
         self.cal, self.mail = _FakeCal(), _FakeMail()
-        fake = types.ModuleType("google_auth")            # as bibliotecas do Google não precisam estar instaladas
+        fake = types.ModuleType(_GA)            # as bibliotecas do Google não precisam estar instaladas
         fake.can_write_calendar = lambda: self.write
         fake.calendar_service = lambda: self.cal
         fake.gmail_service = lambda: self.mail
-        sys.modules["google_auth"] = fake
+        sys.modules[_GA] = fake
+        self._pkg.google_auth = fake
 
     def tearDown(self):
         if self._old_mod is None:
-            sys.modules.pop("google_auth", None)
+            sys.modules.pop(_GA, None)
         else:
-            sys.modules["google_auth"] = self._old_mod
+            sys.modules[_GA] = self._old_mod
+        if self._old_attr is None:
+            self._pkg.__dict__.pop("google_auth", None)
+        else:
+            self._pkg.google_auth = self._old_attr
         super().tearDown()
 
     def test_agenda_somente_leitura_pede_reconexao(self):
@@ -426,7 +437,7 @@ class GoogleToolsTest(ToolsBase):
         self.assertEqual(len(self.mail.sent), 1)
 
     def test_categorias_e_perfis(self):
-        import permissions as perm
+        from assistente.nucleo import permissions as perm
 
         reg, _ = self.reg()
         self.assertEqual(reg.category("email_enviar", {}), "email_enviar")
@@ -496,7 +507,7 @@ if __name__ == "__main__":
 class RastreioToolsTest(unittest.TestCase):
     def setUp(self):
         import tempfile
-        import tracking
+        from assistente.servicos import tracking
         self.tmp = tempfile.TemporaryDirectory()
         self.old = os.getcwd()
         os.chdir(self.tmp.name)

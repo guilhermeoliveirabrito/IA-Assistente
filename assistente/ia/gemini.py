@@ -10,7 +10,7 @@ import time
 import urllib.error
 import urllib.request
 
-import usage
+from assistente.nucleo import usage
 
 BASE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:{method}"
 TIMEOUT = 120

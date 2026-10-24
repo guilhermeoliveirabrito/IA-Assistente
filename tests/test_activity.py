@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import activity  # noqa: E402
+from assistente.nucleo import activity  # noqa: E402
 
 DAY = 86400
 

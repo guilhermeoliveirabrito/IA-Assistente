@@ -12,11 +12,11 @@ from zoneinfo import ZoneInfo
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import activity  # noqa: E402
-import agent  # noqa: E402
-import agent_tools as at  # noqa: E402
-import gemini  # noqa: E402
-import permissions as perm  # noqa: E402
+from assistente.nucleo import activity  # noqa: E402
+from assistente.ia import agent  # noqa: E402
+from assistente.ia import agent_tools as at  # noqa: E402
+from assistente.ia import gemini  # noqa: E402
+from assistente.nucleo import permissions as perm  # noqa: E402
 
 
 def text_chunks(*texts):
@@ -114,7 +114,7 @@ class ChatTest(EngineBase):
 
     def test_acao_de_risco_pergunta_e_executa_quando_permitida(self):
         opened = []
-        import pc_control as pc
+        from assistente.pc import pc_control as pc
         orig = pc.open_url
         pc.open_url = lambda u: opened.append(u) or {"ok": True, "aberto": u}
         try:
@@ -131,7 +131,7 @@ class ChatTest(EngineBase):
 
     def test_acao_negada_nao_executa_e_o_modelo_e_avisado(self):
         opened = []
-        import pc_control as pc
+        from assistente.pc import pc_control as pc
         orig = pc.open_url
         pc.open_url = lambda u: opened.append(u) or {"ok": True}
         try:
@@ -155,7 +155,7 @@ class ChatTest(EngineBase):
         self.assertIn("erro", fr)
 
     def test_permitir_por_alguns_minutos_libera_as_proximas(self):
-        import pc_control as pc
+        from assistente.pc import pc_control as pc
         orig = pc.open_url
         pc.open_url = lambda u: {"ok": True}
         try:
@@ -195,7 +195,7 @@ class ChatTest(EngineBase):
         self.assertEqual(self.sent, [])
 
     def test_captura_de_tela_vai_como_imagem(self):
-        import pc_control as pc
+        from assistente.pc import pc_control as pc
         orig = pc.screenshot
         pc.screenshot = lambda **kw: (b"\xff\xd8jpg", {"largura": 4, "altura": 3})
         try:
@@ -244,7 +244,7 @@ class TaskTest(EngineBase):
         self.assertEqual(self.asked[0]["category"], "entrada")
 
     def test_aprovar_sempre_numa_tarefa_concede_a_categoria(self):
-        import pc_control as pc
+        from assistente.pc import pc_control as pc
         orig = pc.hotkey
         pc.hotkey = lambda c: {"ok": True}
         granted_later = []
@@ -303,7 +303,7 @@ class ParadaTest(EngineBase):
 class TelaTest(EngineBase):
     def setUp(self):
         super().setUp()
-        import pc_control as pc
+        from assistente.pc import pc_control as pc
         self.pc = pc
         self.saved = {n: getattr(pc, n) for n in ("screenshot", "click", "wait", "type_text", "hotkey", "settle")}
         self.shots, self.clicks = [], []
@@ -372,7 +372,7 @@ class AutonomoTest(EngineBase):
     def setUp(self):
         super().setUp()
         self.cfg["pc"] = {"modo_autonomo": True}
-        import pc_control as pc
+        from assistente.pc import pc_control as pc
         self.pc, self.opened = pc, []
         self._open_url = pc.open_url
         pc.open_url = lambda u: self.opened.append(u) or {"ok": True, "aberto": u}
@@ -509,6 +509,6 @@ class VelocidadeTest(TelaTest):
 
 class VozPromptTest(unittest.TestCase):
     def test_prompt_de_voz_pede_resposta_curta(self):
-        import agent as a
+        from assistente.ia import agent as a
         self.assertIn("LIDA EM VOZ ALTA", a.build_system_prompt({}, "chat", voice=True))
         self.assertNotIn("LIDA EM VOZ ALTA", a.build_system_prompt({}, "chat"))

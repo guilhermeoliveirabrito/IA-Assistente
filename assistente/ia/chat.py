@@ -12,9 +12,9 @@ Dentro da conversa:
 """
 import re
 
-import ai
-import files
-import memory
+from assistente.ia import ai
+from assistente.pc import files
+from assistente.nucleo import memory
 
 MAX_TURNS = 20       # quantas mensagens recentes entram no prompt
 MAX_ATTACHED = 3     # arquivos anexados ao mesmo tempo

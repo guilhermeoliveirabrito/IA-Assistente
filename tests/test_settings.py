@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import settings  # noqa: E402
+from assistente.nucleo import settings  # noqa: E402
 
 
 class SettingsTest(unittest.TestCase):
@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
 class LimitesDoProjetoTest(unittest.TestCase):
     def test_limites_do_config_padrao_batem_com_o_painel(self):
-        import usage
+        from assistente.nucleo import usage
         cfg = settings.load_config(ROOT / "config.yaml")
         got = {m: usage._configured_limits(cfg, m) for m in ("gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite")}
         self.assertEqual(got["gemini-3.8-flash"], {"rpd": 20, "rpm": 5, "tpm": 250000})

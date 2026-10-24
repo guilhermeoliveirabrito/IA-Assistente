@@ -12,9 +12,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import gemini  # noqa: E402
-import server  # noqa: E402
-import settings  # noqa: E402
+from assistente.ia import gemini  # noqa: E402
+from assistente import server  # noqa: E402
+from assistente.nucleo import settings  # noqa: E402
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 30
 
@@ -274,7 +274,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.srv.app._voice_conv["id"], cid)
 
     def test_lembretes_rotas_disparo_e_tarefa(self):
-        import reminders
+        from assistente.servicos import reminders
         from datetime import datetime
 
         self.assertEqual(self.req("POST", "/api/reminders", {"text": "x", "when": "ontem"})[0], 400)
@@ -322,8 +322,8 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.req("GET", "/api/conversations/search?q=x", auth=False)[0], 401)
 
     def test_resumo_do_dia(self):
-        import ai
-        import briefing
+        from assistente.ia import ai
+        from assistente.servicos import briefing
 
         saved = ai.ask_text
         ai.ask_text = lambda prompt, model: "## Bom dia, teste"
@@ -347,7 +347,7 @@ class ServerTest(unittest.TestCase):
             ai.ask_text = saved
 
     def test_provedores_rotas_chave_nunca_volta(self):
-        import providers
+        from assistente.ia import providers
 
         st, r, _ = self.req("GET", "/api/providers")
         self.assertEqual(st, 200)
@@ -369,7 +369,7 @@ class ServerTest(unittest.TestCase):
         os.environ.pop("GROQ_API_KEY", None)
 
     def test_rastreio_rotas_e_estado(self):
-        import tracking
+        from assistente.servicos import tracking
 
         class P:
             configured = True
@@ -426,7 +426,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.req("POST", "/api/usage/calibrate", {"model": "../x", "requests": 1})[0], 400)
 
     def test_troca_de_modelo_chega_a_interface_em_tempo_real(self):
-        import usage
+        from assistente.nucleo import usage
         conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
         conn.request("GET", "/api/events", headers={"Host": f"127.0.0.1:{self.port}", "X-Access-Code": self.token})
         r = conn.getresponse()

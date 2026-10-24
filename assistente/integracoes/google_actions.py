@@ -10,7 +10,7 @@ import re
 from datetime import date, datetime, timedelta
 from email.message import EmailMessage
 
-import gmail_tools
+from assistente.integracoes import gmail_tools
 
 TZ = "America/Sao_Paulo"
 MAX_LIST = 25

@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import spotify_control as sp  # noqa: E402
+from assistente.integracoes import spotify_control as sp  # noqa: E402
 
 
 def free_port():

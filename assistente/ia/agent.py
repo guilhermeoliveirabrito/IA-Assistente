@@ -11,13 +11,13 @@ import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-import activity
-import context
-import gemini
-import llm
-import memory
-import permissions
-import usage
+from assistente.nucleo import activity
+from assistente.nucleo import context
+from assistente.ia import gemini
+from assistente.ia import llm
+from assistente.nucleo import memory
+from assistente.nucleo import permissions
+from assistente.nucleo import usage
 
 PC_TIMEOUT = 45                 # s: no controle do PC, resposta que trava por tanto tempo é abandonada (tenta o próximo modelo)
 SLOW_MODEL_S = 12

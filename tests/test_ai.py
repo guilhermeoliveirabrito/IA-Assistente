@@ -6,8 +6,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import ai  # noqa: E402
-import gemini  # noqa: E402
+from assistente.ia import ai  # noqa: E402
+from assistente.ia import gemini  # noqa: E402
 
 
 class AiTest(unittest.TestCase):

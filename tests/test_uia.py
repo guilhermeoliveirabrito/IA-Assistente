@@ -1,6 +1,6 @@
 import unittest
 
-import uia
+from assistente.pc import uia
 
 
 class FakeBackend:

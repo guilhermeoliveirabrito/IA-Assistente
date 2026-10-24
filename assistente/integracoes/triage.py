@@ -3,9 +3,9 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import ai
-import gmail_tools
-import memory
+from assistente.ia import ai
+from assistente.integracoes import gmail_tools
+from assistente.nucleo import memory
 
 DATA = Path("data")
 DATA.mkdir(exist_ok=True)

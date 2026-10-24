@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
 
-import gemini
+from assistente.ia import gemini
 
 MAX_BYTES = 2_000_000
 MAX_CHARS = 12000

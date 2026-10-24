@@ -4,7 +4,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-import reminders as R
+from assistente.servicos import reminders as R
 
 
 def ts(y, mo, d, h=0, mi=0):

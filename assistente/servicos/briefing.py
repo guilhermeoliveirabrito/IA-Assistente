@@ -10,8 +10,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-import ai
-import automation
+from assistente.ia import ai
+from assistente.servicos import automation
 
 FILE = Path("data") / "dia.json"
 TICK = 20

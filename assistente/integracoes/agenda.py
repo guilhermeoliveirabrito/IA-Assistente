@@ -2,8 +2,8 @@
 import json
 from datetime import datetime, timedelta, timezone
 
-import ai
-import memory
+from assistente.ia import ai
+from assistente.nucleo import memory
 
 
 def upcoming_events(service, dias: int):

@@ -7,8 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import activity  # noqa: E402
-import automation  # noqa: E402
+from assistente.nucleo import activity  # noqa: E402
+from assistente.servicos import automation  # noqa: E402
 
 
 class AutomationTest(unittest.TestCase):
@@ -28,7 +28,7 @@ class AutomationTest(unittest.TestCase):
         a.stop()
 
     def test_erro_na_rotina_vai_para_o_historico_e_nao_derruba(self):
-        import triage
+        from assistente.integracoes import triage
 
         original = triage.digest
         triage.digest = lambda cfg: (_ for _ in ()).throw(RuntimeError("sem internet"))
@@ -40,7 +40,7 @@ class AutomationTest(unittest.TestCase):
         self.assertTrue(any(e["kind"] == "erro" and "sem internet" in e["text"] for e in events))
 
     def test_resumo_salva_relatorio(self):
-        import triage
+        from assistente.integracoes import triage
 
         original = triage.digest
         triage.digest = lambda cfg: "tudo certo"

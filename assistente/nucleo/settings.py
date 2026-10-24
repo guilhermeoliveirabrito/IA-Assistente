@@ -10,7 +10,7 @@ from pathlib import Path
 
 import yaml
 
-import providers
+from assistente.ia import providers
 
 SETTINGS_FILE = Path("data") / "settings.json"
 CONFIG_FILE = Path("config.yaml")

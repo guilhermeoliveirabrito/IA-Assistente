@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import wake  # noqa: E402
+from assistente.pc import wake  # noqa: E402
 
 
 def chunk(amp):

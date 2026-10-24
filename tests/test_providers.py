@@ -5,10 +5,10 @@ import unittest
 import urllib.error
 from pathlib import Path
 
-import gemini
-import llm
-import providers
-import usage
+from assistente.ia import gemini
+from assistente.ia import llm
+from assistente.ia import providers
+from assistente.nucleo import usage
 
 
 class FakeResp:

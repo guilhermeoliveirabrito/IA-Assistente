@@ -8,7 +8,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import activity
+from assistente.nucleo import activity
 
 DATA = Path("data")
 
@@ -36,8 +36,8 @@ def _save(name: str, text: str):
 
 def job_triage(cfg):
     """Retorna (ok, texto curto do que aconteceu)."""
-    import google_auth
-    import triage
+    from assistente.integracoes import google_auth
+    from assistente.integracoes import triage
 
     try:
         r = triage.run_triage(google_auth.gmail_service(), cfg) or {}
@@ -53,7 +53,7 @@ def job_triage(cfg):
 
 
 def job_digest(cfg):
-    import triage
+    from assistente.integracoes import triage
 
     try:
         text = triage.digest(cfg)
@@ -66,8 +66,8 @@ def job_digest(cfg):
 
 
 def job_agenda(cfg):
-    import agenda
-    import google_auth
+    from assistente.integracoes import agenda
+    from assistente.integracoes import google_auth
 
     try:
         text = agenda.analyze(google_auth.calendar_service(), cfg)

@@ -2,8 +2,8 @@ import io
 import socket
 import unittest
 
-import gemini
-import web_tools as W
+from assistente.ia import gemini
+from assistente.integracoes import web_tools as W
 
 
 class Resp:

@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import attachments as att  # noqa: E402
+from assistente.nucleo import attachments as att  # noqa: E402
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 20
 JPG = b"\xff\xd8\xff\xe0" + b"0" * 20

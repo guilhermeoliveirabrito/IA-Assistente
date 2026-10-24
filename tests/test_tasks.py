@@ -10,13 +10,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import activity  # noqa: E402
-import bus as busmod  # noqa: E402
-import context  # noqa: E402
-import gemini  # noqa: E402
-import pc_control as pc  # noqa: E402
-import permissions as perm  # noqa: E402
-import tasks  # noqa: E402
+from assistente.nucleo import activity  # noqa: E402
+from assistente.nucleo import bus as busmod  # noqa: E402
+from assistente.nucleo import context  # noqa: E402
+from assistente.ia import gemini  # noqa: E402
+from assistente.pc import pc_control as pc  # noqa: E402
+from assistente.nucleo import permissions as perm  # noqa: E402
+from assistente.servicos import tasks  # noqa: E402
 
 
 def text(*t):

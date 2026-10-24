@@ -18,8 +18,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-import gemini
-import usage
+from assistente.ia import gemini
+from assistente.nucleo import usage
 
 GeminiError = gemini.GeminiError
 TIMEOUT = 90

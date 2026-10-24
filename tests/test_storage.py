@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import storage  # noqa: E402
+from assistente.nucleo import storage  # noqa: E402
 
 
 class StorageTest(unittest.TestCase):

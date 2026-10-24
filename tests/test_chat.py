@@ -14,10 +14,10 @@ calls = []
 fake_ai = types.SimpleNamespace(
     ask_text=lambda prompt, model: (calls.append(prompt), "resposta da IA")[1]
 )
-sys.modules.setdefault("ai", fake_ai)
+sys.modules.setdefault("assistente.ia.ai", fake_ai)
 
-import chat  # noqa: E402
-import memory  # noqa: E402
+from assistente.ia import chat  # noqa: E402
+from assistente.nucleo import memory  # noqa: E402
 
 
 class ChatTest(unittest.TestCase):

@@ -8,8 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import activity  # noqa: E402
-import tracking  # noqa: E402
+from assistente.nucleo import activity  # noqa: E402
+from assistente.servicos import tracking  # noqa: E402
 
 
 def ev(t, text, place=""):

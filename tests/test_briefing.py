@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from datetime import datetime
 
-import ai
-import briefing as B
+from assistente.ia import ai
+from assistente.servicos import briefing as B
 
 NOW = datetime(2026, 10, 24, 7, 0).timestamp()          # sábado
 
