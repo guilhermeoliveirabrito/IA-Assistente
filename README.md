@@ -11,7 +11,7 @@ Custo: **zero** (Gemini na camada gratuita, Gmail e Google Agenda, Spotify com a
 | Recurso | Como funciona |
 |---|---|
 | **App com janela própria** | Interface com tema escuro, claro ou automático, busca nas conversas, exportar para Markdown, atalhos de teclado (`?` mostra a lista), respostas com tabelas, listas e código formatados, indicador de "pensando", voz opcional (falar em vez de digitar; ler respostas em voz alta) |
-| **Gatinho** | Um gatinho 2D pequeno, de headset, na lateral que reage ao que o app faz: pensa, senta no computadorzinho e digita quando usa ferramentas (a telinha muda conforme a tarefa: código, e-mail, música, mouse, site, encomenda, documentos), escuta, comemora, fica triste com erro, avisa de encomenda e dorme se ficar parado. Vem **desligado** por padrão: ligue em Ajustes › Gatinho, onde também dá para dar um nome a ele. Dá para fazer carinho (clique) |
+| **Agentes especializados** | Escolha no chat um especialista (Programador, Pesquisador, Redator, Organizador, Analista, Professor, Operador do PC), crie os seus ou use a **Mesa de debate**: um agente defende, outro contesta e um juiz decide |
 | **Automação** | Aba com tudo o que ele confere sozinho (e-mails, agenda, resumo e encomendas): quando roda de novo, o que a última achou e botão "Verificar agora". O medidor (e a lateral) mostram **quanto falta para a próxima checagem de e-mail**, a agenda e as encomendas, o que a última encontrou, e há o botão "Verificar agora" |
 | **Medidor por modelo** | Mostra **qual Gemini está em uso**, quanto cada modelo já gastou hoje, quando a cota renova e avisa quando o app troca de modelo e por quê |
 | **Arquivos e imagens** | Arraste ou cole imagens, PDFs, Word e arquivos de texto/código no chat |
@@ -85,6 +85,26 @@ Observações honestas: os nomes de modelo são padrões e podem mudar nos prove
 
 ### 8. Projetos e GitHub (opcional)
 Em **Ajustes › Projetos**, escolha a pasta onde ele cria os projetos e liste os repositórios (`usuario/repo`) em que ele **pode** enviar código. Fora dessa lista ele nunca faz push. O envio usa o `git` e as credenciais que já estão no seu computador.
+
+## Agentes especializados e mesa de debate
+
+Na caixa de mensagem do chat, o botão com o nome do agente (começa em **✨ Geral**) abre a lista de especialistas. A escolha vale para aquela conversa e dá para trocar a qualquer momento (menos no meio de uma resposta).
+
+| Agente | Para que serve | Ferramentas que perde |
+|---|---|---|
+| ✨ **Geral** | Faz de tudo (padrão) | nenhuma |
+| 💻 **Programador** | Escrever, revisar e depurar código; projetos e git | teclado e mouse |
+| 🔎 **Pesquisador** | Pesquisar na internet, conferir fontes e citar | PC, comandos, escrita em projetos |
+| ✍️ **Redator** | Escrever, revisar, resumir e traduzir | PC, comandos, escrita em projetos |
+| 🗓️ **Organizador** | Agenda, e-mails, lembretes e encomendas | PC, comandos, escrita em projetos |
+| 📊 **Analista** | Contas, números, planilhas e finanças pessoais | teclado e mouse |
+| 🎓 **Professor** | Explicar com exemplos e exercícios | PC, comandos, escrita em projetos |
+| 🖱️ **Operador do PC** | Usar o computador por você | nenhuma |
+| ⚖️ **Mesa de debate** | Ver abaixo | (não usa ferramentas) |
+
+Em **Criar o meu agente** você escreve o nome, um ícone e as instruções; ele fica salvo em `data/agentes.json`. Agentes seus não recebem teclado e mouse. As permissões (o que pede aprovação) são as mesmas para todos.
+
+**Mesa de debate.** Você descreve uma ideia ou decisão ("devo trocar de emprego?", "vale migrar o projeto para Rust?"). Um **defensor** e um **opositor** montam seus argumentos sem ver um ao outro, respondem um ao outro (réplica) e um **juiz** imparcial decide. Você recebe **só o parecer do juiz**: veredito, razões, ressalvas e próximo passo. O agente Geral também pode abrir um debate sozinho (ferramenta `debater`) quando você pedir "prós e contras". Cada debate usa 5 requisições da cota do dia (3 + 2 por rodada de réplica); ajuste `debate.rodadas` no `config.yaml` (0 a 2). Os argumentos dos dois lados não são mostrados nem guardados na conversa.
 
 ## Lembretes, resumo do dia e arquivos
 
@@ -185,7 +205,7 @@ Observações: o computador precisa estar **ligado, com o app aberto e conectado
 app.py                       atalho que abre o app (janela própria)
 main.py                      atalho dos comandos de terminal (setup, triagem, memória...)
 config.yaml                  configurações (o que muda no app fica em data/settings.json)
-web/                         interface (HTML/CSS/JS puro, sem build; pet.js/pet.css = o gatinho)
+web/                         interface (HTML/CSS/JS puro, sem build)
 memory_example/              modelos das notas de memória
 tests/                       testes automáticos (não chamam Gemini, Google nem o Windows)
 assistente/
@@ -196,6 +216,7 @@ assistente/
     llm        ponto único de IA: Gemini primeiro, depois os outros provedores
     gemini  providers        clientes (Gemini; OpenAI-compatíveis, Claude e Ollama)
     agent  agent_tools       laço do agente (pensa, usa ferramentas, pede permissão) e as ferramentas
+    agentes  debate         agentes especializados e a mesa de debate (defensor, opositor e juiz)
     ai  chat  chatsvc  context   perguntas simples, conversa de terminal, conversas/anexos/aprovações, resumo de contexto
   integracoes/               serviços externos
     google_auth  google_actions  gmail_tools  agenda  triage   Google (login, agenda, e-mail, triagem)
@@ -222,4 +243,4 @@ Os commits seguem o padrão *Conventional Commits*: `feat:` (funcionalidade nova
 
 ## Roadmap
 1. WhatsApp com aprovação (via API oficial)
-2. Vários agentes especializados (fora do plano gratuito, ou com uma chave paga)
+2. Agentes que trabalham em equipe nas tarefas autônomas (hoje a mesa de debate já combina vários agentes no chat)
