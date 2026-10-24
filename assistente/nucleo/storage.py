@@ -5,6 +5,7 @@ import json
 import re
 import threading
 import time
+import unicodedata
 import uuid
 from pathlib import Path
 
@@ -64,49 +65,69 @@ def save(conv: dict):
         _write_json(_conv_dir() / f"{conv['id']}.json", conv)
 
 
+def _norm(text) -> str:
+    text = unicodedata.normalize("NFKD", str(text or "").lower())
+    return "".join(c for c in text if not unicodedata.combining(c))
+
+
+_index: dict = {}          # caminho -> (assinatura do arquivo, resumo, título normalizado, textos normalizados)
+
+
+def _entry(p: Path):
+    """Resumo e textos normalizados de uma conversa, relidos só quando o arquivo muda (listar e buscar ficam baratos)."""
+    try:
+        st = p.stat()
+        sig = (st.st_mtime_ns, st.st_size)
+        hit = _index.get(p)
+        if hit and hit[0] == sig:
+            return hit
+        c = json.loads(p.read_text(encoding="utf-8"))
+        msgs = c.get("messages", [])
+        meta = {"id": c["id"], "title": c.get("title", ""), "updated": c.get("updated", 0),
+                "created": c.get("created", 0), "count": len(msgs)}
+        hit = (sig, meta, _norm(c.get("title")), [_norm(m.get("text")) for m in msgs])
+    except (OSError, ValueError, KeyError):
+        _index.pop(p, None)
+        return None
+    _index[p] = hit
+    return hit
+
+
+def _entries():
+    paths = [q.resolve() for q in _conv_dir().glob("*.json")]
+    for gone in set(_index) - set(paths):
+        _index.pop(gone, None)                  # conversa apagada
+    return [(p, e) for p in paths if (e := _entry(p))]
+
+
 def list_all():
-    items = []
-    for p in _conv_dir().glob("*.json"):
-        try:
-            c = json.loads(p.read_text(encoding="utf-8"))
-            items.append({"id": c["id"], "title": c.get("title", ""), "updated": c.get("updated", 0),
-                          "created": c.get("created", 0), "count": len(c.get("messages", []))})
-        except (OSError, ValueError, KeyError):
-            continue
-    return sorted(items, key=lambda i: i["updated"], reverse=True)
+    return sorted((dict(e[1]) for _, e in _entries()), key=lambda i: i["updated"], reverse=True)
 
 
 def search(query: str, limit: int = 30) -> list:
     """Conversas cujo título ou mensagens contêm o texto (sem ligar para acentos/maiúsculas). Devolve um trecho de cada."""
-    import unicodedata
-
-    def norm(t):
-        t = unicodedata.normalize("NFKD", str(t or "").lower())
-        return "".join(c for c in t if not unicodedata.combining(c))
-
-    q = norm(" ".join(str(query or "").split()))
+    q = _norm(" ".join(str(query or "").split()))
     if len(q) < 2:
         return []
     found = []
-    for p in _conv_dir().glob("*.json"):
-        try:
-            c = json.loads(p.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        hit = None
-        if q in norm(c.get("title")):
-            hit = ""
+    for p, (_, meta, title, texts) in sorted(_entries(), key=lambda pe: pe[1][1]["updated"], reverse=True):
+        if len(found) >= limit:
+            break
+        if q in title:
+            snippet = ""
         else:
-            for m in c.get("messages", []):
-                text = str(m.get("text") or "")
-                i = norm(text).find(q)
-                if i >= 0:
-                    a = max(0, i - 40)
-                    hit = ("…" if a else "") + text[a:i + len(q) + 60].replace("\n", " ") + "…"
-                    break
-        if hit is not None:
-            found.append({"id": c["id"], "title": c.get("title", ""), "updated": c.get("updated", 0), "trecho": hit})
-    return sorted(found, key=lambda i: i["updated"], reverse=True)[:limit]
+            idx = next((i for i, t in enumerate(texts) if q in t), None)
+            if idx is None:
+                continue
+            try:
+                text = str(json.loads(p.read_text(encoding="utf-8")).get("messages", [])[idx].get("text") or "")
+            except (OSError, ValueError, IndexError):
+                continue
+            i = max(0, texts[idx].find(q))
+            a = max(0, i - 40)
+            snippet = ("…" if a else "") + text[a:i + len(q) + 60].replace("\n", " ") + "…"
+        found.append({"id": meta["id"], "title": meta["title"], "updated": meta["updated"], "trecho": snippet})
+    return found
 
 
 def to_markdown(conv: dict) -> str:

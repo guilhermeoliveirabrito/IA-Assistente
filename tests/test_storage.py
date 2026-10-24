@@ -122,6 +122,20 @@ class BuscaEExportacaoTest(unittest.TestCase):
         storage.save(c)
         return c
 
+
+    def test_indice_acompanha_edicao_e_exclusao(self):
+        c = storage.new_conversation("Viagem")
+        c["messages"].append({"role": "user", "text": "quero ver o Pão de Açúcar"})
+        storage.save(c)
+        self.assertEqual([r["id"] for r in storage.search("pao de acucar")], [c["id"]])
+        self.assertEqual(storage.list_all()[0]["count"], 1)
+        c["messages"].append({"role": "model", "text": "Machu Picchu é lindo"})
+        storage.save(c)
+        self.assertEqual([r["id"] for r in storage.search("machu")], [c["id"]])
+        self.assertEqual(storage.list_all()[0]["count"], 2)
+        storage.delete(c["id"])
+        self.assertEqual(storage.search("machu"), [])
+        self.assertEqual(storage.list_all(), [])
     def test_busca_ignora_acento_e_maiuscula_e_mostra_trecho(self):
         a = self.conv("Viagem", ("user", "Quero ir para São Paulo em dezembro"), ("assistant", "Boa ideia"))
         self.conv("Outra", ("user", "nada a ver"))

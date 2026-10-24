@@ -290,9 +290,10 @@ class Reminders:
 
     # -- painel de verificações (mesmo formato do rastreio)
     def status(self) -> dict:
-        act = [i for i in self.items() if i["status"] == "ativo"]
+        items = self.items()
+        act = [i for i in items if i["status"] == "ativo"]
         nxt = min((i.get("snooze_due") or i["due"] for i in act), default=None)
-        ringing = len([i for i in self.items() if i["status"] == "tocando"])
+        ringing = len([i for i in items if i["status"] == "tocando"])
         note = "Nenhum lembrete marcado." if not act else ""
         if ringing:
             note = f"{ringing} esperando você dispensar."
