@@ -109,7 +109,7 @@ def _short(obj, n=300):
 
 class Engine:
     def __init__(self, cfg, registry, policy, mode="chat", emit=None, ask_approval=None, stop_event=None,
-                 granted=None, window=None, task_id=None, on_request=None, on_grant=None, resolve=None):
+                 granted=None, window=None, task_id=None, on_request=None, on_grant=None, resolve=None, gate=None):
         self.cfg = cfg
         self.registry = registry
         self.policy = policy
@@ -123,6 +123,7 @@ class Engine:
         self.on_request = on_request
         self.on_grant = on_grant
         self.resolve = resolve or (lambda contents: contents)
+        self.gate = gate                  # servicos.live.Gate: permite pausar entre os passos (celular)
         self.max_steps = MAX_STEPS
         self._told_hidden = False
         self._pc_used = False         # já mexeu na tela/teclado/mouse nesta rodada: passos rápidos
@@ -133,6 +134,12 @@ class Engine:
     def _check_stop(self):
         if self.stop_event is not None and self.stop_event.is_set():
             raise Stopped()
+
+    def _pause_point(self):
+        """Ponto seguro: se o usuário pausou (ex.: pelo celular), espera aqui até retomar ou mandarem parar."""
+        if self.gate is not None:
+            self.gate.wait(self.stop_event)
+            self._check_stop()
 
     # ---- ferramentas ---------------------------------------------------------
 
@@ -261,6 +268,7 @@ class Engine:
         decls = self.registry.declarations()
         for _ in range(self.max_steps):
             self._check_stop()
+            self._pause_point()
             if self._pc_used:
                 models = self._models()
             if self.on_request:
@@ -294,6 +302,7 @@ class Engine:
             ctx = self.registry.ctx
             for n, fc in enumerate(calls):
                 self._check_stop()
+                self._pause_point()
                 ctx.capture = n == len(calls) - 1          # várias ações no mesmo passo: só a última devolve a tela
                 result, image = self._run_tool(fc.get("name", ""), fc.get("args") or {})
                 fr = {"name": fc.get("name", ""), "response": result}

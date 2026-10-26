@@ -28,7 +28,7 @@ from assistente.integracoes import notify, spotify_control
 from assistente.nucleo import activity, atalhos, memory, permissions, settings, storage, usage
 from assistente.nucleo import bus as busmod
 from assistente.pc import wake
-from assistente.servicos import automation, briefing, reminders, tasks, tracking
+from assistente.servicos import automation, briefing, capturas, live, reminders, tasks, tracking
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 TOKEN_FILE = Path("data") / "access_token.txt"
@@ -96,8 +96,11 @@ class App:
         usage.configure(cfg)
         usage.subscribe(self._usage_changed)
         memory.ensure()
-        self.tasks = tasks.TaskManager(cfg, bus=self.bus, notifier=self.notifier, window_hooks=self.window_hooks)
-        self.chat = chatsvc.ChatService(cfg, self.bus, self.window_hooks, self.notifier)
+        self.live = live.Live(self.bus)
+        self.live.start()
+        self.capturas = capturas.Capturas(cfg, self.live)
+        self.tasks = tasks.TaskManager(cfg, bus=self.bus, notifier=self.notifier, window_hooks=self.window_hooks, live=self.live)
+        self.chat = chatsvc.ChatService(cfg, self.bus, self.window_hooks, self.notifier, live=self.live)
         self.automation = automation.Automation(cfg, on_change=self._checks_changed)
         self.tracker = tracking.Tracker(cfg, on_update=self._tracking_update, on_change=self._tracking_changed)
         tracking.set_default(self.tracker)
@@ -241,6 +244,7 @@ class App:
         self.automation.stop()
         self.chat.shutdown()
         self.tasks.shutdown()
+        self.live.stop()
 
     # ---- estado ---------------------------------------------------------------------
 
@@ -710,6 +714,49 @@ def r_conv_agent(h, q, cid):
     if h.app.chat.is_running(cid):
         raise HTTPError(409, "Espere a resposta terminar para trocar de agente.")
     h._json(_public_conv(storage.set_agent(cid, agent)))
+
+
+@route("GET", "/api/live")
+def r_live(h, q):
+    h._json({"runs": h.app.live.runs(), "can_see_screen": h.app.capturas.allowed(), "now": time.time()})
+
+
+@route("POST", "/api/live/pause")
+def r_live_pause(h, q):
+    keys = h.app.live.pause(h._body().get("target") or None, h.app.capturas.max_pause())
+    h._json({"paused": keys, "runs": h.app.live.runs()})
+
+
+@route("POST", "/api/live/resume")
+def r_live_resume(h, q):
+    keys = h.app.live.resume(h._body().get("target") or None)
+    h._json({"resumed": keys, "runs": h.app.live.runs()})
+
+
+@route("POST", "/api/live/snapshot")
+def r_live_snapshot(h, q):
+    try:
+        h._json(h.app.capturas.snapshot(h._body().get("target") or None))
+    except capturas.CaptureError as e:
+        raise HTTPError(400, str(e))
+
+
+@route("GET", "/api/live/screen")
+def r_live_screen(h, q):
+    try:
+        data = h.app.capturas.screen()
+    except capturas.CaptureError as e:
+        raise HTTPError(400, str(e))
+    h._send(200, data, "image/jpeg", {"Cache-Control": "no-store"})
+
+
+@route("GET", "/api/live/snapshot/([0-9a-f]{12})\\.jpg")
+def r_live_snapshot_img(h, q, sid):
+    try:
+        data = h.app.capturas.get(sid)
+    except capturas.CaptureError as e:
+        raise HTTPError(404, str(e))
+    h._send(200, data, "image/jpeg", {"Cache-Control": "no-store"})
 
 
 @route("GET", "/api/shortcuts")

@@ -307,6 +307,20 @@ def _annotate(img, x1, y1, x2, y2, marker=None, grid=True, marks=None):
     return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
 
+def snapshot_jpeg(max_width: int = 1280, quality: int = 78) -> bytes:
+    """Foto simples da tela inteira (sem grade nem marcas) para mostrar ao usuário. Não mexe no estado do controle do PC."""
+    _set_dpi_aware()
+    try:
+        img = _grab().convert("RGB")
+    except Exception as e:
+        raise PCError(f"Não consegui capturar a tela: {e}") from e
+    if img.width > max_width:
+        img = img.resize((max_width, max(1, round(img.height * max_width / img.width))))
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=quality)
+    return buf.getvalue()
+
+
 def screenshot(region=None, max_width: int = 1400, grid: bool = True, marks=None):
     """Captura a tela (ou só uma região, ampliada) com uma grade numerada de 0 a 1000.
 

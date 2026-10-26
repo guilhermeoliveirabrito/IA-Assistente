@@ -108,6 +108,8 @@ FIELDS = {
     "notificacoes.avisar_lembretes": (_bool, True),
     "notificacoes.avisar_resumo": (_bool, True),
     "automatico.resumo_do_dia": (_bool, True),
+    "pc.ver_tela_pelo_celular": (_bool, False),
+    "pc.pausa_maxima_minutos": (_num(1, 120), False),
     "debate.rodadas": (_num(0, 2), False),
     "debate.pesquisar": (_bool, False),
     "debate.mostrar_argumentos": (_bool, False),

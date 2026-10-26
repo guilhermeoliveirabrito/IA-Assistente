@@ -92,6 +92,11 @@ pc:
   # As travas técnicas (pasta de projetos, programas permitidos, repositórios permitidos) continuam valendo.
   # Coloque false para voltar a ser perguntado a cada ação.
   modo_autonomo: true
+  # Pelo celular você pode pedir uma foto da tela do PC ("Pausar e mostrar"): o assistente pausa no próximo ponto seguro,
+  # tira a foto e explica onde está. Quem tem o código de acesso vê a sua tela: desligue se o app estiver aberto na rede
+  # e você não quiser isso. A pausa esquecida volta sozinha depois de tantos minutos.
+  ver_tela_pelo_celular: true
+  pausa_maxima_minutos: 10
   # Minimiza a janela do assistente enquanto ele usa tela, teclado e mouse (para não digitar nela mesma nem
   # tampar o que ele precisa ver). Ela volta sozinha quando ele termina. Coloque false para ela ficar aberta.
   esconder_janela: true

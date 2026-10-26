@@ -31,8 +31,9 @@ class ChatError(Exception):
 
 
 class ChatService:
-    def __init__(self, cfg, bus, window_hooks=None, notifier=None):
+    def __init__(self, cfg, bus, window_hooks=None, notifier=None, live=None):
         self.cfg = cfg
+        self.live = live
         self.bus = bus
         self.window_hooks = window_hooks or {}
         self.notifier = notifier
@@ -145,7 +146,13 @@ class ChatService:
     def _start(self, conv_id, voice=False):
         stop = threading.Event()
         thread = threading.Thread(target=self._run, args=(conv_id, stop, voice), name=f"chat-{conv_id}", daemon=True)
-        self._runs[conv_id] = {"thread": thread, "stop": stop}
+        gate = None
+        if self.live is not None:
+            try:
+                gate = self.live.register("chat", conv_id, storage.load(conv_id).get("title") or "Conversa", stop)
+            except KeyError:
+                gate = None
+        self._runs[conv_id] = {"thread": thread, "stop": stop, "gate": gate}
         thread.start()
 
     def stop(self, conv_id):
@@ -244,7 +251,7 @@ class ChatService:
             ctx = agent_tools.ToolContext(self.cfg, mode="chat", hooks=dict(self.window_hooks))
             engine = agent.Engine(self.cfg, agent_tools.Registry(ctx, spec["fora"]), self.policy, mode="chat", emit=emit,
                                   ask_approval=self._approval_fn(conv_id, stop), stop_event=stop,
-                                  window=self._windows.setdefault(conv_id, {"until": 0.0}),
+                                  window=self._windows.setdefault(conv_id, {"until": 0.0}), gate=(self._runs.get(conv_id) or {}).get("gate"),
                                   resolve=lambda c: storage.resolve_contents(conv_id, c))
             status = engine.run(contents, agent.build_system_prompt(self.cfg, "chat", voice=voice, agent=spec["id"]))
             if status == "empty":
@@ -272,6 +279,8 @@ class ChatService:
                 storage.save(conv)
             except KeyError:
                 pass  # a conversa foi apagada durante a resposta
+            if self.live is not None:
+                self.live.unregister("chat", conv_id)
             with self._lock:
                 self._debate_once.pop(conv_id, None)
                 self._runs.pop(conv_id, None)      # antes do aviso: quem recarregar a conversa já a vê como parada

@@ -495,5 +495,36 @@ class ServerTest(unittest.TestCase):
         self.assertTrue(lst["conversations"][0]["pinned"])
 
 
+    def test_ao_vivo_pausa_foto_e_retoma(self):
+        from assistente.servicos import capturas
+
+        st, body, _ = self.req("GET", "/api/live")
+        self.assertEqual((st, body["runs"], body["can_see_screen"]), (200, [], True))
+        self.srv.app.capturas._grab = lambda: b"\xff\xd8\xff-fake-jpeg"
+        orig = capturas.llm.generate
+        capturas.llm.generate = lambda *a, **k: {"candidates": [{"content": {"parts": [{"text": "Tela vazia."}]}}]}
+        try:
+            st, snap, _ = self.req("POST", "/api/live/snapshot", {})
+        finally:
+            capturas.llm.generate = orig
+        self.assertEqual((st, snap["text"], snap["paused"]), (200, "Tela vazia.", []))
+        st, img, r = self.req("GET", snap["url"])
+        self.assertEqual((st, r.getheader("Content-Type")), (200, "image/jpeg"))
+        self.assertEqual(img, b"\xff\xd8\xff-fake-jpeg")
+        st, img, _ = self.req("GET", "/api/live/screen")
+        self.assertEqual(st, 200)
+        st, _, _ = self.req("GET", "/api/live/snapshot/000000000000.jpg")
+        self.assertEqual(st, 404)
+        st, r, _ = self.req("POST", "/api/live/resume", {})
+        self.assertEqual(st, 200)
+        self.srv.app.cfg.setdefault("pc", {})["ver_tela_pelo_celular"] = False
+        st, _, _ = self.req("POST", "/api/live/snapshot", {})
+        self.assertEqual(st, 400)
+        st, _, _ = self.req("GET", "/api/live/screen")
+        self.assertEqual(st, 400)
+        st, _, _ = self.req("GET", "/api/live", auth=False)
+        self.assertEqual(st, 401)
+
+
 if __name__ == "__main__":
     unittest.main()

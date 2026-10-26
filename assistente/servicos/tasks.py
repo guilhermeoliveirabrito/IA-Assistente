@@ -50,8 +50,9 @@ def _check_id(tid):
 
 class TaskManager:
     def __init__(self, cfg, bus=None, notifier=None, window_hooks=None, clock=time.time, sleep=None,
-                 start_thread=True):
+                 start_thread=True, live=None):
         self.cfg = cfg
+        self.live = live
         self.bus = bus
         self.notifier = notifier
         self.window_hooks = window_hooks or {}
@@ -333,6 +334,8 @@ class TaskManager:
             activity.log("erro", f"Erro interno na tarefa: {e}", task=task["id"])
         finally:
             self.current = None
+            if self.live is not None:
+                self.live.unregister("task", task["id"])
         return True
 
     def _worker(self):
@@ -432,7 +435,8 @@ class TaskManager:
                 task["requests"] += 1
                 self._save(task)
 
-        engine = agent.Engine(self.cfg, registry, self.policy, mode="task", emit=self._emit_fn(task),
+        gate = self.live.register("task", tid, task["title"], stop) if self.live is not None else None
+        engine = agent.Engine(self.cfg, registry, self.policy, mode="task", emit=self._emit_fn(task), gate=gate,
                               ask_approval=self._approval_fn(task, stop), stop_event=stop, granted=granted,
                               task_id=tid, on_request=on_request, on_grant=on_grant)
         model = (self.cfg.get("ia") or {}).get("modelo", "gemini-3.8-flash")
