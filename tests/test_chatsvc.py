@@ -361,7 +361,7 @@ class AgenteTest(Base):
         self.assertEqual(conv["messages"][-1]["text"], "**Veredito:** vale a pena.")
         self.assertNotIn("argumento secreto", str(conv["messages"]))
         self.assertEqual(len(seen), 5)
-        infos = [e["text"] for e in self.events() if e["type"] == "info"]
+        infos = [e["text"] for e in self.events() if e["type"] == "debate_stage" and e.get("text")]
         self.assertIn("O juiz está deliberando…", infos)
         self.assertEqual(self.sent, [])                      # nenhum passo do motor normal
         self.assertEqual(conv["contents"][-1]["parts"][0]["text"], "**Veredito:** vale a pena.")

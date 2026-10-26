@@ -887,6 +887,7 @@
         live.label = "Pensando…"; break;
       }
       case "info": live.info = e.text; break;
+      case "debate_stage": live.debate = { steps: e.steps, stage: e.stage }; live.label = e.text || "Debatendo…"; break;
       case "error": live.error = e.message; break;
       default: return;
     }
@@ -915,6 +916,11 @@
     liveEl.replaceChildren();
     if (live.tools.length) liveEl.append(h("div", { class: "tools" }, live.tools.map(toolRow)));
     if (live.text) liveEl.append(h("div", { class: "body prose", html: MD.render(live.text) }));
+    if (live.debate) {
+      const ids = live.debate.steps.map((s) => s[0]), at = ids.indexOf(live.debate.stage);
+      liveEl.append(h("div", { class: "debate-steps", role: "status", "aria-label": "Andamento do debate" }, live.debate.steps.map(([id, label], i) =>
+        h("div", { class: "dstep" + (i < at ? " done" : i === at ? " on" : "") }, h("span", { text: i < at ? "✓" : ({ pesquisa: "🔎", argumentos: "🗣️", replica: "🔁", juiz: "⚖️", conselho: "🧑‍🤝‍🧑" })[id] || "•" }), label))));
+    }
     if (live.info) liveEl.append(h("div", { class: "alert warn", text: live.info }));
     if (live.error) liveEl.append(h("div", { class: "err-box", text: live.error }));
     else liveEl.append(h("div", { class: "thinking", role: "status" }, h("span", { class: "orb" }), h("span", { class: "lbl", text: live.label }), live.since ? h("span", { class: "el", "data-since": String(live.since), text: "" }) : null));

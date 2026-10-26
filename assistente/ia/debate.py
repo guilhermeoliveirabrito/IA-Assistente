@@ -49,6 +49,22 @@ def rodadas(cfg: dict) -> int:
         return 1
 
 
+STAGE_BY_TEXT = (("Pesquisando", "pesquisa"), ("Ouvindo", "argumentos"), ("Réplicas", "replica"), ("O juiz", "juiz"))
+
+
+def stage_of(text: str) -> str:
+    return next((sid for prefix, sid in STAGE_BY_TEXT if str(text).startswith(prefix)), "argumentos")
+
+
+def steps(cfg: dict) -> list:
+    """Etapas que este debate vai percorrer (para a interface mostrar o andamento)."""
+    out = [["pesquisa", "Fatos"]] if option(cfg, "pesquisar") else []
+    out.append(["argumentos", "Argumentos"])
+    if rodadas(cfg):
+        out.append(["replica", "Réplicas"])
+    return out + [["juiz", "Juiz"]]
+
+
 def option(cfg: dict, key: str) -> bool:
     return bool((cfg.get("debate") or {}).get(key, False))
 

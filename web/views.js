@@ -558,6 +558,13 @@
       };
       card.append(pick("Tema", "theme", [["dark", "Escuro"], ["light", "Claro"], ["auto", "Automático (segue o sistema)"]]),
         pick("Tamanho do texto", "size", [["s", "Pequeno"], ["m", "Normal"], ["l", "Grande"], ["xl", "Muito grande"]]));
+      const row = h("div", { class: "swatches", role: "radiogroup", "aria-label": "Cor de destaque" });
+      const paint = () => row.querySelectorAll("button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.id === window.Theme.get().accent)));
+      for (const [id, a] of Object.entries(window.Theme.accents)) {
+        row.append(h("button", { type: "button", role: "radio", class: "swatch", title: a.name, "aria-label": a.name, "data-id": id, style: `--sw:${a.sw}`, onclick: () => { window.Theme.set({ accent: id }); paint(); } }));
+      }
+      paint();
+      card.append(h("div", { class: "f" }, h("span", { text: "Cor de destaque" }), row));
       return card;
     },
 

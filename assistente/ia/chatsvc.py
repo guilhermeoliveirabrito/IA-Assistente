@@ -277,7 +277,10 @@ class ChatService:
         assistant["agent"] = "debate"
         context_text = "\n".join(f"{'Usuário' if m['role'] == 'user' else 'Assistente'}: {m['text'][:600]}" for m in history)
         try:
-            out = debate.run(self.cfg, question, context_text, progress=lambda t: emit({"type": "info", "text": t}), stop=stop)
+            steps = debate.steps(self.cfg)
+            emit({"type": "debate_stage", "steps": steps, "stage": steps[0][0]})
+            out = debate.run(self.cfg, question, context_text, stop=stop,
+                             progress=lambda t: emit({"type": "debate_stage", "steps": steps, "stage": debate.stage_of(t), "text": t}))
         except debate.DebateStopped:
             emit({"type": "stopped"})
             return

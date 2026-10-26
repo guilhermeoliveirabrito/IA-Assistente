@@ -20,7 +20,7 @@
   --code-bg: #191817;
   --err-ink: #f0b4b4;
   --warn-ink: #ecd29a;
-  --tint: var(--tint);
+  --tint: rgba(255, 255, 255, .035);
   --shade: rgba(0, 0, 0, .45);
   --accent-hover: #dc9670;
   --on-ok: #12261a;
@@ -520,3 +520,32 @@ a { color: var(--info); }
 .debate-args { margin-top: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: var(--raised); }
 .debate-args summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .debate-args h4 { margin: 12px 0 4px; font-size: 13px; color: var(--accent); text-transform: uppercase; letter-spacing: .5px; }
+
+/* ---- polimento: movimento e detalhes ---- */
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes slidein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+#content > .column, #content > .scroll, #content > .page { animation: fade .22s ease both; }
+#msgs > .msg:last-child { animation: rise .26s cubic-bezier(.2, .8, .2, 1) both; }
+.modal-bg { animation: fade .16s ease both; }
+.modal { animation: pop .2s cubic-bezier(.2, .8, .2, 1) both; }
+.menu { animation: pop .14s ease both; }
+.toast { animation: slidein .22s ease both; }
+.btn, .chip, .icon-btn, .nav button, .conv, .agent-chip, .send { transition: background .15s, border-color .15s, color .15s, transform .1s, box-shadow .15s; }
+.btn:active, .chip:active, .agent-chip:active { transform: scale(.97); }
+.icon-btn:active, .send:active { transform: scale(.92); }
+.send:not(:disabled):hover { box-shadow: 0 0 0 4px var(--accent-soft); }
+.chip:hover { transform: translateY(-1px); }
+.card { transition: border-color .2s, box-shadow .2s; }
+.card:hover { border-color: var(--line-hover); }
+.nav button[aria-current="page"] { box-shadow: inset 3px 0 0 var(--accent); }
+.thinking .orb { box-shadow: 0 0 14px var(--accent-soft); }
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; background: var(--sw); cursor: pointer; transition: transform .12s, box-shadow .15s; }
+.swatch:hover { transform: scale(1.12); }
+.swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--sw); }
+/* etapas do debate ao vivo */
+.debate-steps { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+.dstep { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--faint); font-size: 13px; transition: all .25s; }
+.dstep.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.dstep.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); animation: shimmer 1.4s ease-in-out infinite; }
