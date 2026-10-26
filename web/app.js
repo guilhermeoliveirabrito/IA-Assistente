@@ -799,7 +799,7 @@
     }
     if (m.role === "note") return h("div", { class: "msg note" }, h("div", { class: "box prose", html: MD.render(m.text) }));
     const el = h("div", { class: "msg assistant" });
-    if (m.agent && m.agent !== "geral") { const ag = agentOf(m.agent); el.append(h("div", { class: "agent-tag", text: m.agent === "debate" ? "⚖️ Parecer do juiz" : `${ag.icone} ${ag.nome}` })); }
+    if (m.agent && m.agent !== "geral") { const ag = agentOf(m.agent); el.append(h("div", { class: "agent-tag", text: m.agent === "debate" ? (m.debate_info && m.debate_info.modo === "conselho" ? "🧑‍🤝‍🧑 Parecer do conselho" : "⚖️ Parecer do juiz") : `${ag.icone} ${ag.nome}` })); }
     if (m.tools && m.tools.length) el.append(h("div", { class: "tools" }, m.tools.map(toolRow)));
     if (m.text) el.append(h("div", { class: "body prose", html: MD.render(m.text) }));
     if (m.debate_info) {
@@ -808,9 +808,8 @@
     }
     if (m.debate) {
       const d = m.debate, srcs = (d.fontes || []).filter((s) => /^https?:\/\//.test(s.url));
-      el.append(h("details", { class: "debate-args" }, h("summary", { text: "Ver os argumentos dos dois lados" }),
-        h("h4", { text: "Defensor" }), h("div", { class: "prose", html: MD.render(d.defensor) }),
-        h("h4", { text: "Opositor" }), h("div", { class: "prose", html: MD.render(d.opositor) }),
+      el.append(h("details", { class: "debate-args" }, h("summary", { text: m.debate_info && m.debate_info.modo === "conselho" ? "Ver a análise de cada especialista" : "Ver os argumentos dos dois lados" }),
+        (d.lados || []).flatMap((l) => [h("h4", { text: l.nome }), h("div", { class: "prose", html: MD.render(l.texto) })]),
         srcs.length ? h("h4", { text: "Fontes pesquisadas" }) : null,
         srcs.length ? h("ul", {}, srcs.map((s) => h("li", {}, h("a", { href: s.url, target: "_blank", rel: "noopener noreferrer", text: s.titulo || s.url })))) : null));
     }
@@ -966,6 +965,7 @@
   let slashBox = null;
   const COMMANDS = [
     { c: "/debate", d: "Mesa de debate: defensor, opositor e juiz (/debate seu tema)", arg: true },
+    { c: "/conselho", d: "Conselho: 3 especialistas analisam e um presidente decide (/conselho seu tema)", arg: true },
     { c: "/agente", d: "Trocar o agente especialista", arg: true },
     { c: "/pesquisar", d: "Pesquisar na internet com fontes", arg: true, expand: (t) => "Pesquise na internet e responda com as fontes: " + t },
     { c: "/lembrete", d: "Criar um lembrete ou alarme", arg: true, expand: (t) => "Crie um lembrete: " + t },
@@ -1006,7 +1006,7 @@
       if (!a) { toast("Não achei esse agente. Digite /agente para ver a lista.", "error"); return null; }
       setAgent(a.id); return null;
     }
-    if (cmd.c === "/debate") return arg ? text : (toast("Diga o que debater: /debate devo aprender Rust?", "error"), null);
+    if (cmd.c === "/debate" || cmd.c === "/conselho") return arg ? text : (toast(`Diga o que debater: ${cmd.c} devo aprender Rust?`, "error"), null);
     if (cmd.arg && !arg) { toast(`Complete o comando: ${cmd.c} …`, "error"); return null; }
     return cmd.expand ? cmd.expand(arg) : text;
   }
@@ -1024,7 +1024,7 @@
     };
     draw();
     const nome = h("input", { type: "text", maxlength: "20", placeholder: "nome (ex.: standup)", "aria-label": "Nome do atalho" });
-    const texto = h("textarea", { rows: "3", maxlength: "2000", placeholder: "O pedido. Use {} onde o que você digitar depois do comando deve entrar. Ex.: Resuma em 5 tópicos: {}", "aria-label": "Texto do atalho" });
+    const texto = h("textarea", { class: "field", rows: "3", maxlength: "2000", placeholder: "O pedido. Use {} onde o que você digitar depois do comando deve entrar. Ex.: Resuma em 5 tópicos: {}", "aria-label": "Texto do atalho" });
     modal({ title: "Meus atalhos", wide: true, body: h("div", {}, h("p", { style: "margin:0 0 12px;color:var(--muted);font-size:14px", text: "Digite / no chat e escolha o atalho para mandar o pedido pronto." }), list,
       h("h4", { style: "margin:16px 0 6px", text: "Novo atalho" }), h("label", { class: "f" }, h("span", { text: "Nome" }), nome), h("label", { class: "f" }, h("span", { text: "Pedido" }), texto)),
       actions: [{ label: "Fechar" }, { label: "Adicionar", kind: "primary", keep: true, run: async () => {
@@ -1077,7 +1077,7 @@
   function createAgent() {
     const nome = h("input", { type: "text", maxlength: "40", placeholder: "Ex.: Chef, Advogado de bolso, Personal trainer" });
     const icone = h("input", { type: "text", maxlength: "4", value: "🤖", style: "width:70px", "aria-label": "Ícone (um emoji)" });
-    const ins = h("textarea", { rows: "6", maxlength: "3000", placeholder: "Como ele deve trabalhar? Ex.: Você é um chef que sugere receitas simples com o que tenho em casa, pergunta restrições alimentares e passa o modo de preparo em passos curtos." });
+    const ins = h("textarea", { class: "field", rows: "6", maxlength: "3000", placeholder: "Como ele deve trabalhar? Ex.: Você é um chef que sugere receitas simples com o que tenho em casa, pergunta restrições alimentares e passa o modo de preparo em passos curtos." });
     modal({ title: "Criar agente", body: h("div", {}, h("label", { class: "f" }, h("span", { text: "Nome" }), nome), h("label", { class: "f" }, h("span", { text: "Ícone" }), icone),
       h("label", { class: "f" }, h("span", { text: "Instruções" }), ins, h("small", { text: "Ele não recebe controle de teclado e mouse; o resto das ferramentas e das permissões é igual ao Geral." }))),
       actions: [{ label: "Cancelar" }, { label: "Criar e usar", kind: "primary", run: async () => {

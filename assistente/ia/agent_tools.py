@@ -274,7 +274,8 @@ def t_ler_pagina(ctx, a):
 
 
 def t_debater(ctx, a):
-    out = debate.run(ctx.cfg, a["tema"], context=str(a.get("contexto") or "")[:2000])
+    runner = debate.run_council if a.get("modo") == "conselho" else debate.run
+    out = runner(ctx.cfg, a["tema"], context=str(a.get("contexto") or "")[:2000])
     return _ok(parecer=out["parecer"],
                nota="Este é o parecer do juiz depois de ouvir um defensor e um opositor. Repasse-o ao usuário sem mostrar os argumentos.")
 
@@ -647,7 +648,9 @@ def _tools():
           "parecer do juiz. Use quando o usuário pedir uma opinião ponderada, 'prós e contras' ou ajuda para decidir entre "
           "caminhos. Gasta várias requisições da cota: não use para perguntas simples.",
           {"tema": S("A ideia, dúvida ou decisão a debater, com os detalhes que importam."),
-           "contexto": S("Contexto extra relevante (opcional).")}, ["tema"], "debate", t_debater,
+           "contexto": S("Contexto extra relevante (opcional)."),
+           "modo": S("duelo (padrão: defensor x opositor e juiz) ou conselho (3 especialistas e um presidente; bom para "
+                     "decisões com várias dimensões).")}, ["tema"], "debate", t_debater,
           lambda a: f"Debater: {_short(a.get('tema', ''), 100)}"),
         T("resumo_do_dia", "Monta agora o resumo do dia do usuário: agenda de hoje, e-mails importantes, encomendas e lembretes.",
           {}, [], "email_agenda", t_resumo_do_dia, lambda a: "Montar o resumo do dia"),

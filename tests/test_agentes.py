@@ -67,6 +67,49 @@ class AgentesTest(Chdir):
         self.assertTrue(red.has("pesquisar_web"))
 
 
+class ConselhoTest(unittest.TestCase):
+    def setUp(self):
+        self.calls, self._ask = [], debate._ask
+
+    def tearDown(self):
+        debate._ask = self._ask
+
+    def fake(self, escolha):
+        def f(cfg, system, prompt, temperature):
+            self.calls.append(system)
+            if "monta conselhos" in system:
+                return escolha
+            if "PRESIDENTE" in system:
+                return "**Veredito:** siga."
+            return "análise do especialista"
+        debate._ask = f
+
+    def test_fluxo_escolhe_consulta_e_decide(self):
+        self.fake("1. Contador | impostos e custos\n2. Médico | saúde e rotina\n3. Coach | motivação e metas")
+        notes = []
+        out = debate.run_council({}, "Devo abrir um negócio?", progress=notes.append)
+        self.assertEqual(out["parecer"], "**Veredito:** siga.")
+        self.assertEqual([x["nome"] for x in out["lados"]], ["Contador", "Médico", "Coach"])
+        self.assertEqual(out["chamadas"], 5)
+        self.assertEqual(len(notes), 3)
+        self.assertTrue(any("Contador" in c for c in self.calls))
+
+    def test_escolha_ruim_cai_nos_especialistas_padrao(self):
+        self.fake("não sei")
+        out = debate.run_council({}, "Tema")
+        self.assertEqual(len(out["lados"]), 3)
+        self.assertEqual(out["lados"][0]["nome"], debate.DEFAULT_COUNCIL[0][0])
+
+    def test_etapas_e_estagios(self):
+        self.assertEqual([s[0] for s in debate.steps({}, "conselho")], ["conselho", "argumentos", "juiz"])
+        self.assertEqual(debate.stage_of("Escolhendo os especialistas do conselho…"), "conselho")
+        self.assertEqual(debate.stage_of("O presidente do conselho está decidindo…"), "juiz")
+
+    def test_parse_ignora_duplicados_e_lixo(self):
+        got = debate._parse_council("- **Chef** | cozinha e sabor\nsem barra\n- chef | repetido de novo\n3) Nutri | saúde e dieta")
+        self.assertEqual([n for n, _ in got], ["Chef", "Nutri"])
+
+
 class DebateTest(unittest.TestCase):
     def setUp(self):
         self.calls, self._ask = [], debate._ask

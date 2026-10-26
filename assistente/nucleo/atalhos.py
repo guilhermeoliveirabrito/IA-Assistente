@@ -10,7 +10,7 @@ from pathlib import Path
 
 FILE = Path("data") / "atalhos.json"
 MAX_ITEMS = 30
-RESERVED = {"debate", "agente", "pesquisar", "lembrete", "lembrar", "resumo", "novo", "atalhos"}
+RESERVED = {"debate", "conselho", "agente", "pesquisar", "lembrete", "lembrar", "resumo", "novo", "atalhos"}
 _NAME = re.compile(r"^[a-zà-ú0-9_-]{2,20}$")
 _lock = threading.Lock()
 

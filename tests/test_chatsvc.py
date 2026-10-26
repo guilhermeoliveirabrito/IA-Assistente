@@ -429,4 +429,16 @@ class DebateAvulsoTest(Base):
         self.cfg["debate"] = {"mostrar_argumentos": True}
         cid = self.ask("/debate tema dois")
         m = storage.load(cid)["messages"][-1]
-        self.assertEqual(m["debate"]["defensor"].split("\n")[0], "arg")
+        self.assertEqual(m["debate"]["lados"][0]["texto"].split("\n")[0], "arg")
+
+    def test_barra_conselho_usa_o_conselho(self):
+        def fake(cfg, system, prompt, temperature):
+            if "monta conselhos" in system:
+                return "A | foco a aqui\nB | foco b aqui\nC | foco c aqui"
+            return "**Veredito:** conselho decidiu" if "PRESIDENTE" in system else "visão"
+
+        debate._ask = fake
+        cid = self.ask("/conselho devo mudar de carreira?")
+        m = storage.load(cid)["messages"][-1]
+        self.assertEqual(m["text"], "**Veredito:** conselho decidiu")
+        self.assertEqual(m["debate_info"]["modo"], "conselho")

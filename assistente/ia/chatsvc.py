@@ -14,6 +14,18 @@ class ChatBusy(Exception):
     pass
 
 
+_TABLE = re.compile(r"^/(debate|debater|conselho)\b\s*", re.I)
+
+
+def _table_mode(text: str):
+    m = _TABLE.match(text or "")
+    return None if not m else ("conselho" if m.group(1).lower() == "conselho" else "duelo")
+
+
+def _strip_table(text: str) -> str:
+    return _TABLE.sub("", text or "").strip()
+
+
 class ChatError(Exception):
     pass
 
@@ -26,7 +38,7 @@ class ChatService:
         self.notifier = notifier
         self.policy = permissions.Policy(cfg)
         self._runs = {}                # conv_id -> {"thread", "stop"}
-        self._debate_once = set()      # conversas cuja próxima resposta vem da mesa de debate (/debate ...)
+        self._debate_once = {}         # conversa -> "duelo"/"conselho": a próxima resposta vem da mesa (/debate ou /conselho ...)
         self._windows = {}             # conv_id -> {"until": epoch}
         self._approvals = {}           # req_id -> {"event", "answer", "conv"}
         self._pending = {}             # req_id -> request (para a interface reconectar)
@@ -90,12 +102,13 @@ class ChatService:
         with self._lock:
             if self.is_running(conv_id):
                 raise ChatBusy("O assistente ainda está respondendo nesta conversa.")
-            if re.match(r"^/debat(?:e|er)\b", text, re.I):
-                if not re.sub(r"^/debat(?:e|er)\b\s*", "", text, flags=re.I):
-                    raise ChatError("Diga o que debater: /debate devo aprender Rust?")
-                self._debate_once.add(conv_id)           # só esta mensagem vai para a mesa de debate
+            table = _table_mode(text)
+            if table:
+                if not _strip_table(text):
+                    raise ChatError("Diga o que debater: /debate devo aprender Rust? (ou /conselho ...)")
+                self._debate_once[conv_id] = table       # só esta mensagem vai para a mesa
             else:
-                self._debate_once.discard(conv_id)
+                self._debate_once.pop(conv_id, None)
             parts, shown = self.prepare_parts(conv_id, text, files or [])
             conv["contents"].append({"role": "user", "parts": parts})
             conv["messages"].append({"id": uuid.uuid4().hex[:8], "role": "user", "text": text, "ts": time.time(),
@@ -121,8 +134,8 @@ class ChatService:
                          and not any("functionResponse" in p for p in contents[i].get("parts", []))), None)
             if turn is None:
                 raise ChatError("Não consigo repetir: o começo desta conversa foi resumido. Envie o pedido de novo.")
-            if re.match(r"^/debat(?:e|er)\b", msgs[last_user].get("text") or "", re.I):
-                self._debate_once.add(conv_id)
+            if _table_mode(msgs[last_user].get("text") or ""):
+                self._debate_once[conv_id] = _table_mode(msgs[last_user]["text"])
             del msgs[last_user + 1:]
             del contents[turn + 1:]
             storage.save(conv)
@@ -226,7 +239,7 @@ class ChatService:
             spec = agentes.get(conv.get("agent"))
             assistant["agent"] = spec["id"]
             if spec["especial"] == "debate" or conv_id in self._debate_once:
-                self._run_debate(conv, contents, assistant, emit, stop)
+                self._run_debate(conv, contents, assistant, emit, stop, self._debate_once.get(conv_id, "duelo"))
                 return
             ctx = agent_tools.ToolContext(self.cfg, mode="chat", hooks=dict(self.window_hooks))
             engine = agent.Engine(self.cfg, agent_tools.Registry(ctx, spec["fora"]), self.policy, mode="chat", emit=emit,
@@ -260,7 +273,7 @@ class ChatService:
             except KeyError:
                 pass  # a conversa foi apagada durante a resposta
             with self._lock:
-                self._debate_once.discard(conv_id)
+                self._debate_once.pop(conv_id, None)
                 self._runs.pop(conv_id, None)      # antes do aviso: quem recarregar a conversa já a vê como parada
             self._publish(conv_id, {"type": "done", "message_id": assistant["id"], "stopped": stop.is_set()})
             if voice and self.on_voice_reply and not stop.is_set():
@@ -269,18 +282,19 @@ class ChatService:
                 except Exception as e:
                     activity.log("erro", f"Voz: {e}")
 
-    def _run_debate(self, conv, contents, assistant, emit, stop):
+    def _run_debate(self, conv, contents, assistant, emit, stop, mode="duelo"):
         """Mesa de debate: defensor, opositor e juiz; a conversa só recebe o parecer do juiz."""
         question = next((m["text"] for m in reversed(conv["messages"]) if m.get("role") == "user" and m.get("text")), "")
-        question = re.sub(r"^/debat(?:e|er)\b\s*", "", question, flags=re.I)
+        question = _strip_table(question) if _table_mode(question) else question
         history = [m for m in conv["messages"][:-1] if m.get("text") and m.get("role") in ("user", "assistant")][-4:]
         assistant["agent"] = "debate"
         context_text = "\n".join(f"{'Usuário' if m['role'] == 'user' else 'Assistente'}: {m['text'][:600]}" for m in history)
         try:
-            steps = debate.steps(self.cfg)
+            steps = debate.steps(self.cfg, mode)
             emit({"type": "debate_stage", "steps": steps, "stage": steps[0][0]})
-            out = debate.run(self.cfg, question, context_text, stop=stop,
-                             progress=lambda t: emit({"type": "debate_stage", "steps": steps, "stage": debate.stage_of(t), "text": t}))
+            runner = debate.run_council if mode == "conselho" else debate.run
+            out = runner(self.cfg, question, context_text, stop=stop,
+                         progress=lambda t: emit({"type": "debate_stage", "steps": steps, "stage": debate.stage_of(t), "text": t}))
         except debate.DebateStopped:
             emit({"type": "stopped"})
             return
@@ -288,9 +302,9 @@ class ChatService:
             assistant["error"] = str(e)
             emit({"type": "error", "kind": "internal", "message": str(e)})
             return
-        assistant["debate_info"] = {"chamadas": out["chamadas"], "rodadas": out["rodadas"], "pesquisou": out["pesquisou"]}
+        assistant["debate_info"] = {"chamadas": out["chamadas"], "rodadas": out["rodadas"], "pesquisou": out["pesquisou"], "modo": mode}
         if debate.option(self.cfg, "mostrar_argumentos"):
-            assistant["debate"] = {**out["argumentos"], "fontes": out["fontes"]}
+            assistant["debate"] = {"lados": out["lados"], "fontes": out["fontes"]}
         emit({"type": "delta", "text": out["parecer"]})
         contents.append({"role": "model", "parts": [{"text": out["parecer"]}]})
 
