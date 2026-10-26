@@ -302,7 +302,7 @@ class ChatService:
             steps = debate.steps(self.cfg, mode)
             emit({"type": "debate_stage", "steps": steps, "stage": steps[0][0]})
             runner = debate.run_council if mode == "conselho" else debate.run
-            out = runner(self.cfg, question, context_text, stop=stop,
+            out = runner(self.cfg, question, context_text, stop=stop, gate=(self._runs.get(conv["id"]) or {}).get("gate"),
                          progress=lambda t: emit({"type": "debate_stage", "steps": steps, "stage": debate.stage_of(t), "text": t}))
         except debate.DebateStopped:
             emit({"type": "stopped"})

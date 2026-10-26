@@ -148,17 +148,19 @@ def _prepare(cfg, question, context, note, check):
     return base, calls, facts, sources
 
 
-def _checker(stop):
+def _checker(stop, gate=None):
     def check():
+        if gate is not None:
+            gate.wait(stop)                      # pausa pedida pelo celular: espera aqui entre as etapas
         if stop is not None and stop.is_set():
             raise DebateStopped()
     return check
 
 
-def run(cfg: dict, question: str, context: str = "", progress=None, stop: threading.Event = None) -> dict:
+def run(cfg: dict, question: str, context: str = "", progress=None, stop: threading.Event = None, gate=None) -> dict:
     """Duelo: defensor x opositor e um juiz. Devolve {'parecer': texto do juiz, ...}; só o parecer vai ao usuário."""
     note = progress or (lambda text: None)
-    check = _checker(stop)
+    check = _checker(stop, gate)
     base, calls, facts, sources = _prepare(cfg, question, context, note, check)
     both = lambda prompts: _both(cfg, prompts)          # noqa: E731
     check()
@@ -200,10 +202,10 @@ def _parse_council(text: str) -> list:
     return out[:4]
 
 
-def run_council(cfg: dict, question: str, context: str = "", progress=None, stop: threading.Event = None) -> dict:
+def run_council(cfg: dict, question: str, context: str = "", progress=None, stop: threading.Event = None, gate=None) -> dict:
     """Conselho: 3 especialistas escolhidos para o tema analisam, cada um com a sua lente, e um presidente decide."""
     note = progress or (lambda text: None)
-    check = _checker(stop)
+    check = _checker(stop, gate)
     base, calls, facts, sources = _prepare(cfg, question, context, note, check)
     check()
     note("Escolhendo os especialistas do conselho…")
