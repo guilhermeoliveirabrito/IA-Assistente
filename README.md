@@ -199,6 +199,15 @@ O app é uma página servida pelo seu PC. Para o celular alcançá-la:
 3. **Fora de casa**, instale o **Tailscale** (grátis) no PC e no iPhone e abra o endereço do Tailscale. É uma rede privada entre os seus aparelhos: não abra a porta do roteador para a internet.
 4. **Avisos**: em **Ajustes › Avisos no celular** clique em *Ativar avisos*, instale o app gratuito **ntfy** no iPhone e assine o tópico mostrado. Você recebe um aviso quando ele precisar de aprovação, terminar, pausar ou falhar, e responde pelo app.
 
+### Aba "Ao vivo" (acompanhar e controlar)
+
+No celular há uma barra de abas (Conversa, Ao vivo, Tarefas, Início, Mais). A aba **Ao vivo** mostra tudo o que o assistente está fazendo agora (chats, tarefas e debates), com o passo atual e o que já foi feito:
+
+- **Dar um comando**: escreva e envie; ele começa uma conversa nova.
+- **Pausar / Continuar / Parar** cada execução, ou **Pausar tudo / Continuar tudo**. A pausa acontece no próximo ponto seguro (entre passos), nunca no meio de um clique.
+- **Pausar e mostrar a tela**: pausa, tira uma foto da tela do PC e uma IA explica em que ponto ele está. Toque na imagem para ampliar; *Continuar de onde parou* retoma. **Ver a tela agora** só mostra a foto, sem pausar.
+- **Segurança**: quem tiver o código de acesso vê a tela. Desligue em *Ajustes › Permissões › Ver a tela do PC pelo celular*. Se você esquecer pausado, ele retoma sozinho após *Retomar sozinho após pausa* (padrão 10 min).
+
 Observações: o computador precisa estar **ligado, com o app aberto e conectado à internet**. O microfone no iPhone só funciona com HTTPS (por exemplo, o endereço HTTPS do Tailscale); digitar funciona sempre.
 
 ## Memória e conversas longas
