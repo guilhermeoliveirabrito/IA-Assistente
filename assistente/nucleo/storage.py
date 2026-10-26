@@ -84,7 +84,7 @@ def _entry(p: Path):
         c = json.loads(p.read_text(encoding="utf-8"))
         msgs = c.get("messages", [])
         meta = {"id": c["id"], "title": c.get("title", ""), "updated": c.get("updated", 0),
-                "created": c.get("created", 0), "count": len(msgs)}
+                "created": c.get("created", 0), "count": len(msgs), "pinned": bool(c.get("pinned"))}
         hit = (sig, meta, _norm(c.get("title")), [_norm(m.get("text")) for m in msgs])
     except (OSError, ValueError, KeyError):
         _index.pop(p, None)
@@ -101,7 +101,8 @@ def _entries():
 
 
 def list_all():
-    return sorted((dict(e[1]) for _, e in _entries()), key=lambda i: i["updated"], reverse=True)
+    """Conversas fixadas primeiro; dentro de cada grupo, a mais recente antes."""
+    return sorted((dict(e[1]) for _, e in _entries()), key=lambda i: (not i["pinned"], -i["updated"]))
 
 
 def search(query: str, limit: int = 30) -> list:
@@ -149,6 +150,15 @@ def to_markdown(conv: dict) -> str:
             out.append(m["text"])
         out.append("")
     return "\n".join(out).rstrip() + "\n"
+
+
+def set_pinned(cid: str, pinned: bool) -> dict:
+    """Fixa/desafixa sem mudar a data da conversa (ela não sobe na lista por causa disso)."""
+    with _lock:
+        conv = load(cid)
+        conv["pinned"] = bool(pinned)
+        _write_json(_conv_dir() / f"{conv['id']}.json", conv)
+    return conv
 
 
 def set_agent(cid: str, agent: str) -> dict:

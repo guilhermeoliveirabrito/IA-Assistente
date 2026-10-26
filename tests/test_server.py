@@ -479,5 +479,21 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(st, 400)
 
 
+    def test_atalhos_e_fixar_conversa(self):
+        st, a, _ = self.req("POST", "/api/shortcuts", {"nome": "bomdia", "texto": "Bom dia! {}"})
+        self.assertEqual(st, 200)
+        st, lst, _ = self.req("GET", "/api/shortcuts")
+        self.assertEqual([x["nome"] for x in lst["shortcuts"]], ["bomdia"])
+        st, _, _ = self.req("POST", "/api/shortcuts", {"nome": "debate", "texto": "texto"})
+        self.assertEqual(st, 400)
+        st, _, _ = self.req("DELETE", f"/api/shortcuts/{a['id']}")
+        self.assertEqual(st, 200)
+        _, conv, _ = self.req("POST", "/api/conversations", {})
+        st, r, _ = self.req("POST", f"/api/conversations/{conv['id']}/pin", {"pinned": True})
+        self.assertEqual((st, r["pinned"]), (200, True))
+        _, lst, _ = self.req("GET", "/api/conversations")
+        self.assertTrue(lst["conversations"][0]["pinned"])
+
+
 if __name__ == "__main__":
     unittest.main()

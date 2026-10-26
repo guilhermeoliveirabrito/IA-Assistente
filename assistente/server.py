@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, urlparse
 
 from assistente.ia import agentes, ai, chatsvc, gemini, providers
 from assistente.integracoes import notify, spotify_control
-from assistente.nucleo import activity, memory, permissions, settings, storage, usage
+from assistente.nucleo import activity, atalhos, memory, permissions, settings, storage, usage
 from assistente.nucleo import bus as busmod
 from assistente.pc import wake
 from assistente.servicos import automation, briefing, reminders, tasks, tracking
@@ -710,6 +710,34 @@ def r_conv_agent(h, q, cid):
     if h.app.chat.is_running(cid):
         raise HTTPError(409, "Espere a resposta terminar para trocar de agente.")
     h._json(_public_conv(storage.set_agent(cid, agent)))
+
+
+@route("GET", "/api/shortcuts")
+def r_shortcuts(h, q):
+    h._json({"shortcuts": atalhos.all_shortcuts()})
+
+
+@route("POST", "/api/shortcuts")
+def r_shortcut_new(h, q):
+    body = h._body()
+    try:
+        h._json(atalhos.create(body.get("nome"), body.get("texto")))
+    except atalhos.ShortcutError as e:
+        raise HTTPError(400, str(e))
+
+
+@route("DELETE", "/api/shortcuts/([0-9a-f]{8})")
+def r_shortcut_delete(h, q, sid):
+    try:
+        atalhos.delete(sid)
+    except atalhos.ShortcutError as e:
+        raise HTTPError(404, str(e))
+    h._json({"ok": True})
+
+
+@route("POST", "/api/conversations/([0-9a-f]{12})/pin")
+def r_conv_pin(h, q, cid):
+    h._json({"id": cid, "pinned": bool(storage.set_pinned(cid, bool(h._body().get("pinned", True)))["pinned"])})
 
 
 @route("POST", "/api/conversations/([0-9a-f]{12})/regenerate")

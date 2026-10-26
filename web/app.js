@@ -36,6 +36,7 @@
   }
 
   const ICON = {
+    pin: '<path d="M12 17v5M9 3h6l-1 6 3 4H7l3-4z"/>',
     redo: '<path d="M20 12a8 8 0 1 1-2.4-5.7L20 8"/><path d="M20 3v5h-5"/>',
     plus: '<path d="M12 5v14M5 12h14"/>', chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
     tasks: '<path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>',
@@ -323,6 +324,7 @@
     for (const c of S.convs) {
       const running = !!S.live[c.id];
       const row = h("div", { class: "conv" + (c.id === S.convId && S.view === "chat" ? " active" : ""), tabindex: "0", role: "button", onclick: () => openConv(c.id), onkeydown: (ev) => { if (ev.key === "Enter") openConv(c.id); } },
+        c.pinned ? h("span", { class: "pin-ic", title: "Fixada" }, icon("pin", 13)) : null,
         h("span", { class: "t", text: c.title || "Conversa" }), running ? h("span", { class: "dot", title: "Respondendo" }) : null,
         h("button", { class: "more", type: "button", "aria-label": "Opções da conversa", onclick: (ev) => { ev.stopPropagation(); convMenu(ev.currentTarget, c); } }, icon("more", 16)));
       box.append(row);
@@ -361,11 +363,16 @@
 
   function convMenu(anchor, c) {
     menuAt(anchor, [
+      { label: c.pinned ? "Desafixar" : "Fixar no topo", icon: "pin", run: () => pinConv(c) },
       { label: "Exportar (Markdown)", icon: "file", run: () => exportConv(c) },
       { label: "Renomear", icon: "file", run: () => renameConv(c) },
       { label: "Resumir e continuar", icon: "refresh", run: () => refreshConv(c.id) },
       { label: "Apagar", danger: true, icon: "x", run: () => deleteConv(c) },
     ]);
+  }
+
+  async function pinConv(c) {
+    try { await api("POST", `/api/conversations/${c.id}/pin`, { pinned: !c.pinned }); await refreshConvs(); } catch (e) { toast(e.message, "error"); }
   }
 
   async function renameConv(c) {
@@ -965,11 +972,13 @@
     { c: "/lembrar", d: "Guardar algo na minha memória", arg: true, expand: (t) => "Guarde na minha memória: " + t },
     { c: "/resumo", d: "Resumo do dia", expand: () => "Monte o resumo do meu dia." },
     { c: "/novo", d: "Começar uma conversa nova" },
+    { c: "/atalhos", d: "Criar e apagar os seus atalhos de pedidos" },
   ];
+  const allCommands = () => [...COMMANDS, ...(S.shortcuts || []).map((s) => ({ c: "/" + s.nome, d: s.texto.length > 70 ? s.texto.slice(0, 69) + "…" : s.texto, arg: s.texto.includes("{}"), custom: s }))];
   function slashMatches() {
     const v = textarea ? textarea.value : "";
     if (!/^\/[a-zà-ú]*$/i.test(v)) return [];
-    return COMMANDS.filter((x) => x.c.startsWith(v.toLowerCase()));
+    return allCommands().filter((x) => x.c.startsWith(v.toLowerCase()));
   }
   function paintSlash() {
     if (!slashBox) return;
@@ -985,10 +994,12 @@
   // Interpreta o que o usuário digitou. Devolve o texto a enviar, ou null se o comando já foi resolvido aqui.
   function applySlash(text) {
     const m = /^(\/[a-zà-ú]+)\b\s*([\s\S]*)$/i.exec(text);
-    const cmd = m && COMMANDS.find((x) => x.c === m[1].toLowerCase());
+    const cmd = m && allCommands().find((x) => x.c === m[1].toLowerCase());
     if (!cmd) return text;
     const arg = m[2].trim();
     if (cmd.c === "/novo") { newChat(); return null; }
+    if (cmd.c === "/atalhos") { manageShortcuts(); return null; }
+    if (cmd.custom) return cmd.custom.texto.includes("{}") ? cmd.custom.texto.replace("{}", arg) : (cmd.custom.texto + " " + arg).trim();
     if (cmd.c === "/agente") {
       if (!arg) { pickAgent(); return null; }
       const a = (S.agents || []).find((x) => x.nome.toLowerCase() === arg.toLowerCase() || x.id === arg.toLowerCase());
@@ -998,6 +1009,27 @@
     if (cmd.c === "/debate") return arg ? text : (toast("Diga o que debater: /debate devo aprender Rust?", "error"), null);
     if (cmd.arg && !arg) { toast(`Complete o comando: ${cmd.c} …`, "error"); return null; }
     return cmd.expand ? cmd.expand(arg) : text;
+  }
+
+  async function loadShortcuts() { try { S.shortcuts = (await api("GET", "/api/shortcuts")).shortcuts; } catch (e) { /* sem atalhos */ } }
+
+  function manageShortcuts() {
+    const list = h("div", { class: "agent-list" });
+    const draw = () => {
+      list.replaceChildren(...((S.shortcuts || []).length ? S.shortcuts.map((s) => h("div", { class: "agent-opt" },
+        h("div", { class: "agent-pick", style: "cursor:default" }, h("span", { class: "ag-txt" }, h("b", { text: "/" + s.nome }), h("small", { text: s.texto }))),
+        h("button", { type: "button", class: "icon-btn", title: "Apagar o atalho", "aria-label": "Apagar /" + s.nome, onclick: async () => {
+          try { await api("DELETE", `/api/shortcuts/${s.id}`); await loadShortcuts(); draw(); } catch (e) { toast(e.message, "error"); }
+        } }, icon("x", 16)))) : [h("p", { style: "margin:0;color:var(--muted)", text: "Você ainda não criou nenhum atalho." })]));
+    };
+    draw();
+    const nome = h("input", { type: "text", maxlength: "20", placeholder: "nome (ex.: standup)", "aria-label": "Nome do atalho" });
+    const texto = h("textarea", { rows: "3", maxlength: "2000", placeholder: "O pedido. Use {} onde o que você digitar depois do comando deve entrar. Ex.: Resuma em 5 tópicos: {}", "aria-label": "Texto do atalho" });
+    modal({ title: "Meus atalhos", wide: true, body: h("div", {}, h("p", { style: "margin:0 0 12px;color:var(--muted);font-size:14px", text: "Digite / no chat e escolha o atalho para mandar o pedido pronto." }), list,
+      h("h4", { style: "margin:16px 0 6px", text: "Novo atalho" }), h("label", { class: "f" }, h("span", { text: "Nome" }), nome), h("label", { class: "f" }, h("span", { text: "Pedido" }), texto)),
+      actions: [{ label: "Fechar" }, { label: "Adicionar", kind: "primary", keep: true, run: async () => {
+        try { await api("POST", "/api/shortcuts", { nome: nome.value, texto: texto.value }); nome.value = ""; texto.value = ""; await loadShortcuts(); draw(); toast("Atalho criado.", "ok"); } catch (e) { toast(e.message, "error"); }
+      } }] });
   }
 
   // ------------------------------------------------------------------ agentes especializados
@@ -1192,7 +1224,7 @@
     buildShell();
     paintNav();
     renderView();
-    await Promise.all([refreshState(), refreshConvs(), api("GET", "/api/agents").then((r) => { S.agents = r.agents; }).catch(() => {})]);
+    await Promise.all([refreshState(), refreshConvs(), loadShortcuts(), api("GET", "/api/agents").then((r) => { S.agents = r.agents; }).catch(() => {})]);
     try { S.tasks = (await api("GET", "/api/tasks")).tasks; } catch (e) { /* ok */ }
     paintNav();
     if (S.view === "chat" && !S.conv) renderView();   // saudação com o nome

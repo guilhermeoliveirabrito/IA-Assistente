@@ -549,3 +549,4 @@ a { color: var(--info); }
 .dstep { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--faint); font-size: 13px; transition: all .25s; }
 .dstep.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
 .dstep.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); animation: shimmer 1.4s ease-in-out infinite; }
+.conv .pin-ic { color: var(--accent); display: grid; place-items: center; flex: none; }

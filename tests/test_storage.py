@@ -152,3 +152,29 @@ class BuscaEExportacaoTest(unittest.TestCase):
         md = storage.to_markdown(c)
         for trecho in ("# Plano", "## Você", "oi", "## Assistente", "olá **mundo**", "Abrir o Spotify"):
             self.assertIn(trecho, md)
+
+
+class FixarTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.old = os.getcwd()
+        os.chdir(self.tmp.name)
+
+    def tearDown(self):
+        os.chdir(self.old)
+        self.tmp.cleanup()
+
+    def test_fixadas_ficam_no_topo_sem_mudar_a_data(self):
+        a = storage.new_conversation("Antiga")
+        b = storage.new_conversation("Nova")
+        b["messages"].append({"role": "user", "text": "x"})
+        storage.save(b)
+        self.assertEqual([c["title"] for c in storage.list_all()], ["Nova", "Antiga"])
+        before = storage.load(a["id"])["updated"]
+        storage.set_pinned(a["id"], True)
+        self.assertEqual(storage.load(a["id"])["updated"], before)
+        lst = storage.list_all()
+        self.assertEqual([c["title"] for c in lst], ["Antiga", "Nova"])
+        self.assertTrue(lst[0]["pinned"])
+        storage.set_pinned(a["id"], False)
+        self.assertEqual([c["title"] for c in storage.list_all()], ["Nova", "Antiga"])
