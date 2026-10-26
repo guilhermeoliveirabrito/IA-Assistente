@@ -8,6 +8,133 @@
   const splitLabel = (label) => { const i = String(label).indexOf(": "); return i < 0 ? [String(label), ""] : [label.slice(0, i), label.slice(i + 2)]; };
   const page = (title, sub, ...kids) => h("div", { class: "scroll" }, h("div", { class: "column page" }, h("h2", { text: title }), sub ? h("p", { class: "sub", text: sub }) : null, ...kids));
 
+  // =================================================================== AO VIVO (controle pelo celular)
+
+  const STATUS_TXT = { running: "Trabalhando", paused: "Pausado", approval: "Espera você" };
+  const live = {
+    box: null, runsBox: null, snapBox: null, cmd: null, busy: false, snap: null,
+
+    render(content) {
+      this.box = content;
+      this.cmd = h("textarea", { class: "field", rows: "2", maxlength: "30000", placeholder: "Dê um comando: ex.: abra o Spotify e toque meu mix diário", "aria-label": "Comando para o assistente" });
+      this.cmd.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey && !matchMedia("(pointer:coarse)").matches) { ev.preventDefault(); this.send(); } });
+      this.btns = {
+        shot: h("button", { class: "btn primary big", type: "button", onclick: () => this.snapshot() }, A.icon("camera", 18), "Pausar e mostrar a tela"),
+        now: h("button", { class: "btn big", type: "button", onclick: () => this.screenNow() }, A.icon("eye", 18), "Ver a tela agora"),
+        pause: h("button", { class: "btn", type: "button", onclick: () => this.control("pause") }, A.icon("pause", 16), "Pausar tudo"),
+        resume: h("button", { class: "btn", type: "button", onclick: () => this.control("resume") }, A.icon("play", 16), "Continuar tudo"),
+      };
+      this.snapBox = h("div", { id: "live-snap" });
+      this.runsBox = h("div", { class: "live-runs", "aria-live": "polite" });
+      const sendBtn = h("button", { class: "btn primary", type: "button", onclick: () => this.send() }, "Enviar comando");
+      content.replaceChildren(page("Ao vivo", "Veja o que o assistente está fazendo e controle tudo daqui, inclusive pelo celular.",
+        h("h3", { class: "live-h", text: "Em andamento" }), this.runsBox,
+        h("div", { class: "card" }, h("h3", { text: "Ver a tela" }),
+          h("p", { class: "desc", text: "“Pausar e mostrar” para o assistente no próximo ponto seguro, tira uma foto da tela do PC e explica onde ele está. Só continua quando você tocar em Continuar." }),
+          h("div", { class: "live-actions" }, this.btns.shot, this.btns.now), h("div", { class: "live-actions sm" }, this.btns.pause, this.btns.resume), this.snapBox),
+        h("div", { class: "card" }, h("h3", { text: "Dar um comando" }), this.cmd, h("div", { class: "row-btns", style: "margin-top:10px" }, sendBtn))));
+      this.update();
+      A.refreshLive();
+    },
+    leave() { this.box = null; },
+    resync() { A.refreshLive(); },
+
+    update() {
+      if (!this.runsBox || !this.box) return;
+      const runs = S.liveRuns || [];
+      const any = runs.length > 0, paused = runs.some((r) => r.status === "paused");
+      this.btns.shot.disabled = this.busy || (S.canSeeScreen === false);
+      this.btns.now.disabled = this.busy || (S.canSeeScreen === false);
+      this.btns.pause.disabled = !any || runs.every((r) => r.status === "paused");
+      this.btns.resume.disabled = !paused;
+      if (S.canSeeScreen === false) this.btns.shot.title = "Desligado em Ajustes › Permissões";
+      if (!runs.length) { this.runsBox.replaceChildren(h("div", { class: "card live-empty" }, h("p", { class: "desc", text: "Nada em andamento agora. Quando você mandar um comando ou uma tarefa começar, aparece aqui em tempo real." }))); return; }
+      this.runsBox.replaceChildren(...runs.map((r) => this.runCard(r)));
+    },
+
+    runCard(r) {
+      const act = [];
+      if (r.status === "paused") act.push(h("button", { class: "btn sm", type: "button", onclick: () => this.control("resume", r.key) }, A.icon("play", 14), "Continuar"));
+      else act.push(h("button", { class: "btn sm", type: "button", onclick: () => this.control("pause", r.key) }, A.icon("pause", 14), "Pausar"));
+      act.push(h("button", { class: "btn sm danger-o", type: "button", onclick: () => this.stop(r) }, "Parar"));
+      act.push(h("button", { class: "btn sm", type: "button", onclick: () => (r.kind === "chat" ? A.openConv(r.ref) : A.go("tasks")) }, "Abrir"));
+      const log = (r.log || []).slice(-5).map((x) => h("div", { class: "live-log " + x.kind, text: x.text }));
+      return h("div", { class: "card live-run " + r.status },
+        h("div", { class: "live-top" }, h("span", { class: "live-kind", text: r.kind === "task" ? "Tarefa" : "Conversa" }), h("b", { class: "live-title", text: r.title }), h("span", { class: "st-chip live-" + r.status, text: STATUS_TXT[r.status] || r.status })),
+        h("div", { class: "live-now" }, r.status === "running" ? h("span", { class: "spin" }) : null, h("span", { text: r.status === "paused" ? (r.paused_waiting ? "Parado no ponto seguro." : "Pausando… termina o passo atual.") : r.current })),
+        log.length ? h("div", { class: "live-logs" }, log) : null,
+        h("div", { class: "row-btns" }, act));
+    },
+
+    async send() {
+      const text = this.cmd.value.trim();
+      if (!text) return;
+      try {
+        await api("POST", "/api/chat", { conversation_id: null, text, attachments: [] });
+        this.cmd.value = "";
+        toast("Comando enviado. Acompanhe abaixo.", "ok");
+        A.refreshLive();
+      } catch (e) { toast(e.message, "error"); }
+    },
+
+    async control(what, target) {
+      try { await api("POST", "/api/live/" + what, { target: target || null }); } catch (e) { toast(e.message, "error"); }
+      A.refreshLive();
+    },
+
+    async stop(r) {
+      try {
+        if (r.kind === "chat") await api("POST", "/api/chat/stop", { conversation_id: r.ref });
+        else await api("POST", `/api/tasks/${r.ref}/stop`, {});
+        toast("Pedi para parar.", "ok");
+      } catch (e) { toast(e.message, "error"); }
+      A.refreshLive();
+    },
+
+    busyOn(on, label) {
+      this.busy = on;
+      this.btns.shot.lastChild.textContent = on && label ? label : "Pausar e mostrar a tela";
+      this.update();
+    },
+
+    async snapshot() {
+      if (this.busy) return;
+      this.busyOn(true, "Pausando e fotografando…");
+      this.snapBox.replaceChildren(h("div", { class: "alert", text: "Esperando o assistente chegar a um ponto seguro, depois tiro a foto e peço uma explicação. Pode levar alguns segundos." }));
+      this.snapBox.scrollIntoView({ behavior: "smooth", block: "center" });
+      try {
+        const r = await api("POST", "/api/live/snapshot", { target: null });
+        this.showSnap(r.url, r.text, r.paused, r.at);
+      } catch (e) { this.snapBox.replaceChildren(h("div", { class: "alert err", text: e.message })); }
+      this.busyOn(false);
+      A.refreshLive();
+    },
+
+    screenNow() {
+      if (this.busy) return;
+      this.showSnap("/api/live/screen?t=" + Date.now(), "Foto da tela agora. Nada foi pausado.", [], Date.now() / 1000);
+    },
+
+    showSnap(url, text, paused, at) {
+      const img = h("img", { class: "snap-img", src: url, alt: "Captura da tela do computador", onclick: () => this.zoom(url) });
+      img.addEventListener("error", () => { img.replaceWith(h("div", { class: "alert err", text: "Não consegui carregar a foto da tela (o PC pode não permitir capturas)." })); });
+      const act = [];
+      if (paused && paused.length) act.push(h("button", { class: "btn primary", type: "button", onclick: async () => { await this.control("resume"); this.snapBox.querySelector(".snap-state").textContent = "Retomado."; } }, A.icon("play", 16), "Continuar de onde parou"));
+      act.push(h("button", { class: "btn", type: "button", onclick: () => this.snapshot() }, A.icon("camera", 16), "Nova foto"));
+      act.push(h("button", { class: "btn", type: "button", onclick: () => this.snapBox.replaceChildren() }, "Fechar"));
+      this.snapBox.replaceChildren(h("div", { class: "snap-card", id: "snap-card" }, img,
+        h("div", { class: "snap-meta" }, h("span", { text: new Date(at * 1000).toLocaleTimeString("pt-BR") }), h("span", { class: "snap-state", text: paused && paused.length ? "Pausado" : "" })),
+        h("p", { class: "snap-text", text: text }), h("div", { class: "row-btns" }, act)));
+      const card = document.getElementById("snap-card");
+      if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+
+    zoom(url) {
+      const bg = h("div", { class: "imgview", role: "dialog", "aria-label": "Captura ampliada", onclick: () => bg.remove() }, h("img", { src: url, alt: "Captura da tela ampliada" }), h("button", { class: "btn imgview-x", type: "button", text: "Fechar" }));
+      document.body.append(bg);
+    },
+  };
+
   // =================================================================== TAREFAS
 
   const tasks = {
@@ -458,7 +585,7 @@
     ["Geral", null, [["app.seu_nome", "Seu nome", "text", "Usado na saudação."], ["ia.modelo", "Modelo do Gemini", "text", "Se esse modelo não estiver disponível, o assistente usa os reservas."], ["ia.modelos_reserva", "Modelos reserva", "list", "Um por linha. Usados quando a cota do principal acaba."], ["ia.raciocinio", "Quanto o modelo pensa nas conversas", "select", "Pensar menos responde mais rápido (só modelos Gemini 3).", [["auto", "Automático (o modelo decide)"], ["minimal", "Mínimo (mais rápido)"], ["low", "Baixo"], ["medium", "Médio"], ["high", "Alto (mais lento, mais cuidadoso)"]]], ["ia.raciocinio_pc", "Quanto o modelo pensa ao controlar o PC", "select", "Cada passo é só olhar a tela e escolher o clique: mínimo costuma bastar e acelera muito.", [["auto", "Automático (o modelo decide)"], ["minimal", "Mínimo (mais rápido)"], ["low", "Baixo"], ["medium", "Médio"], ["high", "Alto (mais lento, mais cuidadoso)"]]]]],
     ["Limites da cota", "O Google não informa quanto sobrou: o app conta cada chamada por modelo e aprende o limite real quando o Google recusa. Os números abaixo são o ponto de partida.", [["limites.requisicoes_por_dia", "Requisições por dia", "number"], ["limites.requisicoes_por_minuto", "Requisições por minuto", "number"], ["limites.tokens_por_minuto", "Tokens por minuto", "number"], ["limites.por_modelo", "Limites de cada modelo", "list", "Um por linha: modelo=por_dia,por_minuto,tokens_por_minuto. Os números acima valem para quem não estiver aqui. Quando o Google recusa uma chamada, o app aprende o limite real sozinho."], ["limites.fuso_renovacao", "Fuso da renovação", "text", "A cota gratuita do Google renova à meia-noite do Pacífico (America/Los_Angeles)."], ["limites.hora_renovacao", "Hora da renovação", "text", "No formato 00:00."]]],
     ["Tarefas autônomas", null, [["tarefas.orcamento_de_requisicoes", "Orçamento padrão por tarefa", "number"], ["tarefas.espera_de_aprovacao_minutos", "Esperar sua aprovação por (min)", "number", "Passado esse tempo, o pedido é negado e a tarefa segue por outro caminho."], ["tarefas.retomar_apos_renovacao", "Retomar sozinho depois que a cota renovar", "bool"]]],
-    ["Permissões", "Com o modo autônomo desligado, tela, teclado, comandos e envio ao GitHub sempre perguntam no chat.", [["pc.modo_autonomo", "Modo autônomo: usar o PC sem pedir permissão", "bool", "Ele age e você vê tudo no Histórico. Só pergunta se a ação for contra uma regra que você escreveu em Memória › Regras."], ["pc.esconder_janela", "Minimizar esta janela enquanto ele usa o PC", "bool", "Evita que ele digite ou clique no próprio assistente. A janela volta sozinha quando ele termina."], ["pc.confiar_sem_perguntar", "Se o modo autônomo estiver desligado, fazer sem perguntar", "multi", "", [["abrir", "Abrir apps e sites"], ["projeto_escrever", "Escrever na pasta de projetos"]]], ["pc.janela_de_permissao_minutos", "Duração de “permitir por um tempo” (min)", "number"]]],
+    ["Permissões", "Com o modo autônomo desligado, tela, teclado, comandos e envio ao GitHub sempre perguntam no chat.", [["pc.modo_autonomo", "Modo autônomo: usar o PC sem pedir permissão", "bool", "Ele age e você vê tudo no Histórico. Só pergunta se a ação for contra uma regra que você escreveu em Memória › Regras."], ["pc.esconder_janela", "Minimizar esta janela enquanto ele usa o PC", "bool", "Evita que ele digite ou clique no próprio assistente. A janela volta sozinha quando ele termina."], ["pc.confiar_sem_perguntar", "Se o modo autônomo estiver desligado, fazer sem perguntar", "multi", "", [["abrir", "Abrir apps e sites"], ["projeto_escrever", "Escrever na pasta de projetos"]]], ["pc.janela_de_permissao_minutos", "Duração de “permitir por um tempo” (min)", "number"], ["pc.ver_tela_pelo_celular", "Ver a tela do PC pelo celular", "bool", "Libera “Pausar e mostrar a tela” na aba Ao vivo. Quem tiver o código de acesso consegue ver a tela, então só use em rede confiável."], ["pc.pausa_maxima_minutos", "Retomar sozinho após pausa (min)", "number", "Se você esquecer o assistente pausado, ele continua depois desse tempo."]]],
     ["Projetos", null, [["projetos.pasta", "Pasta dos projetos", "text", "Onde o assistente cria e edita projetos."], ["projetos.repos_permitidos", "Repositórios onde ele pode enviar (push)", "list", "Um por linha, no formato usuario/repositorio. Vazio = nunca envia."], ["arquivos.pastas_permitidas", "Pastas que ele pode ler (e gravar)", "list", "Um caminho por linha."]]],
     ["Arquivos que ele cria", "Notas, resumos e listas que você pede ficam na pasta de saída. Ele só grava texto e dados (md, txt, csv, json, html…), nunca programas.", [["arquivos.pasta_de_saida", "Pasta de saída", "text", "Nomes sem pasta caem aqui."], ["arquivos.gravar_sem_perguntar", "Gravar arquivos sem pedir permissão", "bool", "Desligado: com o modo autônomo desligado, cada gravação pede a sua confirmação. Ao substituir um arquivo, ele guarda uma cópia .bak."]]],
     ["Mesa de debate", "Um defensor e um opositor argumentam e um juiz decide; você recebe só o parecer. Cada debate usa 3 requisições mais 2 por rodada de réplica (mais 1 se pesquisar na internet).", [["debate.rodadas", "Rodadas de réplica (0 a 2)", "number", "0 é mais rápido e barato; 2 aprofunda o confronto."], ["debate.pesquisar", "Pesquisar fatos na internet antes", "bool", "Os três recebem os mesmos fatos, com fontes."], ["debate.mostrar_argumentos", "Poder ver os argumentos dos dois lados", "bool", "Aparecem recolhidos sob o parecer do juiz."]]],
@@ -743,5 +870,5 @@
     },
   };
 
-  A.views.home = home; A.views.reminders = reminders; A.views.automation = automation; A.views.tracking = tracking; A.views.tasks = tasks; A.views.activity = activity; A.views.memory = memory; A.views.settings = settings;
+  A.views.live = live; A.views.home = home; A.views.reminders = reminders; A.views.automation = automation; A.views.tracking = tracking; A.views.tasks = tasks; A.views.activity = activity; A.views.memory = memory; A.views.settings = settings;
 })();

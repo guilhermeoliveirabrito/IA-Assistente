@@ -550,3 +550,47 @@ a { color: var(--info); }
 .dstep.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
 .dstep.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); animation: shimmer 1.4s ease-in-out infinite; }
 .conv .pin-ic { color: var(--accent); display: grid; place-items: center; flex: none; }
+
+/* ---- ao vivo e celular ---- */
+.page .card textarea.field { width: 100%; }
+.big { min-height: 48px; font-size: 15px; display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
+.live-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.live-actions.sm { margin-top: 8px; }
+.live-actions .btn { display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
+.live-h { margin: 18px 0 8px; font-size: 15px; color: var(--muted); font-weight: 500; }
+.live-runs { display: grid; gap: 10px; }
+.live-run.paused { border-color: var(--warn); }
+.live-run.approval { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.live-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.live-kind { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+.live-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-chip.live-running { color: var(--ok); } .st-chip.live-paused { color: var(--warn); } .st-chip.live-approval { color: var(--accent); }
+.live-now { display: flex; align-items: center; gap: 8px; margin: 8px 0; color: var(--text); }
+.live-logs { border-left: 2px solid var(--line); padding-left: 10px; margin: 4px 0 10px; display: grid; gap: 2px; }
+.live-log { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.live-log.erro { color: var(--err); } .live-log.pergunta { color: var(--accent); }
+.btn.sm { padding: 6px 12px; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+.btn.danger-o { color: var(--err); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.snap-card { margin-top: 14px; border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: var(--raised); animation: pop .2s ease both; }
+.snap-img { width: 100%; border-radius: 10px; display: block; cursor: zoom-in; background: var(--code-bg); min-height: 80px; }
+.snap-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin: 8px 2px 0; }
+.snap-text { margin: 8px 2px 12px; line-height: 1.5; white-space: pre-wrap; }
+.imgview { position: fixed; inset: 0; z-index: 90; background: rgba(0, 0, 0, .92); overflow: auto; display: grid; place-items: center; padding: 12px; touch-action: pan-x pan-y pinch-zoom; }
+.imgview img { max-width: none; width: min(1400px, 220vw); }
+.imgview-x { position: fixed; top: calc(10px + var(--safe-t, 0px)); right: 10px; }
+.tabbar { display: none; }
+@media (max-width: 860px) {
+  .tabbar { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--line); background: var(--panel); padding: 4px 4px calc(4px + var(--safe-b)); position: relative; z-index: 20; }
+  .tabbar button { display: grid; justify-items: center; gap: 2px; background: none; border: 0; padding: 6px 2px; min-height: 52px; color: var(--muted); font-size: 11px; position: relative; border-radius: 12px; }
+  .tabbar button[aria-current="page"] { color: var(--accent); }
+  .tabbar button[aria-current="page"]::before { content: ""; position: absolute; top: -5px; width: 28px; height: 3px; border-radius: 0 0 3px 3px; background: var(--accent); }
+  .tab-badge { position: absolute; top: 2px; left: calc(50% + 6px); min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+  .composer-wrap { padding-bottom: 8px; }
+  .live-actions { grid-template-columns: 1fr; }
+  .icon-btn { min-width: 40px; min-height: 40px; }
+  .btn { min-height: 42px; }
+  .menu-btn { display: none; }
+}
+html { -webkit-tap-highlight-color: transparent; }
+button, .chip, .conv { touch-action: manipulation; }

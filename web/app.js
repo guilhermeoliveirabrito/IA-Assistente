@@ -36,6 +36,9 @@
   }
 
   const ICON = {
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+    pause: '<path d="M8 5v14M16 5v14"/>', play: '<path d="M7 4l13 8-13 8z"/>', more2: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     pin: '<path d="M12 17v5M9 3h6l-1 6 3 4H7l3-4z"/>',
     redo: '<path d="M20 12a8 8 0 1 1-2.4-5.7L20 8"/><path d="M20 3v5h-5"/>',
     plus: '<path d="M12 5v14M5 12h14"/>', chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
@@ -180,7 +183,7 @@
 
   function connect() {
     const es = new EventSource("/api/events");
-    es.addEventListener("hello", () => { setOnline(true); refreshState(); refreshConvs(); if (S.convId) loadConv(S.convId, true); if (A.views[S.view] && A.views[S.view].resync) A.views[S.view].resync(); });
+    es.addEventListener("hello", () => { setOnline(true); refreshLive(); refreshState(); refreshConvs(); if (S.convId) loadConv(S.convId, true); if (A.views[S.view] && A.views[S.view].resync) A.views[S.view].resync(); });
     es.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch (e) { /* evento inválido */ } };
     es.onerror = () => setOnline(false);
   }
@@ -191,8 +194,21 @@
     if (t) t.textContent = on ? "Conectado" : "Reconectando…";
   }
 
+  let liveTimer = 0;
+  async function refreshLive() {
+    try {
+      const r = await api("GET", "/api/live");
+      S.liveRuns = r.runs; S.liveCount = r.runs.length; S.liveAsk = r.runs.some((x) => x.status === "approval" || x.status === "paused"); S.canSeeScreen = r.can_see_screen;
+      paintNav();
+      if (S.view === "live" && A.views.live && A.views.live.update) A.views.live.update();
+    } catch (e) { /* sem conexão: tenta no próximo evento */ }
+  }
+  A.refreshLive = refreshLive;
+  const scheduleRuns = () => { clearTimeout(liveTimer); liveTimer = setTimeout(refreshLive, 250); };
+
   function onEvent(e) {
     if (A.pet) A.pet.onEvent(e);
+    if (e.type === "live_changed") { scheduleRuns(); return; }
     if (e.type === "toast") return toast(e.text, e.kind);
     if (e.type === "reminder") { showReminder(e); return; }
     if (e.type === "briefing") { if (S.view === "home" && A.views.home) A.views.home.refresh(); return; }
@@ -235,7 +251,7 @@
       if (A.views.tasks && A.views.tasks.onTaskEvent) A.views.tasks.onTaskEvent(e);
       return;
     }
-    if (e.scope === "chat") { trackApproval(e); onChatEvent(e); }
+    if (e.scope === "chat") { trackApproval(e); onChatEvent(e); if (e.type === "start" || e.type === "done") scheduleRuns(); }
   }
 
   function recount() {
@@ -261,7 +277,7 @@
 
   // ------------------------------------------------------------------ estrutura (barra lateral e topo)
 
-  const NAV = [["home", "Início", "home"], ["chat", "Conversa", "chat"], ["tasks", "Tarefas", "tasks"], ["reminders", "Lembretes", "bell"], ["tracking", "Encomendas", "box"], ["automation", "Automação", "bolt"], ["activity", "Histórico", "clock"], ["memory", "Memória", "brain"], ["settings", "Ajustes", "gear"]];
+  const NAV = [["home", "Início", "home"], ["chat", "Conversa", "chat"], ["live", "Ao vivo", "eye"], ["tasks", "Tarefas", "tasks"], ["reminders", "Lembretes", "bell"], ["tracking", "Encomendas", "box"], ["automation", "Automação", "bolt"], ["activity", "Histórico", "clock"], ["memory", "Memória", "brain"], ["settings", "Ajustes", "gear"]];
 
   function buildShell() {
     const app = document.getElementById("app");
@@ -287,6 +303,11 @@
       h("div", { class: "usage", id: "usage" }));
     const shell = h("div", { class: "shell", id: "shell" }, side, h("div", { class: "overlay", onclick: () => toggleSidebar(false) }),
       h("main", { class: "main" }, top, h("div", { id: "content", style: "display:flex;flex-direction:column;flex:1;min-height:0" })));
+    const tabs = [["chat", "Conversa", "chat"], ["live", "Ao vivo", "eye"], ["tasks", "Tarefas", "tasks"], ["home", "Início", "home"]];
+    const tabbar = h("nav", { class: "tabbar", "aria-label": "Atalhos" }, tabs.map(([id, label, ic]) =>
+      h("button", { type: "button", "data-tab": id, onclick: () => (id === "chat" && S.view === "chat" ? newChat() : go(id)) }, icon(ic, 22), h("span", { text: label }), id === "live" || id === "tasks" ? h("span", { class: "tab-badge hidden", "data-tabbadge": id }) : null)),
+      h("button", { type: "button", onclick: () => toggleSidebar(true) }, icon("more2", 22), h("span", { text: "Mais" })));
+    shell.querySelector(".main").append(tabbar);
     app.append(shell, h("div", { class: "approvals-bar", id: "approvals", "aria-live": "assertive" }));
     paintSpeak();
     paintWake();
@@ -300,6 +321,13 @@
 
   function paintNav() {
     document.querySelectorAll(".nav button").forEach((b) => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false"));
+    document.querySelectorAll(".tabbar button[data-tab]").forEach((b) => b.setAttribute("aria-current", b.dataset.tab === S.view ? "page" : "false"));
+    const liveN = S.liveCount || 0, liveBadge = document.querySelector('[data-badge="live"]');
+    if (liveBadge) { liveBadge.textContent = liveN || ""; liveBadge.classList.toggle("hidden", !liveN); liveBadge.classList.toggle("soft", !S.liveAsk); }
+    const tl = document.querySelector('[data-tabbadge="live"]');
+    if (tl) { tl.textContent = liveN || ""; tl.classList.toggle("hidden", !liveN); }
+    const tt = document.querySelector('[data-tabbadge="tasks"]');
+    if (tt) { const cc = (S.state && S.state.task_counts) || {}; const w = (cc.waiting_approval || 0) + (cc.waiting_user || 0); tt.textContent = w || ""; tt.classList.toggle("hidden", !w); }
     const c = (S.state && S.state.task_counts) || {};
     const active = (c.running || 0) + (c.queued || 0);
     const waiting = (c.waiting_approval || 0) + (c.waiting_user || 0);
@@ -676,6 +704,7 @@
     renderView();
   }
   A.go = go;
+  A.openConv = (id) => openConv(id);
 
   function renderView() {
     const content = document.getElementById("content");
@@ -684,7 +713,7 @@
     content.replaceChildren();
     const v = A.views[S.view];
     if (S.view === "chat") { renderChat(content); return; }
-    const titles = { home: "Início", reminders: "Lembretes", automation: "Automação", tracking: "Encomendas", tasks: "Tarefas", activity: "Histórico", memory: "Memória", settings: "Ajustes" };
+    const titles = { live: "Ao vivo", home: "Início", reminders: "Lembretes", automation: "Automação", tracking: "Encomendas", tasks: "Tarefas", activity: "Histórico", memory: "Memória", settings: "Ajustes" };
     setTitle(titles[S.view] || "");
     if (v) v.render(content); else content.append(h("div", { class: "column" }, h("p", { text: "Seção indisponível." })));
   }
@@ -1232,6 +1261,7 @@
     setInterval(() => { if (S.state && S.state.usage) paintUsage(); }, 30000);
     setInterval(tickChecks, 1000);
     setInterval(refreshState, 60000);
+    refreshLive(); setInterval(refreshLive, 20000);
     if ("speechSynthesis" in window) speechSynthesis.getVoices();
   }
   document.addEventListener("DOMContentLoaded", init);
