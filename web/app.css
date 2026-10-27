@@ -594,3 +594,21 @@ a { color: var(--info); }
 }
 html { -webkit-tap-highlight-color: transparent; }
 button, .chip, .conv { touch-action: manipulation; }
+
+/* debate: progresso e o que os agentes estão dizendo */
+.dprog { display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; }
+.dbar-track { flex: 1; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.dbar { height: 100%; border-radius: 999px; background: var(--accent); transition: width .5s ease; }
+.dbar.busy { background-image: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, white), var(--accent)); background-size: 200% 100%; animation: dbarflow 1.6s linear infinite; }
+@keyframes dbarflow { to { background-position: -200% 0; } }
+.dlbl { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.dfeed { margin: 0 0 10px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: var(--tint, transparent); }
+.dfeed > summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.dline { margin-top: 10px; }
+.dwho { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.dst { font-size: 11.5px; color: var(--faint); padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px; }
+.dline.thought .dst, .dline.text .dst, .dline.start .dst { color: var(--accent); border-color: var(--accent); }
+.dline.done .dst { color: var(--ok); }
+.dtxt { margin-top: 4px; font-size: 12.5px; line-height: 1.5; color: var(--muted); white-space: pre-wrap; max-height: 7.5em; overflow: hidden; }
+.dline.thought .dtxt { font-style: italic; }
+@media (prefers-reduced-motion: reduce) { .dbar.busy { animation: none; } }

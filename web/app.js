@@ -922,7 +922,14 @@
         live.label = "Pensando…"; break;
       }
       case "info": live.info = e.text; break;
-      case "debate_stage": live.debate = { steps: e.steps, stage: e.stage }; live.label = e.text || "Debatendo…"; break;
+      case "debate_stage": live.debate = { steps: e.steps, stage: e.stage, total: e.total || 0 }; live.label = e.text || "Debatendo…"; break;
+      case "debate_feed": {
+        live.feed = live.feed || {};
+        const prev = live.feed[e.who] || {};
+        live.feed[e.who] = { kind: e.kind, text: e.text || (e.kind === "start" ? "" : prev.text || ""), at: Date.now() };
+        if (e.kind === "done") live.done = (live.done || 0) + 1;
+        break;
+      }
       case "error": live.error = e.message; break;
       default: return;
     }
@@ -955,6 +962,20 @@
       const ids = live.debate.steps.map((s) => s[0]), at = ids.indexOf(live.debate.stage);
       liveEl.append(h("div", { class: "debate-steps", role: "status", "aria-label": "Andamento do debate" }, live.debate.steps.map(([id, label], i) =>
         h("div", { class: "dstep" + (i < at ? " done" : i === at ? " on" : "") }, h("span", { text: i < at ? "✓" : ({ pesquisa: "🔎", argumentos: "🗣️", replica: "🔁", juiz: "⚖️", conselho: "🧑‍🤝‍🧑" })[id] || "•" }), label))));
+    }
+    if (live.debate && live.debate.total) {
+      const total = live.debate.total, done = Math.min(live.done || 0, total), pct = Math.round(100 * done / total);
+      liveEl.append(h("div", { class: "dprog", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": String(total), "aria-valuenow": String(done), "aria-label": "Progresso do debate" },
+        h("div", { class: "dbar-track" }, h("div", { class: "dbar" + (done < total ? " busy" : ""), style: `width:${Math.max(pct, 4)}%` })),
+        h("span", { class: "dlbl", text: `${done} de ${total} falas concluídas` })));
+    }
+    if (live.feed && Object.keys(live.feed).length) {
+      const KIND = { start: "começando…", thought: "pensando…", text: "escrevendo…", done: "concluído" };
+      liveEl.append(h("details", { class: "dfeed", open: live.feedOpen ? "" : null, ontoggle: (ev) => { live.feedOpen = ev.target.open; } },
+        h("summary", { text: "Ver o que estão dizendo agora" }),
+        Object.entries(live.feed).map(([who, f]) => h("div", { class: "dline " + f.kind },
+          h("div", { class: "dwho" }, h("strong", { text: who }), h("span", { class: "dst", text: KIND[f.kind] || "" })),
+          f.text ? h("div", { class: "dtxt", text: f.kind === "done" ? f.text : "…" + f.text }) : null))));
     }
     if (live.info) liveEl.append(h("div", { class: "alert warn", text: live.info }));
     if (live.error) liveEl.append(h("div", { class: "err-box", text: live.error }));
