@@ -14,6 +14,7 @@ ia:
   # próximo clique", então o padrão lá é minimal. Nas conversas normais, auto (o modelo decide).
   raciocinio: auto
   raciocinio_pc: minimal
+  raciocinio_debate: low   # quanto o modelo pensa em cada fala do debate (menos = mais rápido)
   # Ao mexer no PC cada passo é curto; estes modelos (cota alta: 500/dia) entram na frente para ganhar velocidade.
   # Deixe [] para usar sempre o modelo principal (mais esperto, porém 20 usos por dia).
   # Quem atende, em ordem. Se o Gemini não puder (cota, fora do ar, sem chave), vai para o próximo que tiver chave

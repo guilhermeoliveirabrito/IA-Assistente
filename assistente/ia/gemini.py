@@ -15,7 +15,7 @@ from assistente.nucleo import usage
 
 BASE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:{method}"
 TIMEOUT = 120
-GENERATE_TIMEOUT = 300   # chamada sem streaming (debate, juiz, resumos): a resposta só chega quando está pronta
+GENERATE_TIMEOUT = 180   # chamada sem streaming (debate, juiz, resumos): a resposta só chega quando está pronta
 _fallbacks = []                     # modelos reserva, na ordem de tentativa
 _urlopen = urllib.request.urlopen   # os testes trocam por uma versão falsa
 _sleep = time.sleep

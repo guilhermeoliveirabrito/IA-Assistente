@@ -86,6 +86,7 @@ FIELDS = {
     "app.porta": (_num(1024, 65535), True),
     "ia.modelo": (_text(60, r"^[\w.\-]+$", allow_empty=False), False),
     "ia.raciocinio": (_choice("auto", "minimal", "low", "medium", "high"), False),
+    "ia.raciocinio_debate": (_choice("low", "minimal", "medium", "high", "auto"), False),
     "ia.raciocinio_pc": (_choice("minimal", "low", "medium", "high", "auto"), False),
     "ia.ordem_provedores": (_list(12, _choice("gemini", *providers.PRESETS)), False),
     "ia.modelos_reserva": (_list(5, _text(60, r"^[\w.\-]+$", allow_empty=False)), False),

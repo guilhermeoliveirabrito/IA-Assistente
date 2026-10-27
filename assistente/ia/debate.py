@@ -105,7 +105,10 @@ def _research(cfg: dict, question: str):
 
 def _ask(cfg, system, prompt, temperature):
     models = gemini.models_for((cfg.get("ia") or {}).get("modelo", "gemini-3.8-flash"))
-    obj = llm.generate([{"role": "user", "parts": [{"text": prompt}]}], models, system=system, temperature=temperature)
+    level = str((cfg.get("ia") or {}).get("raciocinio_debate") or "low").lower()   # pensar pouco: cada rodada é curta
+    extra = {"thinking": level} if level in gemini.THINKING_LEVELS else {}
+    obj = llm.generate([{"role": "user", "parts": [{"text": prompt}]}], models, system=system, temperature=temperature,
+                       **extra)
     text = gemini.text_of(obj).strip()
     if not text:
         raise gemini.GeminiError("O modelo não devolveu resposta no debate.", "server")

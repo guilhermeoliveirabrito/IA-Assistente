@@ -204,5 +204,20 @@ class DebateTest(unittest.TestCase):
             debate.run({}, "Tema")
 
 
+class DebateRaciocinioTest(unittest.TestCase):
+    def test_fala_do_debate_pensa_pouco_por_padrao(self):
+        seen = {}
+        orig = debate.llm.generate
+        debate.llm.generate = lambda *a, **k: seen.update(k) or {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
+        try:
+            debate._ask({}, "s", "p", 0.5)
+            self.assertEqual(seen.get("thinking"), "low")
+            seen.clear()
+            debate._ask({"ia": {"raciocinio_debate": "auto"}}, "s", "p", 0.5)
+            self.assertNotIn("thinking", seen)
+        finally:
+            debate.llm.generate = orig
+
+
 if __name__ == "__main__":
     unittest.main()
