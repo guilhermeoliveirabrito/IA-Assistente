@@ -200,6 +200,17 @@ class ModelTest(unittest.TestCase):
         wake.download_model(None, Path("src.zip").resolve().as_uri())
         self.assertIsNotNone(wake.model_path())
 
+    def test_download_aceita_layout_novo_com_final_mdl_na_raiz(self):
+        self.make_zip("src.zip", {f"{wake.MODEL_NAME}/final.mdl": "x", f"{wake.MODEL_NAME}/graph/HCLr.fst": "y"})
+        wake.download_model(None, Path("src.zip").resolve().as_uri())
+        self.assertIsNotNone(wake.model_path())
+
+    def test_download_formato_errado_lista_o_conteudo(self):
+        self.make_zip("src.zip", {"pasta/arquivo.txt": "x"})
+        with self.assertRaises(wake.VoiceError) as cm:
+            wake.download_model(None, Path("src.zip").resolve().as_uri())
+        self.assertIn("arquivo.txt", str(cm.exception))
+
     def test_download_nao_zip_da_erro_claro(self):
         Path("src.zip").write_text("<html>bloqueado</html>")
         with self.assertRaises(wake.VoiceError) as cm:

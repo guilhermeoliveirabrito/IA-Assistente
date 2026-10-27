@@ -262,7 +262,7 @@ def deps_status() -> dict:
 
 def model_path():
     p = MODEL_DIR / MODEL_NAME
-    return p if (p / "am" / "final.mdl").exists() else None
+    return p if _is_model_root(p) else None
 
 
 def download_model(progress=None, url: str = MODEL_URL) -> Path:
@@ -290,8 +290,7 @@ def download_model(progress=None, url: str = MODEL_URL) -> Path:
             extract_zip(tmp, stage)
             found = _find_model_root(stage)
             if found is None:
-                seen = ", ".join(sorted(x.name for x in stage.iterdir())[:6]) or "vazio"
-                raise VoiceError(f"O modelo baixado não tem o formato esperado (conteúdo do zip: {seen}).")
+                raise VoiceError(f"O modelo baixado não tem o formato esperado (conteúdo do zip: {_tree(stage)}).")
             shutil.rmtree(target, ignore_errors=True)
             shutil.move(str(found), str(target))
         finally:
@@ -307,12 +306,21 @@ def download_model(progress=None, url: str = MODEL_URL) -> Path:
         tmp.unlink(missing_ok=True)
 
 
+def _is_model_root(p: Path) -> bool:
+    """Modelos Vosk têm o final.mdl em am/ (layout clássico) ou direto na raiz (layout novo)."""
+    return (p / "am" / "final.mdl").exists() or (p / "final.mdl").exists()
+
+
 def _find_model_root(base: Path):
-    """Pasta do modelo Vosk dentro do que foi extraído (aceita zip com ou sem pasta-raiz)."""
+    """Pasta do modelo Vosk dentro do que foi extraído (aceita zip com ou sem pasta-raiz e os dois layouts)."""
     for mdl in sorted(base.rglob("final.mdl"), key=lambda p: len(p.parts)):
-        if mdl.parent.name == "am":
-            return mdl.parent.parent
+        return mdl.parent.parent if mdl.parent.name == "am" else mdl.parent
     return None
+
+
+def _tree(base: Path, limit: int = 14) -> str:
+    files = sorted(str(x.relative_to(base)).replace("\\", "/") for x in base.rglob("*"))
+    return ", ".join(files[:limit]) + (f" … (+{len(files) - limit})" if len(files) > limit else "") if files else "vazio"
 
 
 def extract_zip(zip_path: Path, dest: Path):
