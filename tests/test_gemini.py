@@ -284,6 +284,27 @@ class RaciocinioTest(GeminiTest):
         list(gemini.stream(self.user(), ["gemini-3.8-flash"], timeout=45))
         self.assertEqual(seen, [45])
 
+    def test_tempo_esgotado_vira_erro_de_rede_e_tenta_de_novo(self):
+        self.queue += [TimeoutError("timed out"), ok_response("ok")]
+        obj = gemini.generate(self.user(), ["gemini-3.8-flash"])
+        self.assertEqual(gemini.text_of(obj), "ok")
+        self.assertEqual(len(self.calls), 2)
+
+    def test_tempo_esgotado_sem_recuperar_da_erro_legivel(self):
+        self.queue += [TimeoutError("timed out")] * 3
+        with self.assertRaises(gemini.GeminiError) as cm:
+            gemini.generate(self.user(), ["gemini-3.8-flash"])
+        self.assertEqual(cm.exception.kind, "network")
+        self.assertIn("demorou", str(cm.exception))
+
+    def test_chamada_sem_streaming_usa_tempo_longo(self):
+        seen = []
+        orig = gemini._urlopen
+        gemini._urlopen = lambda req, timeout=None: seen.append(timeout) or orig(req, timeout)
+        self.queue += [ok_response("ok")]
+        gemini.generate(self.user(), ["gemini-3.8-flash"])
+        self.assertEqual(seen, [gemini.GENERATE_TIMEOUT])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 from assistente.ia import agentes, context, gemini, llm
 from assistente.nucleo import activity, memory, permissions, usage
 
-PC_TIMEOUT = 45                 # s: no controle do PC, resposta que trava por tanto tempo é abandonada (tenta o próximo modelo)
+PC_TIMEOUT = 90                 # s: no controle do PC, resposta que trava por tanto tempo é abandonada (tenta o próximo modelo)
 SLOW_MODEL_S = 12
 SLOW_TOOLS_S = 6
 MAX_STEPS = 24                  # chamadas ao Gemini por pedido (evita laços infinitos)

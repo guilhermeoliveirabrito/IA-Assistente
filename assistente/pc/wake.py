@@ -18,6 +18,7 @@ import io
 import json
 import math
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -283,16 +284,35 @@ def download_model(progress=None, url: str = MODEL_URL) -> Path:
                 if progress and total:
                     progress(min(99, int(100 * done / total)))
         target = MODEL_DIR / MODEL_NAME
-        extract_zip(tmp, MODEL_DIR)
-        if not (target / "am" / "final.mdl").exists():
-            raise VoiceError("O modelo baixado não tem o formato esperado.")
+        stage = MODEL_DIR / (MODEL_NAME + ".extraindo")
+        shutil.rmtree(stage, ignore_errors=True)
+        try:
+            extract_zip(tmp, stage)
+            found = _find_model_root(stage)
+            if found is None:
+                seen = ", ".join(sorted(x.name for x in stage.iterdir())[:6]) or "vazio"
+                raise VoiceError(f"O modelo baixado não tem o formato esperado (conteúdo do zip: {seen}).")
+            shutil.rmtree(target, ignore_errors=True)
+            shutil.move(str(found), str(target))
+        finally:
+            shutil.rmtree(stage, ignore_errors=True)
         if progress:
             progress(100)
         return target
+    except zipfile.BadZipFile as e:
+        raise VoiceError("O arquivo baixado não é um zip válido (download incompleto ou bloqueado pela rede). Tente de novo.") from e
     except OSError as e:
         raise VoiceError(f"Não consegui baixar o modelo de voz: {e}") from e
     finally:
         tmp.unlink(missing_ok=True)
+
+
+def _find_model_root(base: Path):
+    """Pasta do modelo Vosk dentro do que foi extraído (aceita zip com ou sem pasta-raiz)."""
+    for mdl in sorted(base.rglob("final.mdl"), key=lambda p: len(p.parts)):
+        if mdl.parent.name == "am":
+            return mdl.parent.parent
+    return None
 
 
 def extract_zip(zip_path: Path, dest: Path):

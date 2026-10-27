@@ -6,6 +6,7 @@ exatamente como chegaram, que é o que a API exige em conversas com ferramentas.
 """
 import json
 import os
+import socket
 import time
 import urllib.error
 import urllib.request
@@ -14,6 +15,7 @@ from assistente.nucleo import usage
 
 BASE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:{method}"
 TIMEOUT = 120
+GENERATE_TIMEOUT = 300   # chamada sem streaming (debate, juiz, resumos): a resposta só chega quando está pronta
 _fallbacks = []                     # modelos reserva, na ordem de tentativa
 _urlopen = urllib.request.urlopen   # os testes trocam por uma versão falsa
 _sleep = time.sleep
@@ -151,6 +153,13 @@ def _payload_for(model: str, payload: dict, variant=None) -> dict:
     return out
 
 
+def _slow_or_down(e: BaseException) -> "GeminiError":
+    """Tempo esgotado ou conexão caída no meio da resposta: vira erro de rede (tenta de novo / usa o reserva)."""
+    if isinstance(e, (TimeoutError, socket.timeout)):
+        return GeminiError("O Gemini demorou demais para responder.", kind="network")
+    return GeminiError(f"Sem conexão com o Gemini: {e}", kind="network")
+
+
 def _open(model: str, method: str, payload: dict, stream: bool, attempts: int = 3, timeout: int = None):
     url = BASE.format(model=model, method=method) + ("?alt=sse" if stream else "")
     req = urllib.request.Request(
@@ -166,7 +175,10 @@ def _open(model: str, method: str, payload: dict, stream: bool, attempts: int = 
         except urllib.error.HTTPError as e:
             last = error_from_response(e.code, e.read().decode("utf-8", errors="replace"))
         except urllib.error.URLError as e:
-            last = GeminiError(f"Sem conexão com o Gemini: {e.reason}", kind="network")
+            last = _slow_or_down(e.reason) if isinstance(e.reason, (TimeoutError, socket.timeout)) else GeminiError(
+                f"Sem conexão com o Gemini: {e.reason}", kind="network")
+        except OSError as e:          # inclui TimeoutError / conexão derrubada
+            last = _slow_or_down(e)
         if last.kind not in ("server", "network"):
             break
         _sleep(2 * (attempt + 1))
@@ -234,10 +246,13 @@ def generate(contents, models, system=None, tools=None, json_mode=False, tempera
              grounding=False) -> dict:
     """Chamada sem streaming. Retorna a resposta completa (dict) com a chave extra '_model'."""
     model, resp = _open_with_fallback(
-        models, "generateContent", build_payload(contents, system, tools, json_mode, temperature, thinking, grounding), False
-    )
-    with resp:
-        obj = json.loads(resp.read().decode("utf-8"))
+        models, "generateContent", build_payload(contents, system, tools, json_mode, temperature, thinking, grounding), False,
+        GENERATE_TIMEOUT)
+    try:
+        with resp:
+            obj = json.loads(resp.read().decode("utf-8"))
+    except OSError as e:
+        raise _slow_or_down(e) from None
     tin, tout = _usage_of(obj)
     usage.record(model, tin, tout)
     _check_blocked(obj)
@@ -254,7 +269,7 @@ def stream(contents, models, system=None, tools=None, temperature=0.2, thinking=
     try:
         yield {"_model": model}
         with resp:
-            for raw in resp:
+            for raw in _guard(resp):
                 line = raw.decode("utf-8", errors="replace").strip()
                 if not line.startswith("data:"):
                     continue
@@ -273,6 +288,14 @@ def stream(contents, models, system=None, tools=None, temperature=0.2, thinking=
                 yield chunk
     finally:
         usage.record(model, tin, tout)  # a requisição consumiu cota mesmo se foi interrompida
+
+
+def _guard(lines):
+    """Lê a resposta em streaming trocando erro de rede/tempo esgotado por GeminiError."""
+    try:
+        yield from lines
+    except OSError as e:
+        raise _slow_or_down(e) from None
 
 
 def parts_of(obj: dict):
