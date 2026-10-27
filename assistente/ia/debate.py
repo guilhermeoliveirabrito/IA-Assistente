@@ -9,11 +9,14 @@ recebem os mesmos fatos com as fontes. Com `debate.mostrar_argumentos`, os argum
 (recolhidos) na resposta; por padrão só o parecer do juiz aparece.
 """
 import threading
+import time
 
 from assistente.ia import gemini, llm
 from assistente.integracoes import web_tools
 
 MAX_ROUNDS = 2
+DEBATE_TIMEOUT = 600      # s sem NENHUM dado do modelo (pensar muito é permitido; isso só detecta conexão morta)
+WHO_LABEL = {"pro": "Defensor", "contra": "Opositor", "juiz": "Juiz", "presidente": "Presidente", "escolha": "Escolha dos especialistas"}
 WORDS_ARGUMENT = 260
 WORDS_REBUTTAL = 160
 WORDS_VERDICT = 280
@@ -103,35 +106,73 @@ def _research(cfg: dict, question: str):
     return text[:3500], sources[:6]
 
 
-def _ask(cfg, system, prompt, temperature):
+def _ask(cfg, system, prompt, temperature, who=None, feed=None):
+    """Uma fala do debate. Lê em streaming: o modelo pode pensar o tempo que precisar (o prazo só vale para silêncio total)
+    e, a cada trecho, `feed(quem, tipo, texto)` mostra ao usuário que ele continua trabalhando."""
     models = gemini.models_for((cfg.get("ia") or {}).get("modelo", "gemini-3.8-flash"))
-    level = str((cfg.get("ia") or {}).get("raciocinio_debate") or "low").lower()   # pensar pouco: cada rodada é curta
+    level = str((cfg.get("ia") or {}).get("raciocinio_debate") or "auto").lower()
     extra = {"thinking": level} if level in gemini.THINKING_LEVELS else {}
-    obj = llm.generate([{"role": "user", "parts": [{"text": prompt}]}], models, system=system, temperature=temperature,
-                       **extra)
-    text = gemini.text_of(obj).strip()
+    label = WHO_LABEL.get(who, who or "")
+    contents = [{"role": "user", "parts": [{"text": prompt}]}]
+    st = {"text": "", "thought": "", "last": 0.0}
+
+    def push(kind):
+        now = time.time()
+        if feed is not None and now - st["last"] >= 0.7:
+            st["last"] = now
+            feed(label, kind, st[kind if kind == "thought" else "text"][-700:])
+    for attempt in (1, 2):
+        st.update(text="", thought="", last=0.0)
+        try:
+            if feed is not None:
+                feed(label, "start", "")
+            for chunk in llm.stream(contents, models, system=system, temperature=temperature, timeout=DEBATE_TIMEOUT,
+                                    thoughts=True, **extra):
+                for part in gemini.parts_of(chunk):
+                    piece = part.get("text") or ""
+                    if not piece:
+                        continue
+                    kind = "thought" if part.get("thought") else "text"
+                    st[kind] += piece
+                    push(kind)
+            break
+        except gemini.GeminiError as e:
+            if attempt == 2 or e.kind != "network":       # queda de conexão no meio: tenta a fala de novo uma vez
+                raise
+    text = st["text"]
+    text = text.strip()
     if not text:
         raise gemini.GeminiError("O modelo não devolveu resposta no debate.", "server")
+    if feed is not None:
+        feed(label, "done", text[-700:])
     return text
 
 
-def _both(cfg, prompts, temperature=0.7):
-    """Várias chamadas ao mesmo tempo (cada lado não vê o outro)."""
+def _both(cfg, prompts, temperature=0.7, check=None, feed=None):
+    """Várias chamadas ao mesmo tempo (cada lado não vê o outro). Quem espera continua atento ao Parar/pausa."""
     out, err = {}, {}
 
     def worker(key, system, prompt):
         try:
-            out[key] = _ask(cfg, system, prompt, temperature)
+            out[key] = _ask(cfg, system, prompt, temperature, who=key, feed=feed)
         except BaseException as e:          # repassado a quem chamou
             err[key] = e
     threads = [threading.Thread(target=worker, args=(k, sp, pr), daemon=True) for k, (sp, pr) in prompts.items()]
     for t in threads:
         t.start()
-    for t in threads:
-        t.join()
+    while any(t.is_alive() for t in threads):
+        for t in threads:
+            t.join(0.3)
+        if check is not None:
+            check()
     if err:
         raise next(iter(err.values()))
     return out
+
+
+def total_calls(cfg: dict, mode: str = "duelo") -> int:
+    """Quantas falas (chamadas ao modelo) o debate terá: base da barra de progresso."""
+    return 5 if mode == "conselho" else 2 + 2 * rodadas(cfg) + 1
 
 
 def _prepare(cfg, question, context, note, check):
@@ -160,12 +201,12 @@ def _checker(stop, gate=None):
     return check
 
 
-def run(cfg: dict, question: str, context: str = "", progress=None, stop: threading.Event = None, gate=None) -> dict:
+def run(cfg: dict, question: str, context: str = "", progress=None, stop: threading.Event = None, gate=None, feed=None) -> dict:
     """Duelo: defensor x opositor e um juiz. Devolve {'parecer': texto do juiz, ...}; só o parecer vai ao usuário."""
     note = progress or (lambda text: None)
     check = _checker(stop, gate)
     base, calls, facts, sources = _prepare(cfg, question, context, note, check)
-    both = lambda prompts: _both(cfg, prompts)          # noqa: E731
+    both = lambda prompts: _both(cfg, prompts, check=check, feed=feed)          # noqa: E731
     check()
     note("Ouvindo o defensor e o opositor…")
     args = both({"pro": (DEFENSOR.format(n=WORDS_ARGUMENT), base), "contra": (OPOSITOR.format(n=WORDS_ARGUMENT), base)})
@@ -187,7 +228,7 @@ def run(cfg: dict, question: str, context: str = "", progress=None, stop: thread
     check()
     note("O juiz está deliberando…")
     verdict = _ask(cfg, JUIZ.format(n=WORDS_VERDICT),
-                   f"{base}\n\n=== DEFENSOR ===\n{pro}\n\n=== OPOSITOR ===\n{contra}\n\nDê o parecer.", 0.2)
+                   f"{base}\n\n=== DEFENSOR ===\n{pro}\n\n=== OPOSITOR ===\n{contra}\n\nDê o parecer.", 0.2, who="juiz", feed=feed)
     return {"parecer": verdict, "rodadas": n, "chamadas": calls + 1, "pesquisou": bool(facts), "fontes": sources,
             "argumentos": {"defensor": pro, "opositor": contra},
             "lados": [{"nome": "Defensor", "texto": pro}, {"nome": "Opositor", "texto": contra}]}
@@ -205,7 +246,8 @@ def _parse_council(text: str) -> list:
     return out[:4]
 
 
-def run_council(cfg: dict, question: str, context: str = "", progress=None, stop: threading.Event = None, gate=None) -> dict:
+def run_council(cfg: dict, question: str, context: str = "", progress=None, stop: threading.Event = None, gate=None,
+                feed=None) -> dict:
     """Conselho: 3 especialistas escolhidos para o tema analisam, cada um com a sua lente, e um presidente decide."""
     note = progress or (lambda text: None)
     check = _checker(stop, gate)
@@ -214,19 +256,21 @@ def run_council(cfg: dict, question: str, context: str = "", progress=None, stop
     note("Escolhendo os especialistas do conselho…")
     picked = _parse_council(_ask(
         cfg, "Você monta conselhos de especialistas. Responda SÓ com 3 linhas no formato: Nome do especialista | foco em "
-             "uma frase. Escolha 3 lentes realmente diferentes e úteis para o tema (não repita funções).", base, 0.4))
+             "uma frase. Escolha 3 lentes realmente diferentes e úteis para o tema (não repita funções).", base, 0.4,
+        who="escolha", feed=feed))
     calls += 1
     if len(picked) < 2:
         picked = list(DEFAULT_COUNCIL)
     picked = picked[:3]
     check()
     note("Consultando os especialistas…")
-    views = _both(cfg, {nome: (CONSELHEIRO.format(nome=nome, foco=foco, n=WORDS_ARGUMENT), base) for nome, foco in picked})
+    views = _both(cfg, {nome: (CONSELHEIRO.format(nome=nome, foco=foco, n=WORDS_ARGUMENT), base) for nome, foco in picked},
+                  check=check, feed=feed)
     calls += len(picked)
     lados = [{"nome": nome, "texto": views[nome]} for nome, _ in picked]
     check()
     note("O presidente do conselho está decidindo…")
     body = "\n\n".join(f"=== {x['nome'].upper()} ===\n{x['texto']}" for x in lados)
-    verdict = _ask(cfg, JUIZ_CONSELHO.format(n=WORDS_VERDICT), f"{base}\n\n{body}\n\nDê o parecer.", 0.2)
+    verdict = _ask(cfg, JUIZ_CONSELHO.format(n=WORDS_VERDICT), f"{base}\n\n{body}\n\nDê o parecer.", 0.2, who="presidente", feed=feed)
     return {"parecer": verdict, "rodadas": 0, "chamadas": calls + 1, "pesquisou": bool(facts), "fontes": sources, "lados": lados,
             "argumentos": {x["nome"]: x["texto"] for x in lados}}

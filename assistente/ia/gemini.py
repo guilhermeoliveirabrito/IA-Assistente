@@ -15,7 +15,7 @@ from assistente.nucleo import usage
 
 BASE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:{method}"
 TIMEOUT = 120
-GENERATE_TIMEOUT = 180   # chamada sem streaming (debate, juiz, resumos): a resposta só chega quando está pronta
+GENERATE_TIMEOUT = 300   # chamada sem streaming (debate, juiz, resumos): a resposta só chega quando está pronta
 _fallbacks = []                     # modelos reserva, na ordem de tentativa
 _urlopen = urllib.request.urlopen   # os testes trocam por uma versão falsa
 _sleep = time.sleep
@@ -125,10 +125,16 @@ THINKING_LEVELS = ("minimal", "low", "medium", "high")
 _think_mode = {}          # modelo -> "lower" | "upper" | "none": como a API aceitou (ou recusou) o nível de raciocínio
 
 
-def build_payload(contents, system=None, tools=None, json_mode=False, temperature=0.2, thinking=None, grounding=False):
+def build_payload(contents, system=None, tools=None, json_mode=False, temperature=0.2, thinking=None, grounding=False,
+                  thoughts=False):
     payload = {"contents": contents, "generationConfig": {"temperature": temperature}}
+    think = {}
     if thinking in THINKING_LEVELS:
-        payload["generationConfig"]["thinkingConfig"] = {"thinkingLevel": thinking}
+        think["thinkingLevel"] = thinking
+    if thoughts:
+        think["includeThoughts"] = True          # resumos do raciocínio, para mostrar que o modelo está trabalhando
+    if think:
+        payload["generationConfig"]["thinkingConfig"] = think
     if json_mode:
         payload["generationConfig"]["responseMimeType"] = "application/json"
     if system:
@@ -147,9 +153,14 @@ def _payload_for(model: str, payload: dict, variant=None) -> dict:
         return payload
     mode = variant or _think_mode.get(model) or "lower"
     out = {**payload, "generationConfig": {k: v for k, v in payload["generationConfig"].items() if k != "thinkingConfig"}}
-    if mode != "none" and str(model).startswith("gemini-3"):
-        level = cfg["thinkingLevel"]
-        out["generationConfig"]["thinkingConfig"] = {"thinkingLevel": level.upper() if mode == "upper" else level.lower()}
+    if mode == "none":
+        return out
+    think = {"includeThoughts": True} if cfg.get("includeThoughts") else {}
+    level = cfg.get("thinkingLevel")
+    if level and str(model).startswith("gemini-3"):
+        think["thinkingLevel"] = level.upper() if mode == "upper" else level.lower()
+    if think:
+        out["generationConfig"]["thinkingConfig"] = think
     return out
 
 
@@ -260,11 +271,12 @@ def generate(contents, models, system=None, tools=None, json_mode=False, tempera
     return obj
 
 
-def stream(contents, models, system=None, tools=None, temperature=0.2, thinking=None, timeout=None):
-    """Gera os pedaços (dicts) da resposta em streaming. O primeiro item é {'_model': nome}."""
+def stream(contents, models, system=None, tools=None, temperature=0.2, thinking=None, timeout=None, thoughts=False):
+    """Gera os pedaços (dicts) da resposta em streaming. O primeiro item é {'_model': nome}.
+    Com `thoughts`, os resumos do raciocínio vêm em partes marcadas com "thought": true."""
     model, resp = _open_with_fallback(
-        models, "streamGenerateContent", build_payload(contents, system, tools, False, temperature, thinking), True,
-        timeout)
+        models, "streamGenerateContent", build_payload(contents, system, tools, False, temperature, thinking, thoughts=thoughts),
+        True, timeout)
     tin = tout = 0
     try:
         yield {"_model": model}

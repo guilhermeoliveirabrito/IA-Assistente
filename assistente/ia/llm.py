@@ -19,13 +19,15 @@ def _chain():
     return providers.order(_cfg)
 
 
-def stream(contents, models, system=None, tools=None, temperature=0.2, thinking=None, timeout=None):
+def stream(contents, models, system=None, tools=None, temperature=0.2, thinking=None, timeout=None, thoughts=False):
     """Pedaços no formato Gemini. O primeiro é {'_model': nome}. Só troca de provedor ANTES de o primeiro pedaço sair."""
     first_error, skipped, need_img = None, [], providers.has_image(contents)
     for pid in _chain():
         if pid == "gemini":
             try:
                 extra = {k: v for k, v in (("thinking", thinking), ("timeout", timeout)) if v is not None}
+                if thoughts:
+                    extra["thoughts"] = True
                 gen = gemini.stream(contents, models, system=system, tools=tools, temperature=temperature, **extra)
                 first = next(gen)
             except GeminiError as e:

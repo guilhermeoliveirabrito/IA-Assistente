@@ -305,6 +305,15 @@ class RaciocinioTest(GeminiTest):
         gemini.generate(self.user(), ["gemini-3.8-flash"])
         self.assertEqual(seen, [gemini.GENERATE_TIMEOUT])
 
+    def test_resumo_do_pensamento_so_quando_pedido(self):
+        p = gemini.build_payload(self.user(), thoughts=True)
+        self.assertEqual(p["generationConfig"]["thinkingConfig"], {"includeThoughts": True})
+        p = gemini.build_payload(self.user(), thinking="low", thoughts=True)
+        self.assertEqual(p["generationConfig"]["thinkingConfig"], {"thinkingLevel": "low", "includeThoughts": True})
+        self.assertNotIn("thinkingConfig", gemini.build_payload(self.user())["generationConfig"])
+        out = gemini._payload_for("gemini-3.8-flash", gemini.build_payload(self.user(), thoughts=True))
+        self.assertEqual(out["generationConfig"]["thinkingConfig"], {"includeThoughts": True})
+
 
 if __name__ == "__main__":
     unittest.main()

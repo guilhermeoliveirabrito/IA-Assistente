@@ -300,10 +300,13 @@ class ChatService:
         context_text = "\n".join(f"{'Usuário' if m['role'] == 'user' else 'Assistente'}: {m['text'][:600]}" for m in history)
         try:
             steps = debate.steps(self.cfg, mode)
-            emit({"type": "debate_stage", "steps": steps, "stage": steps[0][0]})
+            total = debate.total_calls(self.cfg, mode)
+            emit({"type": "debate_stage", "steps": steps, "stage": steps[0][0], "total": total})
             runner = debate.run_council if mode == "conselho" else debate.run
             out = runner(self.cfg, question, context_text, stop=stop, gate=(self._runs.get(conv["id"]) or {}).get("gate"),
-                         progress=lambda t: emit({"type": "debate_stage", "steps": steps, "stage": debate.stage_of(t), "text": t}))
+                         progress=lambda t: emit({"type": "debate_stage", "steps": steps, "stage": debate.stage_of(t), "text": t,
+                                                  "total": total}),
+                         feed=lambda who, kind, text: emit({"type": "debate_feed", "who": who, "kind": kind, "text": text}))
         except debate.DebateStopped:
             emit({"type": "stopped"})
             return

@@ -75,7 +75,7 @@ class ConselhoTest(unittest.TestCase):
         debate._ask = self._ask
 
     def fake(self, escolha):
-        def f(cfg, system, prompt, temperature):
+        def f(cfg, system, prompt, temperature, **kw):
             self.calls.append(system)
             if "monta conselhos" in system:
                 return escolha
@@ -115,7 +115,7 @@ class DebateTest(unittest.TestCase):
         self.calls, self._ask = [], debate._ask
         lock = threading.Lock()
 
-        def fake(cfg, system, prompt, temperature):
+        def fake(cfg, system, prompt, temperature, **kw):
             with lock:
                 self.calls.append((system, prompt))
             if "JUIZ" in system:
@@ -196,7 +196,7 @@ class DebateTest(unittest.TestCase):
         self.assertIn("Confiança", self.calls[-1][0])
 
     def test_erro_do_modelo_sobe(self):
-        def boom(cfg, system, prompt, temperature):
+        def boom(cfg, system, prompt, temperature, **kw):
             raise gemini.GeminiError("cota", "quota")
 
         debate._ask = boom
@@ -204,19 +204,84 @@ class DebateTest(unittest.TestCase):
             debate.run({}, "Tema")
 
 
-class DebateRaciocinioTest(unittest.TestCase):
-    def test_fala_do_debate_pensa_pouco_por_padrao(self):
-        seen = {}
-        orig = debate.llm.generate
-        debate.llm.generate = lambda *a, **k: seen.update(k) or {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
-        try:
+class DebateStreamTest(unittest.TestCase):
+    """_ask lê em streaming: não limita o raciocínio e mostra o andamento (pensando/escrevendo/pronto)."""
+
+    def setUp(self):
+        self.orig = debate.llm.stream
+        self.kw = {}
+
+    def tearDown(self):
+        debate.llm.stream = self.orig
+
+    def patch(self, chunks):
+        def fake(contents, models, **kw):
+            self.kw = kw
+            yield {"_model": "m"}
+            yield from chunks
+        debate.llm.stream = fake
+
+    @staticmethod
+    def part(text, thought=False):
+        return {"candidates": [{"content": {"parts": [{"text": text, **({"thought": True} if thought else {})}]}}]}
+
+    def test_junta_o_texto_ignora_o_pensamento_e_avisa(self):
+        self.patch([self.part("Estou pesando os riscos", True), self.part("Parte 1. "), self.part("Parte 2.")])
+        feed = []
+        out = debate._ask({}, "s", "p", 0.5, who="pro", feed=lambda *a: feed.append(a))
+        self.assertEqual(out, "Parte 1. Parte 2.")
+        kinds = [k for _, k, _ in feed]
+        self.assertEqual(kinds[0], "start")
+        self.assertIn("thought", kinds)
+        self.assertEqual(feed[-1], ("Defensor", "done", "Parte 1. Parte 2."))
+
+    def test_nao_limita_o_raciocinio_e_pede_resumo_do_pensamento(self):
+        self.patch([self.part("ok")])
+        debate._ask({}, "s", "p", 0.5)
+        self.assertNotIn("thinking", self.kw)
+        self.assertTrue(self.kw["thoughts"])
+        self.assertGreaterEqual(self.kw["timeout"], 300)
+
+    def test_nivel_escolhido_em_ajustes_vale(self):
+        self.patch([self.part("ok")])
+        debate._ask({"ia": {"raciocinio_debate": "high"}}, "s", "p", 0.5)
+        self.assertEqual(self.kw["thinking"], "high")
+
+    def test_cai_de_rede_no_meio_tenta_de_novo_uma_vez(self):
+        calls = []
+
+        def fake(contents, models, **kw):
+            calls.append(1)
+            yield {"_model": "m"}
+            if len(calls) == 1:
+                yield self.part("meio")
+                raise debate.gemini.GeminiError("caiu", kind="network")
+            yield self.part("inteiro")
+        debate.llm.stream = fake
+        self.assertEqual(debate._ask({}, "s", "p", 0.5), "inteiro")
+        self.assertEqual(len(calls), 2)
+
+    def test_resposta_vazia_da_erro(self):
+        self.patch([self.part("só pensando", True)])
+        with self.assertRaises(debate.gemini.GeminiError):
             debate._ask({}, "s", "p", 0.5)
-            self.assertEqual(seen.get("thinking"), "low")
-            seen.clear()
-            debate._ask({"ia": {"raciocinio_debate": "auto"}}, "s", "p", 0.5)
-            self.assertNotIn("thinking", seen)
+
+    def test_total_de_falas_para_a_barra(self):
+        self.assertEqual(debate.total_calls({"debate": {"rodadas": 1}}), 5)
+        self.assertEqual(debate.total_calls({"debate": {"rodadas": 0}}), 3)
+        self.assertEqual(debate.total_calls({}, "conselho"), 5)
+
+    def test_both_atende_o_parar_enquanto_espera(self):
+        import time as _t
+        stop = threading.Event()
+        orig = debate._ask
+        debate._ask = lambda *a, **k: _t.sleep(5) or "x"
+        try:
+            threading.Timer(0.4, stop.set).start()
+            with self.assertRaises(debate.DebateStopped):
+                debate._both({}, {"a": ("s", "p")}, check=debate._checker(stop))
         finally:
-            debate.llm.generate = orig
+            debate._ask = orig
 
 
 if __name__ == "__main__":

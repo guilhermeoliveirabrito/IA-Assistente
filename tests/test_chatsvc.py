@@ -347,7 +347,7 @@ class AgenteTest(Base):
         seen = []
         orig = debate._ask
 
-        def fake(cfg, system, prompt, temperature):
+        def fake(cfg, system, prompt, temperature, **kw):
             seen.append(system)
             return "**Veredito:** vale a pena." if "JUIZ" in system else "argumento secreto"
 
@@ -396,7 +396,7 @@ class DebateAvulsoTest(Base):
     def setUp(self):
         super().setUp()
         self._ask = debate._ask
-        debate._ask = lambda cfg, system, prompt, t: "**Veredito:** ok" if "JUIZ" in system else "arg"
+        debate._ask = lambda cfg, system, prompt, t, **kw: "**Veredito:** ok" if "JUIZ" in system else "arg"
 
     def tearDown(self):
         debate._ask = self._ask
@@ -432,7 +432,7 @@ class DebateAvulsoTest(Base):
         self.assertEqual(m["debate"]["lados"][0]["texto"].split("\n")[0], "arg")
 
     def test_barra_conselho_usa_o_conselho(self):
-        def fake(cfg, system, prompt, temperature):
+        def fake(cfg, system, prompt, temperature, **kw):
             if "monta conselhos" in system:
                 return "A | foco a aqui\nB | foco b aqui\nC | foco c aqui"
             return "**Veredito:** conselho decidiu" if "PRESIDENTE" in system else "visão"
