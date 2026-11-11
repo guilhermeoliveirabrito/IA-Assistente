@@ -52,6 +52,7 @@ def main() -> int:
     shutil.copytree(ROOT / "memory_example", "memory_example")
     os.environ["GEMINI_API_KEY"] = "teste"
     gemini.stream = fake_stream
+    gemini.generate = lambda *a, **k: {"_model": "m", "candidates": [{"content": {"parts": [{"text": "ok"}]}}]}   # sem rede
     cfg = settings.load_config()
     cfg["projetos"]["pasta"] = str(Path(tmp.name) / "proj")
     srv = server.start(cfg, port=0, mode="local")
