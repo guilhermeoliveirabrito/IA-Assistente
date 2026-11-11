@@ -705,7 +705,7 @@
         try {
           const r = await api("GET", "/api/sessions");
           const others = r.aparelhos.filter((a) => !a.atual).length;
-          box.replaceChildren(
+          box.replaceChildren(...[
             r.aparelhos.length ? r.aparelhos.map((a) => h("div", { class: "dev-row" },
               h("div", {}, h("strong", { text: a.nome || "Aparelho" }), a.atual ? h("span", { class: "dev-now", text: "este aparelho" }) : null,
                 h("div", { class: "desc", style: "margin:2px 0 0", text: `${a.ip} · visto ${fmt(a.visto)}` })),
@@ -713,7 +713,7 @@
               : h("p", { class: "desc", text: "Nenhum aparelho com sessão (acesso por ferramenta local)." }),
             others ? h("div", { class: "row-btns" }, h("button", { class: "btn", type: "button", onclick: async () => { try { const x = await api("POST", "/api/sessions/revoke-others", {}); toast(`${x.removidos} aparelho(s) removido(s).`, "ok"); load(); } catch (e) { toast(e.message, "error"); } } }, "Remover todos os outros")) : null,
             r.acessos.length ? h("details", { class: "dev-log" }, h("summary", { text: "Registro de acessos recentes" }),
-              r.acessos.map((x) => h("div", { class: "dev-ev" }, h("span", { text: fmt(x.t) }), h("span", { text: `${EV[x.evento] || x.evento}${x.aparelho ? " · " + x.aparelho : ""}${x.ip ? " · " + x.ip : ""}` })))) : null);
+              r.acessos.map((x) => h("div", { class: "dev-ev" }, h("span", { text: fmt(x.t) }), h("span", { text: `${EV[x.evento] || x.evento}${x.aparelho ? " · " + x.aparelho : ""}${x.ip ? " · " + x.ip : ""}` })))) : null].flat().filter(Boolean));
         } catch (e) { box.replaceChildren(h("div", { class: "alert", text: e.message })); }
       };
       card.append(h("p", { class: "desc", text: "Cada aparelho que entra com o código ganha uma sessão própria. Se perder um celular, remova só ele aqui; para trocar o código, apague data/access_token.txt, reabra o app e use “Remover todos os outros”." }), box);
@@ -730,11 +730,11 @@
           const r = await api("POST", "/api/diagnostico", { conexao });
           const MARK = { ok: "✓", aviso: "!", erro: "✕", info: "i" };
           const head = r.resumo.erro ? `${r.resumo.erro} problema(s) para resolver` : r.resumo.aviso ? "Tudo certo, com algumas ressalvas" : "Tudo certo";
-          out.replaceChildren(h("p", { class: "diag-head " + (r.resumo.erro ? "erro" : r.resumo.aviso ? "aviso" : "ok"), text: head }),
+          out.replaceChildren(...[h("p", { class: "diag-head " + (r.resumo.erro ? "erro" : r.resumo.aviso ? "aviso" : "ok"), text: head }),
             r.itens.map((i) => h("div", { class: "diag-item " + i.estado },
               h("span", { class: "diag-mark", "aria-hidden": "true", text: MARK[i.estado] || "" }),
               h("div", {}, h("strong", { text: i.nome }), i.detalhe ? h("div", { class: "diag-det", text: i.detalhe }) : null,
-                i.dica && i.estado !== "ok" ? h("div", { class: "diag-tip", text: i.dica }) : null))));
+                i.dica && i.estado !== "ok" ? h("div", { class: "diag-tip", text: i.dica }) : null)))].flat().filter(Boolean));
         } catch (e) { out.replaceChildren(h("div", { class: "alert", text: e.message })); }
       };
       card.append(h("p", { class: "desc", text: "Confere o que funciona neste computador (dependências, chave, captura de tela, microfone, voz, rede) e diz como resolver o que falta." }),
