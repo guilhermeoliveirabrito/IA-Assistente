@@ -625,7 +625,7 @@
           await A.refreshState(); this.paint();
         } catch (e) { toast(e.message, "error"); ev.currentTarget.disabled = false; }
       } });
-      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.diagCard(), this.updateCard(), this.appearanceCard(), this.providersCard(), this.phoneCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
+      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.diagCard(), this.updateCard(), this.appearanceCard(), this.providersCard(), this.phoneCard(), this.devicesCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
     },
 
     field(inputs, key, label, type, help, options) {
@@ -693,6 +693,31 @@
       }
       paint();
       card.append(h("div", { class: "f" }, h("span", { text: "Cor de destaque" }), row));
+      return card;
+    },
+
+    devicesCard() {
+      const card = h("div", { class: "card" }, h("h3", { text: "Aparelhos conectados" }));
+      const box = h("div", { class: "dev-list" });
+      const EV = { entrada: "Entrou um aparelho novo", tentativa_errada: "Tentativa de entrada com código errado", foto_da_tela: "Foto da tela", atualizacao: "App atualizado", aparelho_removido: "Aparelho removido", aparelhos_removidos: "Aparelhos removidos" };
+      const fmt = (t) => (t ? new Date(t * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
+      const load = async () => {
+        try {
+          const r = await api("GET", "/api/sessions");
+          const others = r.aparelhos.filter((a) => !a.atual).length;
+          box.replaceChildren(
+            r.aparelhos.length ? r.aparelhos.map((a) => h("div", { class: "dev-row" },
+              h("div", {}, h("strong", { text: a.nome || "Aparelho" }), a.atual ? h("span", { class: "dev-now", text: "este aparelho" }) : null,
+                h("div", { class: "desc", style: "margin:2px 0 0", text: `${a.ip} · visto ${fmt(a.visto)}` })),
+              a.atual ? null : h("button", { class: "btn small", type: "button", onclick: async () => { try { await api("DELETE", "/api/sessions/" + a.id); toast("Aparelho removido.", "ok"); load(); } catch (e) { toast(e.message, "error"); } } }, "Remover")))
+              : h("p", { class: "desc", text: "Nenhum aparelho com sessão (acesso por ferramenta local)." }),
+            others ? h("div", { class: "row-btns" }, h("button", { class: "btn", type: "button", onclick: async () => { try { const x = await api("POST", "/api/sessions/revoke-others", {}); toast(`${x.removidos} aparelho(s) removido(s).`, "ok"); load(); } catch (e) { toast(e.message, "error"); } } }, "Remover todos os outros")) : null,
+            r.acessos.length ? h("details", { class: "dev-log" }, h("summary", { text: "Registro de acessos recentes" }),
+              r.acessos.map((x) => h("div", { class: "dev-ev" }, h("span", { text: fmt(x.t) }), h("span", { text: `${EV[x.evento] || x.evento}${x.aparelho ? " · " + x.aparelho : ""}${x.ip ? " · " + x.ip : ""}` })))) : null);
+        } catch (e) { box.replaceChildren(h("div", { class: "alert", text: e.message })); }
+      };
+      card.append(h("p", { class: "desc", text: "Cada aparelho que entra com o código ganha uma sessão própria. Se perder um celular, remova só ele aqui; para trocar o código, apague data/access_token.txt, reabra o app e use “Remover todos os outros”." }), box);
+      load();
       return card;
     },
 

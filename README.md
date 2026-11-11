@@ -225,6 +225,7 @@ Observações: o computador precisa estar **ligado, com o app aberto e conectado
 
 ## Segurança
 
+- **Aparelhos conectados:** o cookie do navegador não guarda o código de acesso; cada aparelho recebe uma sessão própria (só o hash fica em disco, expira após 90 dias sem uso). Em *Ajustes › Aparelhos conectados* você vê quem está dentro, remove um celular perdido e consulta o **registro de acessos** (entradas, tentativas erradas, fotos da tela, atualizações) em `data/acessos.jsonl`.
 - O app só aceita conexões com o **código de acesso** (guardado em `data/access_token.txt`). No modo "local" só o próprio PC conecta; ainda há proteção contra sites maliciosos abertos no seu navegador e limite de tentativas erradas.
 - `credentials.json`, `token.json`, `.env`, `data/` e `memory/` estão no `.gitignore` e **nunca** devem ser enviados ao Git.
 - E-mails, arquivos e páginas lidos são tratados como **dados, nunca como ordens**, para reduzir o risco de alguém "mandar" o assistente fazer algo escondido num e-mail ou documento. Nenhuma defesa é perfeita; por isso o que é arriscado exige a sua aprovação.
