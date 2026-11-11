@@ -8,6 +8,8 @@ from assistente.ia import agent, agent_tools, agentes, context, debate, gemini
 from assistente.nucleo import activity, attachments, permissions, storage
 
 APPROVAL_TIMEOUT = 600  # segundos esperando você aprovar uma ação no chat
+NOTIFY_AFTER = 45       # respostas que demoram mais que isso avisam o celular quando terminam (ntfy)
+APPROVAL_NOTIFY_AFTER = 20   # pedido de aprovação sem resposta por tanto tempo vira aviso no celular
 
 
 class ChatBusy(Exception):
@@ -45,6 +47,8 @@ class ChatService:
         self._pending = {}             # req_id -> request (para a interface reconectar)
         self._lock = threading.RLock()
         self.approval_timeout = APPROVAL_TIMEOUT
+        self.notify_after = NOTIFY_AFTER
+        self.approval_notify_after = APPROVAL_NOTIFY_AFTER
         self.on_voice_reply = None     # função(texto) chamada com a resposta de um pedido feito por voz
 
     # ---- estado ---------------------------------------------------------------------
@@ -189,11 +193,16 @@ class ChatService:
             with self._lock:
                 self._approvals[req["id"]] = entry
                 self._pending[req["id"]] = {**req, "conversation_id": conv_id}
-            deadline = time.time() + self.approval_timeout
+            started = time.time()
+            deadline = started + self.approval_timeout
+            warned = False
             try:
                 while not ev.wait(max(0.01, min(1.0, deadline - time.time()))):
                     if stop.is_set():
                         return "deny"
+                    if not warned and time.time() - started >= self.approval_notify_after:
+                        warned = True        # você não está olhando a tela: avisa no celular
+                        self._notify("pedido", "Aprovação pendente", str(req.get("summary") or "O assistente precisa de uma aprovação.")[:200], 4)
                     if time.time() >= deadline:
                         raise agent.ApprovalTimeout()
                 return entry["answer"]
@@ -205,6 +214,13 @@ class ChatService:
 
     # ---- execução ---------------------------------------------------------------------
 
+    def _notify(self, kind, title, message, priority=3):
+        if self.notifier:
+            try:
+                self.notifier.notify(kind, title, message, priority)
+            except Exception as e:       # aviso é um extra: nunca derruba a resposta
+                activity.log("erro", f"Aviso: {e}")
+
     def _publish(self, conv_id, event):
         self.bus.publish({**event, "scope": "chat", "conversation_id": conv_id})
 
@@ -214,6 +230,8 @@ class ChatService:
                      "error": ""}
         tools = {}
         contents = None
+        t_start = time.time()
+        title = "Conversa"
         notes = []          # avisos do sistema a gravar na conversa (ex.: "resumi o começo")
 
         def emit(event):
@@ -267,6 +285,7 @@ class ChatService:
         finally:
             try:
                 conv = storage.load(conv_id)
+                title = str(conv.get("title") or title)
                 conv["messages"].extend(notes)
                 if stop.is_set():
                     assistant["error"] = assistant["error"] or ""
@@ -285,6 +304,12 @@ class ChatService:
                 self._debate_once.pop(conv_id, None)
                 self._runs.pop(conv_id, None)      # antes do aviso: quem recarregar a conversa já a vê como parada
             self._publish(conv_id, {"type": "done", "message_id": assistant["id"], "stopped": stop.is_set()})
+            if not stop.is_set() and time.time() - t_start >= self.notify_after:
+                title = title[:60]
+                if assistant["error"]:
+                    self._notify("erro", f"Não deu certo: {title}", assistant["error"][:200], 4)
+                else:
+                    self._notify("pronta", f"Resposta pronta: {title}", " ".join(assistant["text"].split())[:200] or "Terminei.")
             if voice and self.on_voice_reply and not stop.is_set():
                 try:
                     self.on_voice_reply(assistant["text"] or assistant["error"])

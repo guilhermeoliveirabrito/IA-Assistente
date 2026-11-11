@@ -255,6 +255,22 @@ class ApprovalTest(Base):
         tool = storage.load(cid)["messages"][-1]["tools"][0]
         self.assertTrue(tool["ok"])
 
+    def test_pedido_parado_avisa_o_celular(self):
+        sent = []
+        self.svc.notifier = type("N", (), {"notify": lambda me, kind, title, msg, priority=3: sent.append((kind, title, msg))})()
+        self.svc.approval_notify_after = 0.05
+        self.script = [call("abrir_site", {"url": "https://github.com"}), text("Abri.")]
+        cid = self.svc.send(None, "abra o github")
+        req = self.wait_pending()
+        for _ in range(200):
+            if sent:
+                break
+            time.sleep(0.01)
+        self.assertEqual(sent[0][0], "pedido")
+        self.svc.approve(req["id"], "allow")
+        self.wait_done(cid)
+        self.assertEqual(len(sent), 1)                       # avisa uma vez só
+
     def test_negar(self):
         self.script = [call("abrir_site", {"url": "https://x.com"}), text("Ok, não abri.")]
         cid = self.svc.send(None, "abra")
@@ -365,6 +381,41 @@ class AgenteTest(Base):
         self.assertIn("O juiz está deliberando…", infos)
         self.assertEqual(self.sent, [])                      # nenhum passo do motor normal
         self.assertEqual(conv["contents"][-1]["parts"][0]["text"], "**Veredito:** vale a pena.")
+
+
+class AvisoNoCelularTest(Base):
+    def setUp(self):
+        super().setUp()
+        self.sent_notes = []
+        self.svc.notifier = type("N", (), {"notify": lambda me, kind, title, msg, priority=3: self.sent_notes.append((kind, title, msg))})()
+
+    def test_resposta_demorada_avisa_ao_terminar(self):
+        self.svc.notify_after = 0
+        self.script = [text("Tudo pronto,", " pode ver.")]
+        self.ask("faça algo demorado")
+        self.assertEqual(len(self.sent_notes), 1)
+        kind, title, msg = self.sent_notes[0]
+        self.assertEqual(kind, "pronta")
+        self.assertIn("faça algo demorado", title)
+        self.assertEqual(msg, "Tudo pronto, pode ver.")
+
+    def test_resposta_rapida_nao_avisa(self):
+        self.script = [text("oi")]
+        self.ask("oi")
+        self.assertEqual(self.sent_notes, [])
+
+    def test_erro_demorado_avisa_como_erro(self):
+        self.svc.notify_after = 0
+        self.script = [gemini.GeminiError("cota acabou", kind="quota")]
+        self.ask("oi")
+        self.assertEqual(self.sent_notes[0][0], "erro")
+
+    def test_notifier_com_defeito_nao_derruba(self):
+        self.svc.notify_after = 0
+        self.svc.notifier = type("N", (), {"notify": lambda me, *a, **k: 1 / 0})()
+        self.script = [text("ok")]
+        cid = self.ask("oi")
+        self.assertEqual(storage.load(cid)["messages"][-1]["text"], "ok")
 
 
 class RegenerarTest(Base):
