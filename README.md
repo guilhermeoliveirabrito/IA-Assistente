@@ -266,11 +266,12 @@ Regras simples: `nucleo` não importa os outros pacotes (única exceção: `sett
 ```
 python -m unittest discover -s tests -t .
 node web/tests/md.test.js
+python tests_ui/smoke.py   # interface num navegador de verdade, no desktop e no celular (pip install playwright; playwright install chromium)
 ruff check .            # estilo e código morto (configurado em pyproject.toml)
 ```
 
 ## Contribuindo
-O GitHub roda os testes e o `ruff` a cada envio (`.github/workflows/ci.yml`).
+O GitHub roda os testes, o teste de interface e o `ruff` a cada envio (`.github/workflows/ci.yml`).
 
 Os commits seguem o padrão *Conventional Commits*: `feat:` (funcionalidade nova), `fix:` (correção), `docs:`, `refactor:`, `perf:`, `test:`, `style:` e `chore:`, com uma frase curta no imperativo.
 
