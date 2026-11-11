@@ -28,7 +28,7 @@ from assistente.integracoes import notify, spotify_control
 from assistente.nucleo import activity, atalhos, memory, permissions, settings, storage, usage
 from assistente.nucleo import bus as busmod
 from assistente.pc import wake
-from assistente.servicos import atualizador, automation, briefing, capturas, live, reminders, tasks, tracking
+from assistente.servicos import atualizador, automation, briefing, capturas, diagnostico, live, reminders, tasks, tracking
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 TOKEN_FILE = Path("data") / "access_token.txt"
@@ -583,6 +583,12 @@ button{{margin-top:10px;background:#d08a62;color:#1b1410;border:0;font-weight:60
 
 
 # =============================== rotas ===============================
+
+@route("POST", "/api/diagnostico")
+def r_diagnostico(h, q):
+    deep = bool(h._body().get("conexao"))
+    h._json(diagnostico.run(h.app.cfg, deep=deep))
+
 
 @route("GET", "/api/update")
 def r_update(h, q):

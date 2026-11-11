@@ -559,6 +559,14 @@ class ServerTest(unittest.TestCase):
         st, body, _ = self.req("GET", "/api/update")
         self.assertTrue(body["desligado"])
 
+    def test_diagnostico_responde_e_exige_acesso(self):
+        st, body, _ = self.req("POST", "/api/diagnostico", {})
+        self.assertEqual(st, 200)
+        self.assertIn("python", [i["id"] for i in body["itens"]])
+        self.assertNotIn("conexao", [i["id"] for i in body["itens"]])
+        st, _, _ = self.req("POST", "/api/diagnostico", {}, auth=False)
+        self.assertEqual(st, 401)
+
     def test_atualizacao_exige_acesso(self):
         st, _, _ = self.req("POST", "/api/update/apply", {}, auth=False)
         self.assertEqual(st, 401)
