@@ -115,6 +115,8 @@ app:
   # Acesso pelo celular: "local" = só neste PC; "rede" = também por outros aparelhos da sua rede/Tailscale.
   # Com "rede" o app exige o código de acesso (veja o README).
   acesso: "local"
+  # Perguntar ao GitHub (no máximo a cada 6 h) se há versão nova do app. Só consulta; nada é instalado sem você pedir.
+  verificar_atualizacao: true
 
 tarefas:
   # Quantas chamadas ao Gemini uma tarefa pode gastar antes de pausar e esperar você liberar mais.

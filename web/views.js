@@ -625,7 +625,7 @@
           await A.refreshState(); this.paint();
         } catch (e) { toast(e.message, "error"); ev.currentTarget.disabled = false; }
       } });
-      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.appearanceCard(), this.providersCard(), this.phoneCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
+      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.updateCard(), this.appearanceCard(), this.providersCard(), this.phoneCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
     },
 
     field(inputs, key, label, type, help, options) {
@@ -693,6 +693,44 @@
       }
       paint();
       card.append(h("div", { class: "f" }, h("span", { text: "Cor de destaque" }), row));
+      return card;
+    },
+
+    updateCard() {
+      const card = h("div", { class: "card" }, h("h3", { text: "Atualizações" }));
+      const info = h("p", { class: "desc", text: "Verificando…" });
+      const out = h("div", { class: "row-btns" });
+      card.append(info, out);
+      const run = async (restart) => {
+        out.replaceChildren(h("span", { class: "desc", text: "Baixando e instalando… não feche o app." }));
+        try {
+          const r = await api("POST", "/api/update/apply", { restart });
+          let msg = `Pronto: ${r.arquivos} arquivos atualizados; seus dados foram mantidos.`;
+          if (r.config_anterior) msg += " O config.yaml mudou (o seu ficou como config.yaml.anterior).";
+          if (r.erro_dependencias) msg += ` Atenção: as dependências não instalaram sozinhas (${r.erro_dependencias}).`;
+          info.textContent = r.reiniciando ? msg + " Reiniciando o app…" : msg + " Feche e abra o app para usar a versão nova.";
+          out.replaceChildren();
+        } catch (e) { info.textContent = e.message; paint(null); }
+      };
+      const paint = (u) => {
+        out.replaceChildren();
+        if (!u) { out.append(h("button", { class: "btn", type: "button", onclick: () => load(true) }, "Verificar de novo")); return; }
+        const when = u.data ? ` (${new Date(u.data).toLocaleDateString("pt-BR")})` : "";
+        if (u.desligado) info.textContent = "A verificação automática está desligada (app.verificar_atualizacao no config.yaml).";
+        else if (u.erro) info.textContent = u.erro;
+        else if (u.nova) info.textContent = `Há uma versão nova: ${u.mensagem}${when}.`;
+        else if (u.desconhecida) info.textContent = `Não sei qual versão está instalada (instalada por ZIP). A mais recente é “${u.mensagem}”${when}; atualizar leva um minuto e não mexe nos seus dados.`;
+        else info.textContent = "Você está com a versão mais recente.";
+        if (u.nova || u.desconhecida) {
+          out.append(h("button", { class: "btn primary", type: "button", onclick: () => run(true) }, "Atualizar e reiniciar"), h("button", { class: "btn", type: "button", onclick: () => run(false) }, "Só atualizar"));
+        }
+        out.append(h("button", { class: "btn", type: "button", onclick: () => load(true) }, "Verificar agora"));
+      };
+      const load = async (force) => {
+        info.textContent = "Verificando…";
+        try { paint(await api("GET", "/api/update" + (force ? "?force=1" : ""))); } catch (e) { info.textContent = e.message; paint(null); }
+      };
+      load(false);
       return card;
     },
 

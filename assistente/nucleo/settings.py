@@ -84,6 +84,7 @@ FIELDS = {
     "app.seu_nome": (_text(40), False),
     "app.acesso": (_choice("local", "rede"), True),
     "app.porta": (_num(1024, 65535), True),
+    "app.verificar_atualizacao": (_bool, False),
     "ia.modelo": (_text(60, r"^[\w.\-]+$", allow_empty=False), False),
     "ia.raciocinio": (_choice("auto", "minimal", "low", "medium", "high"), False),
     "ia.raciocinio_debate": (_choice("auto", "minimal", "low", "medium", "high"), False),

@@ -28,7 +28,7 @@ from assistente.integracoes import notify, spotify_control
 from assistente.nucleo import activity, atalhos, memory, permissions, settings, storage, usage
 from assistente.nucleo import bus as busmod
 from assistente.pc import wake
-from assistente.servicos import automation, briefing, capturas, live, reminders, tasks, tracking
+from assistente.servicos import atualizador, automation, briefing, capturas, live, reminders, tasks, tracking
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 TOKEN_FILE = Path("data") / "access_token.txt"
@@ -99,6 +99,7 @@ class App:
         self.live = live.Live(self.bus)
         self.live.start()
         self.capturas = capturas.Capturas(cfg, self.live)
+        self.updates = atualizador.Checker()
         self.tasks = tasks.TaskManager(cfg, bus=self.bus, notifier=self.notifier, window_hooks=self.window_hooks, live=self.live)
         self.chat = chatsvc.ChatService(cfg, self.bus, self.window_hooks, self.notifier, live=self.live)
         self.automation = automation.Automation(cfg, on_change=self._checks_changed)
@@ -582,6 +583,29 @@ button{{margin-top:10px;background:#d08a62;color:#1b1410;border:0;font-weight:60
 
 
 # =============================== rotas ===============================
+
+@route("GET", "/api/update")
+def r_update(h, q):
+    if not (h.app.cfg.get("app") or {}).get("verificar_atualizacao", True) and "force" not in q:
+        return h._json({"desligado": True})
+    try:
+        h._json(h.app.updates.check(force="force" in q))
+    except atualizador.UpdateError as e:
+        h._json({"erro": str(e)})
+
+
+@route("POST", "/api/update/apply")
+def r_update_apply(h, q):
+    b = h._body()
+    try:
+        result = atualizador.apply()
+    except atualizador.UpdateError as e:
+        raise HTTPError(502, str(e))
+    h.app.updates = atualizador.Checker()
+    if b.get("restart"):
+        threading.Timer(1.2, atualizador.restart).start()
+    h._json({**result, "reiniciando": bool(b.get("restart"))})
+
 
 @route("GET", "/api/state")
 def r_state(h, q):

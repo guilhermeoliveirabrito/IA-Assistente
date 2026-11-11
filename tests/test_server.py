@@ -525,6 +525,44 @@ class ServerTest(unittest.TestCase):
         st, _, _ = self.req("GET", "/api/live", auth=False)
         self.assertEqual(st, 401)
 
+    def test_atualizacao_verifica_e_aplica_sem_tocar_nos_dados(self):
+        from assistente.servicos import atualizador
+        self.srv.app.updates = atualizador.Checker(Path.cwd(), fetch=lambda: {"sha": "e" * 40, "mensagem": "feat: x", "data": ""})
+        st, body, _ = self.req("GET", "/api/update")
+        self.assertEqual(st, 200)
+        self.assertTrue(body["desconhecida"])
+        self.assertEqual(body["ultima"], "eeeeeee")
+        called = []
+        orig = atualizador.apply
+        atualizador.apply = lambda *a, **k: called.append(1) or {"arquivos": 3, "dependencias": False, "config_anterior": False,
+                                                                 "erro_dependencias": ""}
+        try:
+            st, body, _ = self.req("POST", "/api/update/apply", {})
+        finally:
+            atualizador.apply = orig
+        self.assertEqual((st, called), (200, [1]))
+        self.assertEqual(body["arquivos"], 3)
+        self.assertFalse(body["reiniciando"])
+
+    def test_atualizacao_erro_de_rede_vira_mensagem(self):
+        from assistente.servicos import atualizador
+
+        def boom():
+            raise atualizador.UpdateError("Sem conexão com o GitHub agora.")
+        self.srv.app.updates = atualizador.Checker(Path.cwd(), fetch=boom)
+        st, body, _ = self.req("GET", "/api/update")
+        self.assertEqual(st, 200)
+        self.assertIn("Sem conexão", body["erro"])
+
+    def test_atualizacao_pode_ser_desligada(self):
+        self.srv.app.cfg["app"]["verificar_atualizacao"] = False
+        st, body, _ = self.req("GET", "/api/update")
+        self.assertTrue(body["desligado"])
+
+    def test_atualizacao_exige_acesso(self):
+        st, _, _ = self.req("POST", "/api/update/apply", {}, auth=False)
+        self.assertEqual(st, 401)
+
 
 if __name__ == "__main__":
     unittest.main()

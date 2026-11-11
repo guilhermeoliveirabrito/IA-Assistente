@@ -195,6 +195,21 @@
   }
 
   let liveTimer = 0;
+  // aviso discreto quando há versão nova (o servidor só consulta o GitHub a cada 6 h)
+  async function checkUpdate() {
+    try {
+      const u = await api("GET", "/api/update");
+      S.update = u;
+      if (!u.nova || sessionStorage.getItem("upd-dismissed") === u.ultima) return;
+      const bar = h("div", { class: "update-bar", role: "status" },
+        h("span", { text: `Há uma versão nova do Assistente (${u.mensagem || u.ultima}).` }),
+        h("button", { class: "btn small", type: "button", onclick: () => { bar.remove(); go("settings"); } }, "Ver"),
+        h("button", { class: "icon-btn", type: "button", "aria-label": "Dispensar", onclick: () => { try { sessionStorage.setItem("upd-dismissed", u.ultima); } catch (e) { /* sem armazenamento */ } bar.remove(); } }, "×"));
+      document.querySelector(".main").prepend(bar);
+    } catch (e) { /* sem internet: sem aviso */ }
+  }
+  A.checkUpdate = checkUpdate;
+
   async function refreshLive() {
     try {
       const r = await api("GET", "/api/live");
@@ -1283,6 +1298,7 @@
     setInterval(tickChecks, 1000);
     setInterval(refreshState, 60000);
     refreshLive(); setInterval(refreshLive, 20000);
+    setTimeout(checkUpdate, 6000);
     if ("speechSynthesis" in window) speechSynthesis.getVoices();
   }
   document.addEventListener("DOMContentLoaded", init);
