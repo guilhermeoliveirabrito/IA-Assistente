@@ -203,7 +203,7 @@ O app é uma página servida pelo seu PC. Para o celular alcançá-la:
 1. **Ajustes › Usar pelo celular** > ligue *Permitir acesso pela rede* e reabra o app. Ele mostra um **código de acesso** e os endereços.
 2. No iPhone, na **mesma rede Wi-Fi**, abra o endereço no Safari. Depois: *Compartilhar › Adicionar à Tela de Início* e ele vira um ícone, como um app.
 3. **Fora de casa**, instale o **Tailscale** (grátis) no PC e no iPhone e abra o endereço do Tailscale. É uma rede privada entre os seus aparelhos: não abra a porta do roteador para a internet.
-4. **Avisos**: em **Ajustes › Avisos no celular** clique em *Ativar avisos*, instale o app gratuito **ntfy** no iPhone e assine o tópico mostrado. Você recebe um aviso quando ele precisar de aprovação, terminar, pausar ou falhar, e responde pelo app.
+4. **Avisos**: em **Ajustes › Avisos no celular** clique em *Ativar avisos*, instale o app gratuito **ntfy** no iPhone e assine o tópico mostrado. Você recebe um aviso quando ele precisar de aprovação, terminar, pausar ou falhar, e responde pelo app. Isso vale também para o **chat**: uma resposta que leve mais de 45 s (um debate, por exemplo) avisa quando fica pronta, e um pedido de aprovação que fique 20 s sem resposta vira aviso (uma vez só).
 
 ### Aba "Ao vivo" (acompanhar e controlar)
 
