@@ -1,0 +1,2 @@
+# Scripts do Windows precisam ficar com final de linha CRLF exatamente como estao
+*.bat -text

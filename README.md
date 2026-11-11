@@ -35,7 +35,11 @@ Ainda não faz: WhatsApp (adiado de propósito; as opções não oficiais podem 
 
 ## Instalação
 
-### 1. Python e dependências
+**Windows, jeito rápido:** instale o Python 3.10+ (marque *Add python.exe to PATH*), baixe o projeto (*Code › Download ZIP*), extraia e dê dois cliques em **Instalar Assistente.bat**. Ele cria o ambiente, instala as dependências, prepara o `.env` e cria um atalho na Área de Trabalho. Depois é só colocar a chave do Gemini (passo 2).
+
+**Atualizar:** em *Ajustes › Atualizações* o app avisa quando há versão nova e atualiza com um clique (**Atualizar e reiniciar**). Sem o app aberto, use **Atualizar Assistente.bat**. Seus dados (`.env`, `data/`, `memory/`, credenciais) nunca são tocados; se você editou o `config.yaml` à mão, a sua cópia fica como `config.yaml.anterior`. A verificação só consulta o GitHub (no máximo a cada 6 h) e pode ser desligada com `app.verificar_atualizacao: false`.
+
+### 1. Python e dependências (manual)
 Instale o Python 3.10+ e, na pasta do projeto:
 ```
 python -m venv .venv
