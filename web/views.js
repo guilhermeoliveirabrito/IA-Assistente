@@ -625,7 +625,7 @@
           await A.refreshState(); this.paint();
         } catch (e) { toast(e.message, "error"); ev.currentTarget.disabled = false; }
       } });
-      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.updateCard(), this.appearanceCard(), this.providersCard(), this.phoneCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
+      this.box.replaceChildren(page("Ajustes", "Tudo o que você pode mudar sem mexer em arquivos.", this.diagCard(), this.updateCard(), this.appearanceCard(), this.providersCard(), this.phoneCard(), this.petCard(), this.voiceCard(), this.notifyCard(), this.googleCard(), this.spotifyCard(), ...cards, h("div", { class: "row-btns", style: "position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 40%)" }, save)));
     },
 
     field(inputs, key, label, type, help, options) {
@@ -693,6 +693,28 @@
       }
       paint();
       card.append(h("div", { class: "f" }, h("span", { text: "Cor de destaque" }), row));
+      return card;
+    },
+
+    diagCard() {
+      const card = h("div", { class: "card" }, h("h3", { text: "Diagnóstico" }));
+      const out = h("div", { class: "diag-list", "aria-live": "polite" });
+      const run = async (conexao) => {
+        out.replaceChildren(h("p", { class: "desc", text: "Verificando…" }));
+        try {
+          const r = await api("POST", "/api/diagnostico", { conexao });
+          const MARK = { ok: "✓", aviso: "!", erro: "✕", info: "i" };
+          const head = r.resumo.erro ? `${r.resumo.erro} problema(s) para resolver` : r.resumo.aviso ? "Tudo certo, com algumas ressalvas" : "Tudo certo";
+          out.replaceChildren(h("p", { class: "diag-head " + (r.resumo.erro ? "erro" : r.resumo.aviso ? "aviso" : "ok"), text: head }),
+            r.itens.map((i) => h("div", { class: "diag-item " + i.estado },
+              h("span", { class: "diag-mark", "aria-hidden": "true", text: MARK[i.estado] || "" }),
+              h("div", {}, h("strong", { text: i.nome }), i.detalhe ? h("div", { class: "diag-det", text: i.detalhe }) : null,
+                i.dica && i.estado !== "ok" ? h("div", { class: "diag-tip", text: i.dica }) : null))));
+        } catch (e) { out.replaceChildren(h("div", { class: "alert", text: e.message })); }
+      };
+      card.append(h("p", { class: "desc", text: "Confere o que funciona neste computador (dependências, chave, captura de tela, microfone, voz, rede) e diz como resolver o que falta." }),
+        h("div", { class: "row-btns" }, h("button", { class: "btn primary", type: "button", onclick: () => run(false) }, "Verificar agora"),
+          h("button", { class: "btn", type: "button", title: "Gasta 1 requisição do Gemini", onclick: () => run(true) }, "Verificar e testar o Gemini")), out);
       return card;
     },
 

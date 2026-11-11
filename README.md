@@ -39,6 +39,8 @@ Ainda não faz: WhatsApp (adiado de propósito; as opções não oficiais podem 
 
 **Atualizar:** em *Ajustes › Atualizações* o app avisa quando há versão nova e atualiza com um clique (**Atualizar e reiniciar**). Sem o app aberto, use **Atualizar Assistente.bat**. Seus dados (`.env`, `data/`, `memory/`, credenciais) nunca são tocados; se você editou o `config.yaml` à mão, a sua cópia fica como `config.yaml.anterior`. A verificação só consulta o GitHub (no máximo a cada 6 h) e pode ser desligada com `app.verificar_atualizacao: false`.
 
+**Algo não funciona?** Abra *Ajustes › Diagnóstico* e clique em **Verificar agora**: o app confere Python, pacotes, chave do Gemini, captura de tela, microfone, modelo de voz, rede e avisos, e diz como resolver cada problema. *Verificar e testar o Gemini* também faz uma chamada real (gasta 1 requisição).
+
 ### 1. Python e dependências (manual)
 Instale o Python 3.10+ e, na pasta do projeto:
 ```

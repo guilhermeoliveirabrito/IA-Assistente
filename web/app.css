@@ -615,3 +615,14 @@ button, .chip, .conv { touch-action: manipulation; }
 
 .update-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: color-mix(in srgb, var(--accent) 16%, var(--bg)); border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .update-bar span { flex: 1; min-width: 0; }
+
+.diag-list { margin-top: 10px; }
+.diag-head { font-weight: 600; margin: 4px 0 8px; }
+.diag-head.ok { color: var(--ok); } .diag-head.aviso { color: var(--warn, #d9a441); } .diag-head.erro { color: var(--danger, #e58b8b); }
+.diag-item { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.diag-mark { width: 22px; height: 22px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; border: 1px solid var(--line); }
+.diag-item.ok .diag-mark { color: var(--ok); border-color: var(--ok); }
+.diag-item.aviso .diag-mark { color: var(--warn, #d9a441); border-color: var(--warn, #d9a441); }
+.diag-item.erro .diag-mark { color: var(--danger, #e58b8b); border-color: var(--danger, #e58b8b); }
+.diag-det { color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+.diag-tip { margin-top: 4px; color: var(--text); opacity: .85; }
