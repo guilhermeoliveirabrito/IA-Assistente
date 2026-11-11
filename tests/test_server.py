@@ -559,6 +559,62 @@ class ServerTest(unittest.TestCase):
         st, body, _ = self.req("GET", "/api/update")
         self.assertTrue(body["desligado"])
 
+    def entrar(self, ua="Mozilla/5.0 (iPhone; CPU iPhone OS 17) Safari/605"):
+        st, _, r = self.req("GET", f"/?k={self.token}", auth=False, headers={"User-Agent": ua})
+        self.assertEqual(st, 302)
+        return r.getheader("Set-Cookie").split(";")[0]
+
+    def test_cookie_nao_guarda_o_codigo_de_acesso(self):
+        cookie = self.entrar()
+        self.assertNotIn(self.token, cookie)
+        st, _, _ = self.req("GET", "/api/state", auth=False, headers={"Cookie": cookie})
+        self.assertEqual(st, 200)
+
+    def test_cookie_antigo_com_o_codigo_nao_vale_mais(self):
+        st, _, _ = self.req("GET", "/api/state", auth=False, headers={"Cookie": f"ac={self.token}"})
+        self.assertEqual(st, 401)
+
+    def test_lista_e_remove_aparelhos(self):
+        c1, c2 = self.entrar(), self.entrar("Mozilla/5.0 (Windows NT 10.0) Chrome/120")
+        st, body, _ = self.req("GET", "/api/sessions", auth=False, headers={"Cookie": c1})
+        self.assertEqual(st, 200)
+        nomes = [a["nome"] for a in body["aparelhos"]]
+        self.assertIn("iPhone · Safari", nomes)
+        self.assertIn("Windows · Chrome", nomes)
+        self.assertEqual(sum(1 for a in body["aparelhos"] if a["atual"]), 1)
+        outro = next(a for a in body["aparelhos"] if not a["atual"])
+        st, _, _ = self.req("DELETE", f"/api/sessions/{outro['id']}", auth=False, headers={"Cookie": c1})
+        self.assertEqual(st, 200)
+        st, _, _ = self.req("GET", "/api/state", auth=False, headers={"Cookie": c2})
+        self.assertEqual(st, 401)
+        st, _, _ = self.req("GET", "/api/state", auth=False, headers={"Cookie": c1})
+        self.assertEqual(st, 200)
+
+    def test_remover_os_outros_mantem_este(self):
+        c1 = self.entrar()
+        self.entrar()
+        self.entrar()
+        st, body, _ = self.req("POST", "/api/sessions/revoke-others", {}, auth=False, headers={"Cookie": c1})
+        self.assertEqual(body["removidos"], 2)
+        st, _, _ = self.req("GET", "/api/state", auth=False, headers={"Cookie": c1})
+        self.assertEqual(st, 200)
+
+    def test_mesmo_aparelho_nao_cria_sessao_nova_a_cada_entrada(self):
+        c1 = self.entrar()
+        st, _, r = self.req("GET", f"/?k={self.token}", auth=False, headers={"Cookie": c1})
+        self.assertEqual(r.getheader("Set-Cookie").split(";")[0], c1)
+        _, body, _ = self.req("GET", "/api/sessions", auth=False, headers={"Cookie": c1})
+        self.assertEqual(len(body["aparelhos"]), 1)
+
+    def test_registro_de_acessos(self):
+        c1 = self.entrar()
+        self.req("GET", "/?k=errado", auth=False)
+        _, body, _ = self.req("GET", "/api/sessions", auth=False, headers={"Cookie": c1})
+        eventos = [a["evento"] for a in body["acessos"]]
+        self.assertIn("entrada", eventos)
+        self.assertIn("tentativa_errada", eventos)
+        self.assertNotIn(self.token, str(body["acessos"]))
+
     def test_diagnostico_responde_e_exige_acesso(self):
         st, body, _ = self.req("POST", "/api/diagnostico", {})
         self.assertEqual(st, 200)

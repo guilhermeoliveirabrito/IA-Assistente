@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, urlparse
 
 from assistente.ia import agentes, ai, chatsvc, gemini, providers
 from assistente.integracoes import notify, spotify_control
-from assistente.nucleo import activity, atalhos, memory, permissions, settings, storage, usage
+from assistente.nucleo import activity, atalhos, memory, permissions, sessoes, settings, storage, usage
 from assistente.nucleo import bus as busmod
 from assistente.pc import wake
 from assistente.servicos import atualizador, automation, briefing, capturas, diagnostico, live, reminders, tasks, tracking
@@ -415,8 +415,17 @@ class Handler(BaseHTTPRequestHandler):
         return ""
 
     def _authorized(self) -> bool:
-        given = self._cookie_token() or self.headers.get("X-Access-Code") or ""
-        return hmac.compare_digest(given.encode("utf-8"), self.token.encode("utf-8"))
+        self._sid = self.sessions.verify(self._cookie_token())
+        if self._sid:
+            return True
+        given = self.headers.get("X-Access-Code") or ""         # ferramentas locais: o próprio código, sem sessão
+        return bool(given) and hmac.compare_digest(given.encode("utf-8"), self.token.encode("utf-8"))
+
+    def _device(self) -> str:
+        return sessoes.device_name(self.headers.get("User-Agent") or "")
+
+    def _log(self, event: str, detail: str = ""):
+        self.audit.log(event, detail, self._client(), self._device())
 
     def _origin_ok(self) -> bool:
         origin = self.headers.get("Origin")
@@ -425,8 +434,13 @@ class Handler(BaseHTTPRequestHandler):
         host = (self.headers.get("Host") or "").lower()
         return urlparse(origin).netloc.lower() == host
 
-    def _cookie_header(self):
-        return {"Set-Cookie": f"{COOKIE}={self.token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000"}
+    def _session_headers(self, location: str = "/"):
+        """Entrada aceita: cria a sessão deste aparelho (a não ser que ele já tenha uma válida) e guarda no cookie."""
+        value = self._cookie_token()
+        if not self.sessions.verify(value):
+            value = self.sessions.create(self._device(), self._client())
+            self._log("entrada", "novo aparelho conectado")
+        return {"Set-Cookie": f"{COOKIE}={value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=7776000", "Location": location}
 
     # ---- roteamento ---------------------------------------------------------------------
 
@@ -457,8 +471,9 @@ class Handler(BaseHTTPRequestHandler):
                 if self._too_many_failures():
                     return self._error(429, "Muitas tentativas. Espere alguns minutos.")
                 if hmac.compare_digest(query["k"][0].encode(), self.token.encode()):
-                    return self._send(HTTPStatus.FOUND, b"", headers={**self._cookie_header(), "Location": path or "/"})
+                    return self._send(HTTPStatus.FOUND, b"", headers=self._session_headers(path or "/"))
                 self._register_failure()
+                self._log("tentativa_errada", "código na URL")
                 return self._redirect_login()
             if not self._authorized():
                 if path.startswith("/api/"):
@@ -492,8 +507,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._error(429, "Muitas tentativas. Espere alguns minutos.")
             code = (parse_qs(self._read_body(4096).decode("utf-8", "ignore")).get("code") or [""])[0].strip()
             if hmac.compare_digest(code.encode(), self.token.encode()):
-                return self._send(HTTPStatus.FOUND, b"", headers={**self._cookie_header(), "Location": "/"})
+                return self._send(HTTPStatus.FOUND, b"", headers=self._session_headers("/"))
             self._register_failure()
+            self._log("tentativa_errada", "tela de login")
             return self._send(401, _login_page("Código incorreto."), "text/html; charset=utf-8")
         return self._send(200, _login_page(""), "text/html; charset=utf-8")
 
@@ -590,6 +606,26 @@ def r_diagnostico(h, q):
     h._json(diagnostico.run(h.app.cfg, deep=deep))
 
 
+@route("GET", "/api/sessions")
+def r_sessions(h, q):
+    h._json({"aparelhos": h.sessions.listing(getattr(h, "_sid", None)), "acessos": h.audit.recent(40)})
+
+
+@route("DELETE", "/api/sessions/([0-9a-f]{12})")
+def r_session_revoke(h, q, sid):
+    if not h.sessions.revoke(sid):
+        raise HTTPError(404, "Esse aparelho já não está conectado.")
+    h._log("aparelho_removido", sid)
+    h._json({"ok": True})
+
+
+@route("POST", "/api/sessions/revoke-others")
+def r_sessions_revoke_others(h, q):
+    n = h.sessions.revoke_others(getattr(h, "_sid", None))
+    h._log("aparelhos_removidos", f"{n} aparelho(s)")
+    h._json({"removidos": n})
+
+
 @route("GET", "/api/update")
 def r_update(h, q):
     if not (h.app.cfg.get("app") or {}).get("verificar_atualizacao", True) and "force" not in q:
@@ -608,6 +644,7 @@ def r_update_apply(h, q):
     except atualizador.UpdateError as e:
         raise HTTPError(502, str(e))
     h.app.updates = atualizador.Checker()
+    h._log("atualizacao", f"{result['arquivos']} arquivos")
     if b.get("restart"):
         threading.Timer(1.2, atualizador.restart).start()
     h._json({**result, "reiniciando": bool(b.get("restart"))})
@@ -765,6 +802,7 @@ def r_live_resume(h, q):
 
 @route("POST", "/api/live/snapshot")
 def r_live_snapshot(h, q):
+    h._log("foto_da_tela", "pausar e mostrar")
     try:
         h._json(h.app.capturas.snapshot(h._body().get("target") or None))
     except capturas.CaptureError as e:
@@ -773,6 +811,7 @@ def r_live_snapshot(h, q):
 
 @route("GET", "/api/live/screen")
 def r_live_screen(h, q):
+    h._log("foto_da_tela", "ver agora")
     try:
         data = h.app.capturas.screen()
     except capturas.CaptureError as e:
@@ -1250,6 +1289,8 @@ def start(cfg, window_hooks=None, port=None, mode=None) -> RunningServer:
     mode = mode or (cfg.get("app") or {}).get("acesso", "local")
     port = int(port if port is not None else (cfg.get("app") or {}).get("porta", 8765))
     handler = type("BoundHandler", (Handler,), {"app": app, "token": token, "mode": mode, "port": port,
+                                                  "sessions": sessoes.Sessions(Path("data") / "sessoes.json"),
+                                                  "audit": sessoes.Audit(Path("data") / "acessos.jsonl"),
                                                   "fails": {}, "fails_lock": threading.Lock(), "ROUTES": Handler.ROUTES})
     httpd = _Server(("0.0.0.0" if mode == "rede" else "127.0.0.1", port), handler)
     real_port = httpd.server_address[1]
